@@ -77,7 +77,7 @@
 #define MIMI_FEISHU_WEBHOOK_MAX_BODY     (16 * 1024)
 
 /* Agent Loop */
-#define MIMI_AGENT_STACK             (24 * 1024)
+#define MIMI_AGENT_STACK             (28 * 1024)
 #define MIMI_AGENT_PRIO              6
 #define MIMI_AGENT_CORE              1
 #define MIMI_AGENT_MAX_HISTORY       20
@@ -135,7 +135,7 @@
 #define MIMI_WS_MAX_CLIENTS          4
 
 /* 串口CLI */
-#define MIMI_CLI_STACK               (4 * 1024)
+#define MIMI_CLI_STACK               (8 * 1024)
 #define MIMI_CLI_PRIO                3
 #define MIMI_CLI_CORE                0
 

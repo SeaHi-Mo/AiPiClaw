@@ -384,7 +384,7 @@ int main(void)
     BaseType_t task_ret = xTaskCreate(
         axk_mimiclaw_task,
         "mimi_main",
-        4096,
+        8192,
         NULL,
         5,
         NULL
