@@ -621,7 +621,11 @@ static void telegram_poll_task(void *arg)
         int status = 0;
 
         if (s_bot_token[0] == '\0') {
-            AXK_LOG_WARN("warn", "No Telegram bot token configured");
+            static bool s_no_token_warned = false;
+            if (!s_no_token_warned) {
+                AXK_LOG_WARN("warn", "No Telegram bot token configured");
+                s_no_token_warned = true;
+            }
             axk_mimiclaw_port_sleep_ms(TG_NO_TOKEN_BACKOFF_MS);
             continue;
         }
