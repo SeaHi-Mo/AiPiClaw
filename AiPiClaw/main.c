@@ -254,21 +254,10 @@ static int axk_mimiclaw_modules_init(void)
     if (ret != 0) AXK_LOG_WARN("[axk_mimiclaw] external RTCinitWARN: %d\r\n", ret);
     else    AXK_LOG_INFO("[axk_mimiclaw] external RTCmoduleinitOK\r\n");
 
-#if 0  /* FIXME: skip modules that may crash before agent starts */
     AXK_LOG_INFO("[axk_mimiclaw] agent_loop_init...\r\n");
     ret = axk_agent_loop_init();
     if (ret != 0) return ret;
     AXK_LOG_INFO("[axk_mimiclaw] agentmain loopmoduleinitOK\r\n");
-
-    AXK_LOG_INFO("[axk_mimiclaw] agent_loop_start...\r\n");
-    ret = axk_agent_loop_start();
-    if (ret != 0) return ret;
-    AXK_LOG_INFO("[axk_mimiclaw] agentmain looptaskstartOK\r\n");
-    
-    /* skip remaining modules for now */
-    AXK_LOG_INFO("[axk_mimiclaw] allmoduleinitok (minimal)\r\n");
-    return 0;
-#endif
 
     ret = axk_llm_proxy_init();
     if (ret != 0) AXK_LOG_WARN("[axk_mimiclaw] LLM agentinitWARN: %d\r\n", ret);
