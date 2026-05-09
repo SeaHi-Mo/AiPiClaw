@@ -22,6 +22,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+#include "web_ui.h"
+
 #define WS_MAGIC_STRING     "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 #define WS_MAX_PAYLOAD      2048
 #define WS_LISTEN_BACKLOG   4
@@ -97,6 +99,20 @@ static bool ws_do_handshake(struct netconn *client)
     memcpy(rx_buf, data, len);
     rx_buf[len] = '\0';
     netbuf_delete(buf);
+
+    /* Browser HTTP GET (no WebSocket upgrade) -> serve Web UI */
+    if (strncmp(rx_buf, "GET / ", 6) == 0 || strncmp(rx_buf, "GET / HTTP", 10) == 0) {
+        char resp_hdr[256];
+        int hdr_len = snprintf(resp_hdr, sizeof(resp_hdr),
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: text/html; charset=utf-8\r\n"
+            "Content-Length: %u\r\n"
+            "Connection: close\r\n"
+            "\r\n", (unsigned int)WEB_UI_HTML_LEN);
+        netconn_write(client, resp_hdr, hdr_len, NETCONN_COPY);
+        netconn_write(client, WEB_UI_HTML, WEB_UI_HTML_LEN, NETCONN_COPY);
+        return false;  /* close after serving page */
+    }
 
     /* parse  Sec-WebSocket-Key */
     const char *key_hdr = "Sec-WebSocket-Key: ";
