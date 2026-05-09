@@ -18,7 +18,6 @@
 
 #include "FreeRTOS.h"
 #include "queue.h"
-#include "semphr.h"
 
 /* queueconfig */
 #define MIMI_BUS_QUEUE_LEN  16  /**< per 级queue最大msg数 */
@@ -26,8 +25,6 @@
 /* message busstatus  */
 static QueueHandle_t s_inbound[MIMI_PRIO_COUNT]  = {NULL};
 static QueueHandle_t s_outbound[MIMI_PRIO_COUNT] = {NULL};
-static SemaphoreHandle_t s_inbound_sem = NULL;   /* counting sem: wakes pop_inbound */
-static SemaphoreHandle_t s_outbound_sem = NULL;  /* counting sem: wakes pop_outbound */
 static bool s_initialized = false;
 
 /* ── internalhelper  ───────────────────────────────────── */
@@ -66,13 +63,6 @@ int axk_message_bus_init(void)
         }
     }
 
-
-    s_inbound_sem = xSemaphoreCreateCounting(MIMI_BUS_QUEUE_LEN * MIMI_PRIO_COUNT, 0);
-    s_outbound_sem = xSemaphoreCreateCounting(MIMI_BUS_QUEUE_LEN * MIMI_PRIO_COUNT, 0);
-    if (!s_inbound_sem || !s_outbound_sem) {
-        AXK_LOG_ERROR("[axk_message_bus] sem create FAIL\r\n");
-        return -1;
-    }
     s_initialized = true;
     AXK_LOG_INFO("[axk_message_bus] message businitok (3级×%d, 6 queues total)\r\n",
                  MIMI_BUS_QUEUE_LEN);
@@ -137,10 +127,7 @@ int axk_message_bus_pop_inbound(mimi_msg_t *msg, uint32_t timeout_ms)
     ticks = (timeout_ms == (uint32_t)-1) ? portMAX_DELAY
                                          : pdMS_TO_TICKS(timeout_ms);
 
-    /* Wait on counting sem, then check all queues non-blocking */
-    if (ticks > 0 && s_inbound_sem) {
-        xSemaphoreTake(s_inbound_sem, ticks);
-    }
+    /* Check all priorities: only block on last (LOWest) prio */
     for (prio = MIMI_PRIO_HIGH; prio >= MIMI_PRIO_LOW; prio--) {
         TickType_t t = (prio == MIMI_PRIO_LOW) ? ticks : 0;
         if (xQueueReceive(s_inbound[prio], msg, t) == pdTRUE) {
@@ -188,7 +175,7 @@ int axk_message_bus_push_outbound(const mimi_msg_t *msg)
         return -1;
     }
 
-    xSemaphoreGive(s_outbound_sem); return 0;
+    return 0;
 }
 
 /**
