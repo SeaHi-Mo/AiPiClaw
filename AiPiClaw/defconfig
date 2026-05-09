@@ -6,6 +6,8 @@ CONFIG_PSRAM_COPY_CODE =n
 
 # v55: 关闭SDK调试输出
 CONFIG_DEBUG =n
+# v55: 关闭CoreDump崩溃转储
+CONFIG_COREDUMP =n
 
 # websocket client
 CONFIG_MULTIMEDIA =y
