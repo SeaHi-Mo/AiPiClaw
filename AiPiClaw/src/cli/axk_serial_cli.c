@@ -64,7 +64,7 @@ static int cmd_mimi(int argc, char **argv)
     }
     return 0;
 }
-SHELL_CMD_EXPORT(cmd_mimi, mimi <msg> - send message to AI Agent);
+SHELL_CMD_EXPORT_ALIAS(cmd_mimi, mimi, mimi <msg> - send message to AI Agent);
 
 /* ── Shell cmd: status ──────────────────────────── */
 
@@ -86,7 +86,7 @@ static int cmd_status(int argc, char **argv)
     printf("=============================\r\n");
     return 0;
 }
-SHELL_CMD_EXPORT(cmd_status, status - show system status);
+SHELL_CMD_EXPORT_ALIAS(cmd_status, status, status - show system status);
 
 /* ── Shell cmd: sys ─────────────────────────────── */
 
@@ -111,7 +111,7 @@ static int cmd_sys(int argc, char **argv)
     }
     return 0;
 }
-SHELL_CMD_EXPORT(cmd_sys, sys <reset|info|heap> - system control);
+SHELL_CMD_EXPORT_ALIAS(cmd_sys, sys, sys <reset|info|heap> - system control);
 
 /* ── Shell cmd: gpio ────────────────────────────── */
 
@@ -148,7 +148,7 @@ static int cmd_gpio(int argc, char **argv)
     }
     return 0;
 }
-SHELL_CMD_EXPORT(cmd_gpio, gpio <pin> <get|set 0|1> - GPIO control);
+SHELL_CMD_EXPORT_ALIAS(cmd_gpio, gpio, gpio <pin> <get|set 0|1> - GPIO control);
 
 /* ── Shell cmd: list ────────────────────────────── */
 
@@ -165,7 +165,7 @@ static int cmd_list(int argc, char **argv)
     printf("==========================\r\n");
     return 0;
 }
-SHELL_CMD_EXPORT(cmd_list, list - list all commands);
+SHELL_CMD_EXPORT_ALIAS(cmd_list, list, list - list all commands);
 /* SDK Shell 自带 help cmd，无需重复register */
 
 /* ── public  API ────────────────────────────────────── */
