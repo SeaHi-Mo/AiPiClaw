@@ -19,7 +19,7 @@ extern "C" {
 /* ============================================================
  * key config
  * ============================================================ */
-#define AXK_FACTORY_RESET_BTN_PIN        8       /**< IO8: key pin  */
+#define AXK_FACTORY_RESET_BTN_PIN        14      /**< IO14: key (GPIO8被PSRAM占用) */
 #define AXK_FACTORY_RESET_HOLD_MS        3000    /**< 长按阈value : 3s */
 
 /* ============================================================
