@@ -17,6 +17,7 @@
 
 #include "axk_platform.h"
 #include "axk_mimiclaw_port.h"
+#include "axk_wifi_manager.h"
 
 static const char *TAG = "llm";
 
@@ -27,7 +28,7 @@ static const char *TAG = "llm";
 #define LLM_API_KEY_MAX_LEN 320
 #define LLM_MODEL_MAX_LEN   64
 #define LLM_PROVIDER_MAX_LEN 16
-#define LLM_HTTP_TIMEOUT_MS (120 * 1000)
+#define LLM_HTTP_TIMEOUT_MS (30 * 1000)
 #define LLM_RESP_INIT_CAP   (4 * 1024)
 #define LLM_MAX_TOKENS_SAFE 1024
 #define OPENAI_FALLBACK_MODEL "gpt-4o-mini"
@@ -208,6 +209,12 @@ static int llm_http_call(const char *post_data, llm_resp_buf_t *rb)
     const char **headers = headers_anthropic;
     int ret;
 
+    /* WiFi not ready -> fail fast instead of blocking 30s */
+    if (!axk_wifi_is_connected()) {
+        AXK_LOG_ERROR("[llm] WiFi not connected, skip LLM HTTP call\r\n");
+        return -1;
+    }
+
     if (provider_uses_openai_format()) {
         snprintf(auth_header, sizeof(auth_header), "Authorization: Bearer %s\r\n", s_api_key);
         headers = headers_openai;
@@ -224,7 +231,7 @@ static int llm_http_call(const char *post_data, llm_resp_buf_t *rb)
     req.content_type_value = "application/json";
     req.payload = post_data;
     req.payload_len = strlen(post_data);
-    req.buffer_size = 2048;
+    req.buffer_size = 4096;
 
     ret = https_client_request(&req, LLM_HTTP_TIMEOUT_MS, rb);
     if (ret < 0) {
