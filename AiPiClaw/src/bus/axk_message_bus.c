@@ -127,9 +127,9 @@ int axk_message_bus_pop_inbound(mimi_msg_t *msg, uint32_t timeout_ms)
     ticks = (timeout_ms == (uint32_t)-1) ? portMAX_DELAY
                                          : pdMS_TO_TICKS(timeout_ms);
 
-    /* 高priority 优先：per 级attempt ，降级非阻塞 */
+    /* Check all priorities: only block on last (LOWest) prio */
     for (prio = MIMI_PRIO_HIGH; prio >= MIMI_PRIO_LOW; prio--) {
-        TickType_t t = (prio == MIMI_PRIO_HIGH) ? ticks : 0;
+        TickType_t t = (prio == MIMI_PRIO_LOW) ? ticks : 0;
         if (xQueueReceive(s_inbound[prio], msg, t) == pdTRUE) {
             msg->priority = (mimi_priority_t)prio;
             return 0;
@@ -196,9 +196,9 @@ int axk_message_bus_pop_outbound(mimi_msg_t *msg, uint32_t timeout_ms)
     ticks = (timeout_ms == (uint32_t)-1) ? portMAX_DELAY
                                          : pdMS_TO_TICKS(timeout_ms);
 
-    /* 高priority 优先 */
+    /* Check all priorities: only block on last (LOWest) prio */
     for (prio = MIMI_PRIO_HIGH; prio >= MIMI_PRIO_LOW; prio--) {
-        TickType_t t = (prio == MIMI_PRIO_HIGH) ? ticks : 0;
+        TickType_t t = (prio == MIMI_PRIO_LOW) ? ticks : 0;
         if (xQueueReceive(s_outbound[prio], msg, t) == pdTRUE) {
             msg->priority = (mimi_priority_t)prio;
             return 0;
