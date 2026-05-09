@@ -27,7 +27,7 @@
 #define WS_MAGIC_STRING     "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 #define WS_MAX_PAYLOAD      2048
 #define WS_LISTEN_BACKLOG   4
-#define WS_CLIENT_STACK     4096
+#define WS_CLIENT_STACK     8192
 #define WS_CLIENT_PRIO      (configMAX_PRIORITIES - 3)
 
 #include "semphr.h"
@@ -396,7 +396,7 @@ int axk_ws_server_start(uint16_t port)
     s_ws_port = port ? port : MIMI_WS_PORT;
     s_ws_running = true;
 
-    if (xTaskCreate(ws_server_task, "ws_srv", 6144, NULL,
+    if (xTaskCreate(ws_server_task, "ws_srv", 8192, NULL,
                     configMAX_PRIORITIES - 5, &s_ws_task) != pdPASS) {
         s_ws_running = false;
         return -1;

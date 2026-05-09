@@ -234,6 +234,7 @@ static int llm_http_call(const char *post_data, llm_resp_buf_t *rb)
     req.buffer_size = 4096;
 
     printf("[LLM] POST %s (%u bytes)...\r\n", llm_api_url(), (unsigned int)req.payload_len);
+    fflush(stdout);  /* flush before possibly-crashing TLS call */
 
     ret = https_client_request(&req, LLM_HTTP_TIMEOUT_MS, rb);
     if (ret < 0) {
