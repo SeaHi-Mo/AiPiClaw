@@ -116,6 +116,7 @@ int axk_message_bus_push_inbound(const mimi_msg_t *msg)
         return -1;
     }
 
+    xSemaphoreGive(s_inbound_sem);  /* wake pop_inbound */
     return 0;
 }
 
