@@ -66,6 +66,7 @@ int axk_gpio_control_init(void)
 void axk_gpio_control_poll(void)
 {
 #if AXK_PLATFORM_BL618
+    if (s_gpio_dev == NULL) return;  /* not initialized yet */
     bool pressed = bflb_gpio_read(s_gpio_dev, AXK_FACTORY_RESET_BTN_PIN);
     uint32_t now = bflb_mtimer_get_time_ms();
 
