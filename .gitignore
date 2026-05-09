@@ -1,0 +1,24 @@
+# 编译产物
+build/
+*.bin
+*.xz
+*.hash
+*.ota
+*.elf
+*.map
+*.o
+*.d
+
+# 工具链 (克隆安装)
+toolchain/
+
+# IDE / 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS 特定
+.DS_Store
+Thumbs.db

@@ -1,0 +1,29 @@
+/**
+ * @file axk_http_proxy.h
+ * @brief http_proxy module - 安信可科技 BL618 port
+ * @version 1.0
+ * @date 2026-04-20
+ *
+ * @copyright Copyright (c) 2026 AI-Thinker
+ */
+
+#ifndef __AXK_HTTP_PROXY_H
+#define __AXK_HTTP_PROXY_H
+
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int axk_http_proxy_init(void);
+int axk_http_request(const char *url, const char *method,
+                      const char *payload, const char *content_type,
+                      char **out_body, int *out_status);
+
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __AXK_HTTP_PROXY_H */
