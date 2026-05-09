@@ -314,8 +314,10 @@ static void ws_handle_client(struct netconn *client)
                     mimi_msg_t m = {0};
                     strncpy(m.channel, MIMI_CHAN_WEBSOCKET, sizeof(m.channel) - 1);
                     m.content = msg;
-                    m.priority = MIMI_PRIO_NORMAL;  /**< WebSocket usermsg */
-                    axk_message_bus_push_inbound(&m);
+                    m.priority = MIMI_PRIO_NORMAL;
+                    printf("[WS] pushing to inbound...\r\n");
+                    int ret = axk_message_bus_push_inbound(&m);
+                    printf("[WS] push_inbound ret=%d\r\n", ret);
                 } else if (opcode == 0x08) {
                     /* close 帧 */
                     free(msg);

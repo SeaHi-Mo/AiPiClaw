@@ -81,6 +81,7 @@ int axk_message_bus_push_inbound(const mimi_msg_t *msg)
     QueueHandle_t q;
 
     if (!s_initialized || !msg) {
+        printf("[MSG_BUS] push_inbound: s_init=%d msg=%p\r\n", (int)s_initialized, (void*)msg);
         return -1;
     }
 
