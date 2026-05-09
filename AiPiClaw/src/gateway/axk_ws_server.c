@@ -100,8 +100,10 @@ static bool ws_do_handshake(struct netconn *client)
     rx_buf[len] = '\0';
     netbuf_delete(buf);
 
-    /* Browser HTTP GET (no WebSocket upgrade) -> serve Web UI */
-    if (strncmp(rx_buf, "GET / ", 6) == 0 || strncmp(rx_buf, "GET / HTTP", 10) == 0) {
+    /* Browser HTTP GET (no WebSocket upgrade) -> serve Web UI.
+     * Must NOT match WebSocket upgrade requests (they also start with "GET / HTTP") */
+    if ((strncmp(rx_buf, "GET / ", 6) == 0 || strncmp(rx_buf, "GET / HTTP", 10) == 0)
+        && strstr(rx_buf, "Upgrade: websocket") == NULL) {
         char resp_hdr[256];
         int hdr_len = snprintf(resp_hdr, sizeof(resp_hdr),
             "HTTP/1.1 200 OK\r\n"
