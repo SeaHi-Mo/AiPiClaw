@@ -245,6 +245,7 @@ static void ws_handle_client(struct netconn *client)
         return;
     }
     AXK_LOG_INFO("[%s] WebSocket 握手OK\r\n", TAG);
+    printf("[WS] handshake OK, client registered\r\n");
     ws_client_register(client);
 
     while (s_ws_running) {
@@ -309,7 +310,7 @@ static void ws_handle_client(struct netconn *client)
 
                 if (opcode == 0x01 || opcode == 0x00) {
                     /* 文本帧 or 连续帧 */
-                    AXK_LOG_INFO("[%s] 收 to  WS msg: %s\r\n", TAG, msg);
+                    printf("[WS] recv: %s\r\n", msg);
                     mimi_msg_t m = {0};
                     strncpy(m.channel, MIMI_CHAN_WEBSOCKET, sizeof(m.channel) - 1);
                     m.content = msg;
@@ -427,6 +428,8 @@ int axk_ws_server_send(const char *text)
             }
         }
     }
+
+    printf("[WS] send to %d clients (msg len=%u)\r\n", sent, (unsigned int)strlen(text));
 
     xSemaphoreGive(s_ws_mutex);
     return (sent > 0) ? 0 : -1;

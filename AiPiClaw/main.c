@@ -152,6 +152,7 @@ static void axk_mimiclaw_task(void *param)
                 } else if (strcmp(out_msg.channel, MIMI_CHAN_FEISHU) == 0) {
                     axk_feishu_send_message(out_msg.chat_id, out_msg.content ? out_msg.content : "");
                 } else if (strcmp(out_msg.channel, MIMI_CHAN_WEBSOCKET) == 0) {
+                    printf("[MAIN] WS outbound: %.60s\r\n", out_msg.content ? out_msg.content : "(null)");
                     axk_ws_server_send(out_msg.content ? out_msg.content : "");
                 } else {
                     AXK_LOG_WARN("[axk_mimiclaw] unknown channel: %s\r\n", out_msg.channel);

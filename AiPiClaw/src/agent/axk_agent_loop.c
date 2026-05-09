@@ -338,7 +338,7 @@ static void agent_loop_task(void *arg)
             continue;
         }
 
-        AXK_LOG_INFO("agent", "inbound message from %s:%s", msg.channel, msg.chat_id);
+        printf("[AGENT] inbound ch=%s content=%.60s\r\n", msg.channel, msg.content ? msg.content : "(null)");
 
         /* skill match ：优先执行本地技能，skip  LLM call  */
         {
