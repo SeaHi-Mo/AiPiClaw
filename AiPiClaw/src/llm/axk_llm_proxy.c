@@ -233,10 +233,15 @@ static int llm_http_call(const char *post_data, llm_resp_buf_t *rb)
     req.payload_len = strlen(post_data);
     req.buffer_size = 4096;
 
+    printf("[LLM] POST %s (%u bytes)...\r\n", llm_api_url(), (unsigned int)req.payload_len);
+
     ret = https_client_request(&req, LLM_HTTP_TIMEOUT_MS, rb);
     if (ret < 0) {
+        printf("[LLM] HTTP request FAILED (ret=%d)\r\n", ret);
         return -1;
     }
+
+    printf("[LLM] HTTP response status=%d len=%u\r\n", rb->status_code, (unsigned int)rb->len);
 
     return 0;
 }
@@ -492,8 +497,11 @@ int axk_llm_chat_tools(const char *system_prompt,
     memset(resp, 0, sizeof(*resp));
 
     if (s_api_key[0] == '\0') {
+        printf("[LLM] no API key configured\r\n");
         return -2;
     }
+
+    printf("[LLM] building body (provider=%s model=%s)...\r\n", s_provider, s_model);
 
     if (max_tokens > LLM_MAX_TOKENS_SAFE) {
         max_tokens = LLM_MAX_TOKENS_SAFE;
