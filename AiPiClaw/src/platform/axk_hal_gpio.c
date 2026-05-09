@@ -20,6 +20,17 @@
     #include "bflb_core.h"
     static struct bflb_device_s* axk_gpio_dev = NULL;  /**< BL618 GPIOdevice handle  */
 
+    /* BL618 HARDWARE BUG: bflb_gpio_init() writes OE to I2S_CFG0 instead of
+     * GPIO CFG register. Must manually set OE bit in GLB GPIO CFG register
+     * (0x200008C4 + (pin>>1)*4, bit 6+(pin&1)*16) after each init. */
+    static void axk_gpio_fix_oe(uint8_t pin)
+    {
+        volatile uint32_t *cfg = (volatile uint32_t *)
+            (0x200008C4 + ((uint32_t)(pin >> 1) << 2));
+        uint32_t bit = 6 + ((pin & 1) << 4);  /* 6 for even, 22 for odd */
+        *cfg |= (1U << bit);
+    }
+
     static inline struct bflb_device_s* axk_gpio_get_dev(void)
     {
         if (axk_gpio_dev == NULL) {
@@ -41,6 +52,19 @@ int axk_hal_gpio_init(void)
     AXK_LOG_INFO("[axk_hal_gpio] initGPIO HAL\r\n");
 #if AXK_PLATFORM_BL618
     axk_gpio_get_dev(); /* initdevice handle  */
+
+    /* Init RGB LED pins (common anode: 0=ON, 1=OFF).
+     * GPIO12=Red, GPIO14=Green, GPIO15=Blue. OUTPUT|FLOAT|DRV_3. */
+    {
+        axk_gpio_cfg_t led_cfg = {
+            .mode = AXK_GPIO_MODE_OUT,
+            .pull = AXK_GPIO_PULL_NONE,
+            .drive = AXK_GPIO_DRIVE_STRONG
+        };
+        axk_hal_gpio_config(12, &led_cfg);
+        axk_hal_gpio_config(14, &led_cfg);
+        axk_hal_gpio_config(15, &led_cfg);
+    }
 #endif
     return 0;
 }
@@ -67,6 +91,9 @@ int axk_hal_gpio_set_direction(uint32_t pin, uint32_t mode)
         cfgset |= GPIO_INPUT;
     }
     bflb_gpio_init(axk_gpio_get_dev(), (uint8_t)pin, cfgset);
+    if (mode == AXK_GPIO_MODE_OUT || mode == AXK_GPIO_MODE_OD) {
+        axk_gpio_fix_oe((uint8_t)pin);
+    }
 #elif AXK_PLATFORM_ESP32
     gpio_set_direction((int)pin,
         (mode == AXK_GPIO_MODE_IN) ? GPIO_MODE_INPUT :
@@ -113,6 +140,9 @@ int axk_hal_gpio_config(uint32_t pin, const axk_gpio_cfg_t* cfg)
     }
 
     bflb_gpio_init(axk_gpio_get_dev(), (uint8_t)pin, cfgset);
+    if (cfg->mode == AXK_GPIO_MODE_OUT || cfg->mode == AXK_GPIO_MODE_OD) {
+        axk_gpio_fix_oe((uint8_t)pin);
+    }
 #elif AXK_PLATFORM_ESP32
     gpio_config_t io_conf = {0};
     io_conf.pin_bit_mask = (1ULL << pin);
@@ -303,6 +333,9 @@ int axk_hal_gpio_set_pull(uint32_t pin, uint32_t pull)
     }
 
     bflb_gpio_init(dev, (uint8_t)pin, cfgset);
+    if (current) {
+        axk_gpio_fix_oe((uint8_t)pin);
+    }
     return 0;
 #else
     (void)pin; (void)pull;
