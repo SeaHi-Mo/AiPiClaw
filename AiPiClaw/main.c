@@ -125,6 +125,9 @@ static void axk_mimiclaw_task(void *param)
 
     AXK_LOG_INFO("[axk_mimiclaw] main looptaskstart\r\n");
 
+    /* Register as outbound consumer for Task Notification wake-up */
+    axk_message_bus_set_outbound_consumer(xTaskGetCurrentTaskHandle());
+
     while (1) {
         axk_heartbeat_tick();
         axk_serial_cli_poll();

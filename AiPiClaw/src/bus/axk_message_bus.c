@@ -18,7 +18,7 @@
 
 #include "FreeRTOS.h"
 #include "queue.h"
-#include "semphr.h"
+#include "task.h"
 
 /* queueconfig */
 #define MIMI_BUS_QUEUE_LEN  16  /**< per 级queue最大msg数 */
@@ -26,8 +26,8 @@
 /* message busstatus  */
 static QueueHandle_t s_inbound[MIMI_PRIO_COUNT]  = {NULL};
 static QueueHandle_t s_outbound[MIMI_PRIO_COUNT] = {NULL};
-static SemaphoreHandle_t s_inbound_sem = NULL;   /* counting sem: wakes pop_inbound */
-static SemaphoreHandle_t s_outbound_sem = NULL;  /* counting sem: wakes pop_outbound */
+static TaskHandle_t s_inbound_consumer = NULL;   /**< agent_loop task to notify */
+static TaskHandle_t s_outbound_consumer = NULL;  /**< main_loop task to notify */
 static bool s_initialized = false;
 
 /* ── internalhelper  ───────────────────────────────────── */
@@ -66,17 +66,20 @@ int axk_message_bus_init(void)
         }
     }
 
-
-    s_inbound_sem = xSemaphoreCreateCounting(MIMI_BUS_QUEUE_LEN * MIMI_PRIO_COUNT, 0);
-    s_outbound_sem = xSemaphoreCreateCounting(MIMI_BUS_QUEUE_LEN * MIMI_PRIO_COUNT, 0);
-    if (!s_inbound_sem || !s_outbound_sem) {
-        AXK_LOG_ERROR("[axk_message_bus] sem create FAIL\r\n");
-        return -1;
-    }
     s_initialized = true;
     AXK_LOG_INFO("[axk_message_bus] message businitok (3级×%d, 6 queues total)\r\n",
                  MIMI_BUS_QUEUE_LEN);
     return 0;
+}
+
+void axk_message_bus_set_inbound_consumer(TaskHandle_t task)
+{
+    s_inbound_consumer = task;
+}
+
+void axk_message_bus_set_outbound_consumer(TaskHandle_t task)
+{
+    s_outbound_consumer = task;
 }
 
 /**
@@ -116,7 +119,9 @@ int axk_message_bus_push_inbound(const mimi_msg_t *msg)
         return -1;
     }
 
-    xSemaphoreGive(s_inbound_sem);  /* wake pop_inbound */
+    if (s_inbound_consumer) {
+        xTaskNotifyGive(s_inbound_consumer);  /* wake agent_loop */
+    }
     return 0;
 }
 
@@ -138,12 +143,12 @@ int axk_message_bus_pop_inbound(mimi_msg_t *msg, uint32_t timeout_ms)
     ticks = (timeout_ms == (uint32_t)-1) ? portMAX_DELAY
                                          : pdMS_TO_TICKS(timeout_ms);
 
-    /* Wait on counting sem, then check all queues non-blocking */
-    if (ticks > 0 && s_inbound_sem) {
-        xSemaphoreTake(s_inbound_sem, ticks);
+    /* Wait for Task Notification, then scan all queues non-blocking */
+    if (ticks > 0) {
+        ulTaskNotifyTake(pdTRUE, ticks);
     }
     for (prio = MIMI_PRIO_HIGH; prio >= MIMI_PRIO_LOW; prio--) {
-        TickType_t t = (prio == MIMI_PRIO_LOW) ? ticks : 0;
+        TickType_t t = 0;  /* non-blocking after notification wake */
         if (xQueueReceive(s_inbound[prio], msg, t) == pdTRUE) {
             msg->priority = (mimi_priority_t)prio;
             return 0;
@@ -189,7 +194,10 @@ int axk_message_bus_push_outbound(const mimi_msg_t *msg)
         return -1;
     }
 
-    xSemaphoreGive(s_outbound_sem); return 0;
+    if (s_outbound_consumer) {
+        xTaskNotifyGive(s_outbound_consumer);  /* wake main_loop */
+    }
+    return 0;
 }
 
 /**
@@ -210,9 +218,12 @@ int axk_message_bus_pop_outbound(mimi_msg_t *msg, uint32_t timeout_ms)
     ticks = (timeout_ms == (uint32_t)-1) ? portMAX_DELAY
                                          : pdMS_TO_TICKS(timeout_ms);
 
-    /* Check all priorities: only block on last (LOWest) prio */
+    /* Wait for Task Notification, then scan all queues non-blocking */
+    if (ticks > 0) {
+        ulTaskNotifyTake(pdTRUE, ticks);
+    }
     for (prio = MIMI_PRIO_HIGH; prio >= MIMI_PRIO_LOW; prio--) {
-        TickType_t t = (prio == MIMI_PRIO_LOW) ? ticks : 0;
+        TickType_t t = 0;
         if (xQueueReceive(s_outbound[prio], msg, t) == pdTRUE) {
             msg->priority = (mimi_priority_t)prio;
             return 0;

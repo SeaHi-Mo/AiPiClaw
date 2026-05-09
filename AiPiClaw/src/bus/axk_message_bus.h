@@ -16,6 +16,8 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include "FreeRTOS.h"
+#include "task.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,6 +57,10 @@ typedef struct {
  * @return OKreturn 0，FAILreturn 非零
  */
 int axk_message_bus_init(void);
+
+/** Set task handles for Task Notification wake-up */
+void axk_message_bus_set_inbound_consumer(TaskHandle_t task);
+void axk_message_bus_set_outbound_consumer(TaskHandle_t task);
 
 /**
  * @brief will msg推入inboundqueue（通 to Agent Loop）

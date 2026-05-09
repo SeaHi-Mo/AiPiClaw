@@ -323,6 +323,10 @@ static void agent_loop_task(void *arg)
     tools_json = axk_tool_registry_get_tools_json();
     printf("[agent] tools_json=%p\r\n", (void*)tools_json);
 
+    /* Register as inbound consumer for Task Notification wake-up */
+    axk_message_bus_set_inbound_consumer(xTaskGetCurrentTaskHandle());
+    printf("[agent] registered as inbound consumer\r\n");
+
     while (1) {
         axk_serial_cli_poll();  /* 轮询 UART RX，检查是否有串口输入 */
         mimi_msg_t msg;
