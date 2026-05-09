@@ -32,8 +32,8 @@ CONFIG_FATFS =y
 CONFIG_FATFS_SDH_SDCARD =y
 CONFIG_BSP_SDH_SD =y
 
-# Use software ECC for broader TLS curve compatibility (wss public servers).
-# 注: 由于BL618 SDK的ecp_alt.c存在编译错误，暂时禁用ECC硬件加速
+# Use software ECC — HW ECC blocked by ecp_alt.c compile error (casts in static init).
+# Compensate with larger agent stack (64K) for TLS handshake.
 CONFIG_MBEDTLS_ECC_USE_HW =n
 
 # Broaden ECP curve support for public WSS endpoints.
