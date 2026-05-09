@@ -53,7 +53,7 @@ int axk_hal_gpio_init(void)
 #if AXK_PLATFORM_BL618
     axk_gpio_get_dev(); /* initdevice handle  */
 
-    /* Init RGB LED pins (common anode: 0=ON, 1=OFF).
+    /* Init RGB LED pins (active-high: 1=ON, 0=OFF).
      * GPIO12=Red, GPIO14=Green, GPIO15=Blue. OUTPUT|FLOAT|DRV_3. */
     {
         axk_gpio_cfg_t led_cfg = {
