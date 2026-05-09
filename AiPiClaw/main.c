@@ -130,7 +130,6 @@ static void axk_mimiclaw_task(void *param)
         axk_serial_cli_poll();
         axk_message_bus_poll();
         axk_wifi_manager_poll();
-        axk_gpio_control_poll();
         axk_agent_loop_run();
         /* delay auto-connect， etc待WiFifwinitok */
         if (!s_auto_connect_done &&
@@ -255,11 +254,7 @@ static int axk_mimiclaw_modules_init(void)
     if (ret != 0) AXK_LOG_WARN("[axk_mimiclaw] external RTCinitWARN: %d\r\n", ret);
     else    AXK_LOG_INFO("[axk_mimiclaw] external RTCmoduleinitOK\r\n");
 
-    ret = axk_gpio_control_init();
-    if (ret != 0) AXK_LOG_WARN("[axk_mimiclaw] GPIO control init WARN: %d\r\n", ret);
-    else AXK_LOG_INFO("[axk_mimiclaw] GPIO control init OK\r\n");
-
-#if 1  /* FIXME: skip modules that may crash before agent starts */
+#if 0  /* FIXME: skip modules that may crash before agent starts */
     AXK_LOG_INFO("[axk_mimiclaw] agent_loop_init...\r\n");
     ret = axk_agent_loop_init();
     if (ret != 0) return ret;
