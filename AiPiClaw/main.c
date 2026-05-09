@@ -253,7 +253,11 @@ static int axk_mimiclaw_modules_init(void)
 
     ret = axk_ext_rtc_init();
     if (ret != 0) AXK_LOG_WARN("[axk_mimiclaw] external RTCinitWARN: %d\r\n", ret);
-    else AXK_LOG_INFO("[axk_mimiclaw] external RTCmoduleinitOK\r\n");
+    else    AXK_LOG_INFO("[axk_mimiclaw] external RTCmoduleinitOK\r\n");
+
+    ret = axk_gpio_control_init();
+    if (ret != 0) AXK_LOG_WARN("[axk_mimiclaw] GPIO control init WARN: %d\r\n", ret);
+    else AXK_LOG_INFO("[axk_mimiclaw] GPIO control init OK\r\n");
 
 #if 1  /* FIXME: skip modules that may crash before agent starts */
     AXK_LOG_INFO("[axk_mimiclaw] agent_loop_init...\r\n");
