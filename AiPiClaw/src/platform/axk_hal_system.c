@@ -17,6 +17,7 @@
     #include "bflb_mtimer.h"
     #include "arch/risc-v/t-head/Core/Include/core_rv32.h"
     #include "FreeRTOS.h"
+    #include "mm.h"          /* kfree_size() — real heap free stats */
 #elif AXK_PLATFORM_ESP32
     #include "esp_system.h"
     #include "esp_timer.h"
@@ -93,7 +94,7 @@ uint32_t axk_hal_system_get_time_us(void)
 uint32_t axk_hal_system_get_free_heap(void)
 {
 #if AXK_PLATFORM_BL618
-    return (uint32_t)xPortGetFreeHeapSize();
+    return (uint32_t)kfree_size(0);  /* heap_3 uses kmalloc, xPortGetFreeHeapSize is a 0-returning weak stub */
 #elif AXK_PLATFORM_ESP32
     return esp_get_free_heap_size();
 #else
