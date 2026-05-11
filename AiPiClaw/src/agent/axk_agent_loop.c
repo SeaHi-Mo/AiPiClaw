@@ -500,7 +500,14 @@ static void agent_loop_task(void *arg)
             build_system_prompt(system_prompt, sizeof(system_prompt));
             err = axk_llm_chat_tools(system_prompt, messages, tools_json, &resp);
             if (err != 0) {
-                AXK_LOG_ERROR("agent", "llm call failed: %s", (int)err);
+                AXK_LOG_ERROR("agent", "llm call failed: err=%d", (int)err);
+                if (!final_text) {
+                    if (err == -2) {
+                        final_text = strdup("LLM调用失败: 未配置API密钥。请通过串口CLI设置 llm_key <your_key>");
+                    } else {
+                        final_text = strdup("LLM调用失败，请检查网络连接或稍后重试。");
+                    }
+                }
                 break;
             }
 
