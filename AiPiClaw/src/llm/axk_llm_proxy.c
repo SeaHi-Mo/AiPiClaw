@@ -39,7 +39,7 @@ static const char *TAG = "llm";
 #define MIMI_DEEPSEEK_API_URL "https://api.deepseek.com/chat/completions"
 #endif
 #ifndef MIMI_MINIMAX_API_URL
-#define MIMI_MINIMAX_API_URL "https://api.minimaxi.com/v1/chat/completions"
+#define MIMI_MINIMAX_API_URL "https://api.minimax.chat/v1/text/chatcompletion_v2"
 #endif
 
 static char s_api_key[LLM_API_KEY_MAX_LEN] = { 0 };

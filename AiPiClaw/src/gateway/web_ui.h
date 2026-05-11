@@ -73,7 +73,7 @@ static const char WEB_UI_HTML[] =
     "  overflow:hidden;min-height:0\n"
     "}\n"
     "#chat-area{\n"
-    "  flex:1;overflow-y:auto;padding:0 0 16px;\n"
+    "  flex:1;overflow-y:auto;max-height:calc(100vh - 120px);padding:0 0 16px;\n"
     "  display:flex;flex-direction:column;justify-content:flex-end\n"
     "}\n"
     "/* 极简滚动条, 适应深色主题 */\n"
