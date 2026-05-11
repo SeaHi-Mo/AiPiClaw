@@ -15,6 +15,8 @@
 #include "axk_tool_get_time.h"
 #include "axk_tool_files.h"
 #include "axk_tool_gpio.h"
+#include "axk_tool_gpio_named.h"
+#include "axk_gpio_alias.h"
 #include "axk_tool_cron.h"
 
 #include <string.h>
@@ -23,7 +25,7 @@
 
 #include "cJSON.h"
 
-#define MAX_TOOLS 16
+#define MAX_TOOLS 32
 
 static mimi_tool_t s_tools[MAX_TOOLS];
 static int s_tool_count = 0;
@@ -209,6 +211,35 @@ int axk_tool_registry_init(void)
             .execute = axk_tool_gpio_read_all_execute,
         };
         axk_register_tool(&ga);
+    }
+
+    /* register named GPIO tools (alias-based) */
+    axk_gpio_alias_init();
+    {
+        mimi_tool_t gwn = {
+            .name = "gpio_write_named",
+            .description = "通过别名控制GPIO输出。支持中文别名如'绿灯'。自动将on/off映射为高/低电平。state可选: on(亮), off(灭), toggle(翻转)。",
+            .input_schema_json =
+                "{\"type\":\"object\","
+                "\"properties\":{\"pin_name\":{\"type\":\"string\",\"description\":\"引脚别名: green_led/绿灯/red_led/红灯/blue_led/蓝灯/key_0\"},"
+                "\"state\":{\"type\":\"string\",\"enum\":[\"on\",\"off\",\"toggle\"],\"description\":\"on=亮, off=灭, toggle=翻转\"}},"
+                "\"required\":[\"pin_name\",\"state\"]}",
+            .execute = axk_tool_gpio_write_named_execute,
+        };
+        axk_register_tool(&gwn);
+    }
+
+    {
+        mimi_tool_t grn = {
+            .name = "gpio_read_named",
+            .description = "通过别名读取GPIO状态。返回on/off而非原始电平值。",
+            .input_schema_json =
+                "{\"type\":\"object\","
+                "\"properties\":{\"pin_name\":{\"type\":\"string\",\"description\":\"引脚别名: green_led/红灯/key_0 等\"}},"
+                "\"required\":[\"pin_name\"]}",
+            .execute = axk_tool_gpio_read_named_execute,
+        };
+        axk_register_tool(&grn);
     }
 
     /* registercrontasktool */
