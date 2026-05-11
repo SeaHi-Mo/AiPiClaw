@@ -1,43 +1,83 @@
 /**
  * @file axk_tool_gpio_named.c
- * @brief MCP GPIO 别名控制工具 - 通过别名控制GPIO
+ * @brief GPIO 命名引脚工具 - 通过别名控制/读取GPIO
  * @version 1.0
  * @date 2026-05-11
- *
  * @copyright Copyright (c) 2026 AI-Thinker
- * @note 提供 gpio_write_named / gpio_read_named 两个工具
- *       支持中文别名如"绿灯"，自动将 on/off 映射为高/低电平
- *       LED 高电平有效 (1=ON, 0=OFF)，非共阳
+ * @note 依赖 axk_gpio_alias 别名注册表，LLM 通过语义名操作 GPIO
  */
 
+#include "axk_tool_gpio.h"
 #include "axk_gpio_alias.h"
-#include "axk_hal_gpio.h"
 #include "axk_gpio_policy.h"
-#include "axk_platform.h"
+#include "axk_hal_gpio.h"
 #include "cJSON.h"
+#include "axk_platform.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
 /**
- * @brief 通过别名写入GPIO状态
- * @param[in] input_json 输入JSON: {"pin_name":"green_led", "state":"on"}
+ * @brief 将 on/off/toggle 字符串转换为电平值和翻转标志
+ * @param[in] state 状态字符串 ("on" / "off" / "toggle")
+ * @param[out] level 输出电平值 (0 或 1)
+ * @param[out] do_toggle 是否翻转
+ * @return 0 成功，-1 未知状态
+ */
+static int parse_state(const char *state, int *level, int *do_toggle)
+{
+    if (!state) return -1;
+
+    if (strcmp(state, "on") == 0) {
+        *level = 1;
+        *do_toggle = 0;
+        return 0;
+    }
+    if (strcmp(state, "off") == 0) {
+        *level = 0;
+        *do_toggle = 0;
+        return 0;
+    }
+    if (strcmp(state, "toggle") == 0) {
+        *level = 0;
+        *do_toggle = 1;
+        return 0;
+    }
+    return -1;
+}
+
+/**
+ * @brief 获取引脚的当前开关状态描述
+ * @param[in] alias 别名条目
+ * @param[out] buf 输出缓冲区
+ * @param[in] size 缓冲区大小
+ * @return 写入的字符数
+ */
+static int get_state_str(const axk_gpio_alias_t *alias, char *buf, size_t size)
+{
+    int raw = axk_hal_gpio_get_level(alias->pin);
+    int on = (raw == alias->active_level) ? 1 : 0;
+    return snprintf(buf, size, "%s", on ? "on" : "off");
+}
+
+/**
+ * @brief 执行带别名的 GPIO 写入操作
+ * @param[in] input_json JSON 输入：{"pin_name":"green_led","state":"on|off|toggle"}
  * @param[out] output 输出缓冲区
- * @param[in] output_size 输出缓冲区大小
+ * @param[in] output_size 缓冲区大小
  * @return 0 成功，-1 失败
  */
 int axk_tool_gpio_write_named_execute(const char *input_json, char *output, size_t output_size)
 {
-    cJSON *root;
+    cJSON *root = NULL;
     cJSON *item;
     axk_gpio_alias_t alias;
-    const char *pin_name;
-    const char *state_str;
-    int level;
+    int level, do_toggle;
+    const char *pin_name = NULL;
+    const char *state = NULL;
 
     if (!input_json || !output || output_size == 0) {
-        if (output) snprintf(output, output_size, "Error: invalid arguments");
         return -1;
     }
 
@@ -50,8 +90,8 @@ int axk_tool_gpio_write_named_execute(const char *input_json, char *output, size
     /* 解析 pin_name */
     item = cJSON_GetObjectItem(root, "pin_name");
     if (!cJSON_IsString(item)) {
+        snprintf(output, output_size, "Error: missing or invalid 'pin_name'");
         cJSON_Delete(root);
-        snprintf(output, output_size, "Error: missing or invalid 'pin_name' field");
         return -1;
     }
     pin_name = item->valuestring;
@@ -59,83 +99,75 @@ int axk_tool_gpio_write_named_execute(const char *input_json, char *output, size
     /* 解析 state */
     item = cJSON_GetObjectItem(root, "state");
     if (!cJSON_IsString(item)) {
+        snprintf(output, output_size, "Error: missing or invalid 'state'");
         cJSON_Delete(root);
-        snprintf(output, output_size, "Error: missing or invalid 'state' field (expect 'on'/'off'/'toggle')");
         return -1;
     }
-    state_str = item->valuestring;
-
-    /* 别名解析 */
-    if (axk_gpio_alias_resolve(pin_name, &alias) != 0) {
-        cJSON_Delete(root);
-        snprintf(output, output_size, "Error: unknown pin name '%s'. Use gpio_alias to list available names.", pin_name);
-        return -1;
-    }
-
-    /* 权限检查：是否允许写 */
-    if (!(alias.flags & AXK_ALIAS_FLAG_WRITE)) {
-        cJSON_Delete(root);
-        snprintf(output, output_size, "Error: pin '%s' (GPIO%d) is read-only", pin_name, alias.pin);
-        return -1;
-    }
-
-    /* 策略检查 */
-    if (axk_gpio_policy_check(alias.pin, "set_level") != 0) {
-        cJSON_Delete(root);
-        snprintf(output, output_size, "Error: GPIO%d not allowed by policy", alias.pin);
-        return -1;
-    }
-
-    /* 处理 state: on/off/toggle */
-    if (strcmp(state_str, "toggle") == 0) {
-        int current = axk_hal_gpio_get_level(alias.pin);
-        level = (current > 0) ? 0 : 1;
-    } else if (strcmp(state_str, "on") == 0) {
-        level = alias.active_level;  /* 高电平有效 → level=1 */
-    } else if (strcmp(state_str, "off") == 0) {
-        level = (alias.active_level == 1) ? 0 : 1;
-    } else {
-        cJSON_Delete(root);
-        snprintf(output, output_size, "Error: invalid state '%s' (use 'on', 'off', or 'toggle')", state_str);
-        return -1;
-    }
-
-    /* 配置为输出 */
-    axk_gpio_cfg_t cfg = {0};
-    cfg.pin = alias.pin;
-    cfg.mode = AXK_GPIO_MODE_OUT;
-    cfg.pull = AXK_GPIO_PULL_NONE;
-    cfg.drive = AXK_GPIO_DRIVE_STRONG;
-    axk_hal_gpio_config(alias.pin, &cfg);
-
-    /* 执行写操作 */
-    axk_hal_gpio_set_level(alias.pin, (uint32_t)level);
-
-    const char *state_desc = (level == alias.active_level) ? "亮" : "灭";
-    snprintf(output, output_size, "%s 已%s (GPIO%d=%d)", alias.description, state_desc, alias.pin, level);
-    AXK_LOG_INFO("[gpio_named] %s → GPIO%d=%d\r\n", pin_name, alias.pin, level);
+    state = item->valuestring;
 
     cJSON_Delete(root);
+
+    /* 解析别名 */
+    if (axk_gpio_alias_resolve(pin_name, &alias) != 0) {
+        snprintf(output, output_size, "Error: unknown pin name '%s'. Use gpio_alias to list available aliases.", pin_name);
+        return -1;
+    }
+
+    /* 检查写权限 */
+    if (!(alias.flags & AXK_GPIO_ALIAS_FLAG_WRITE)) {
+        snprintf(output, output_size, "Error: '%s' is read-only (%s)", pin_name, alias.description);
+        return -1;
+    }
+
+    /* 检查安全策略 */
+    if (axk_gpio_policy_check(alias.pin, "set_level") != 0) {
+        snprintf(output, output_size, "Error: GPIO%d (%s) not allowed by security policy", alias.pin, alias.description);
+        return -1;
+    }
+
+    /* 解析状态 */
+    if (parse_state(state, &level, &do_toggle) != 0) {
+        snprintf(output, output_size, "Error: unknown state '%s'. Use on/off/toggle.", state);
+        return -1;
+    }
+
+    /* 执行操作 */
+    if (do_toggle) {
+        int current = axk_hal_gpio_get_level(alias.pin);
+        level = (current == alias.active_level) ? 0 : alias.active_level;
+    } else {
+        /* 将 on/off 语义映射为 pin 的物理电平 */
+        level = level ? alias.active_level : (!alias.active_level);
+    }
+
+    axk_hal_gpio_set_level(alias.pin, (uint32_t)level);
+
+    {
+        char state_buf[8];
+        get_state_str(&alias, state_buf, sizeof(state_buf));
+        snprintf(output, output_size, "%s 已%s (%s)", alias.description,
+                 level == alias.active_level ? "点亮" : "熄灭", state_buf);
+    }
+
+    AXK_LOG_INFO("[tool_gpio_named] %s -> GPIO%d=%d\r\n", pin_name, alias.pin, level);
     return 0;
 }
 
 /**
- * @brief 通过别名读取GPIO状态
- * @param[in] input_json 输入JSON: {"pin_name":"green_led"}
+ * @brief 执行带别名的 GPIO 读取操作
+ * @param[in] input_json JSON 输入：{"pin_name":"green_led"}
  * @param[out] output 输出缓冲区
- * @param[in] output_size 输出缓冲区大小
+ * @param[in] output_size 缓冲区大小
  * @return 0 成功，-1 失败
  */
 int axk_tool_gpio_read_named_execute(const char *input_json, char *output, size_t output_size)
 {
-    cJSON *root;
+    cJSON *root = NULL;
     cJSON *item;
     axk_gpio_alias_t alias;
-    const char *pin_name;
-    int level;
+    const char *pin_name = NULL;
 
     if (!input_json || !output || output_size == 0) {
-        if (output) snprintf(output, output_size, "Error: invalid arguments");
         return -1;
     }
 
@@ -147,39 +179,32 @@ int axk_tool_gpio_read_named_execute(const char *input_json, char *output, size_
 
     item = cJSON_GetObjectItem(root, "pin_name");
     if (!cJSON_IsString(item)) {
+        snprintf(output, output_size, "Error: missing or invalid 'pin_name'");
         cJSON_Delete(root);
-        snprintf(output, output_size, "Error: missing or invalid 'pin_name' field");
         return -1;
     }
     pin_name = item->valuestring;
+    cJSON_Delete(root);
 
-    /* 别名解析 */
+    /* 解析别名 */
     if (axk_gpio_alias_resolve(pin_name, &alias) != 0) {
-        cJSON_Delete(root);
         snprintf(output, output_size, "Error: unknown pin name '%s'", pin_name);
         return -1;
     }
 
-    /* 权限检查：是否允许读 */
-    if (!(alias.flags & AXK_ALIAS_FLAG_READ)) {
-        cJSON_Delete(root);
-        snprintf(output, output_size, "Error: pin '%s' (GPIO%d) is write-only", pin_name, alias.pin);
+    /* 检查读权限 */
+    if (!(alias.flags & AXK_GPIO_ALIAS_FLAG_READ)) {
+        snprintf(output, output_size, "Error: '%s' does not support read", pin_name);
         return -1;
     }
 
-    /* 配置为输入读取 */
-    axk_gpio_cfg_t cfg = {0};
-    cfg.pin = alias.pin;
-    cfg.mode = AXK_GPIO_MODE_IN;
-    cfg.pull = AXK_GPIO_PULL_NONE;
-    axk_hal_gpio_config(alias.pin, &cfg);
+    /* 读取状态 */
+    {
+        char state_buf[8];
+        get_state_str(&alias, state_buf, sizeof(state_buf));
+        snprintf(output, output_size, "%s 当前状态: %s (%s)", alias.description,
+                 state_buf, state_buf);
+    }
 
-    level = axk_hal_gpio_get_level(alias.pin);
-
-    const char *state_desc = (level == alias.active_level) ? "亮(on)" : "灭(off)";
-    snprintf(output, output_size, "%s 当前状态: %s (GPIO%d=%d)", alias.description, state_desc, alias.pin, level);
-    AXK_LOG_INFO("[gpio_named] %s read GPIO%d=%d\r\n", pin_name, alias.pin, level);
-
-    cJSON_Delete(root);
     return 0;
 }
