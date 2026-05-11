@@ -44,10 +44,10 @@ static const char *TAG = "telegram";
 
 typedef struct {
     char *data;
-    size_t len /*< TODO: 描述len */;
-    size_t cap /*< TODO: 描述cap */;
-    int status_code /*< TODO: 描述status_code */;
-    bool oom /*< TODO: 描述oom */;
+    size_t len;       /**< 已接收数据长度 */
+    size_t cap;       /**< 缓冲区总容量 */
+    int status_code; /**< HTTP响应状态码 */
+    bool oom;         /**< 内存不足标志 */
 } tg_http_resp_t;
 
 static TaskHandle_t s_poll_task;

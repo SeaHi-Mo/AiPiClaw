@@ -27,9 +27,9 @@ typedef enum {
 /* 单crontask */
 typedef struct {
     char id[9];            /* 8chars 十六进制ID + null */
-    char name[32] /*< TODO: 描述name */;
-    bool enabled /*< TODO: 描述enabled */;
-    cron_kind_t kind /*< TODO: 描述kind */;
+    char name[32];                       /**< 任务名称 */
+    bool enabled;                          /**< 是否启用 */
+    cron_kind_t kind;                       /**< 定时类型（EVERY=循环, AT=一次性） */
     uint32_t interval_s;   /* EVERYmode : intervals数 */
     int64_t at_epoch;      /* ATmode : Unixtime 戳 */
     char message[256];     /* 注入msgqueuemsg */

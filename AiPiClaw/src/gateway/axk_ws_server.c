@@ -35,7 +35,7 @@
 
 typedef struct {
     struct netconn *conn;
-    bool handshaked /*< TODO: 描述handshaked */;
+    bool handshaked; /**< WebSocket握手是否已完成 */
 } ws_client_t;
 
 static const char *TAG = "ws_srv";
