@@ -883,4 +883,6 @@ static const char WEB_UI_HTML[] =
     "\n"
 ;
 
+#define WEB_UI_HTML_LEN  (sizeof(WEB_UI_HTML) - 1)
+
 #endif /* WEB_UI_H */
