@@ -62,9 +62,38 @@ static char *strip_think_tags(char *text)
 }
 
 /**
+ * @brief 移除字符串开头和结尾的空白字符（空格、\\t、\\r、\\n），原地修改
+ * @param[in,out] str 待处理的字符串
+ * @return 处理后的字符串指针（同入参，或NULL入参返回NULL）
+ */
+static char *trim_whitespace(char *str)
+{
+    char *end;
+
+    if (!str) return NULL;
+
+    /* 跳过开头空白 */
+    while (*str == ' ' || *str == '\t' || *str == '\r' || *str == '\n') {
+        str++;
+    }
+
+    if (*str == '\0') {
+        return str;
+    }
+
+    /* 跳过结尾空白 */
+    end = str + strlen(str) - 1;
+    while (end > str && (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n')) {
+        end--;
+    }
+
+    *(end + 1) = '\0';
+
+    return str;
+}
+
+/**
  * @brief 不区分大小写检查haystack中是否包含needle子字符串
- *
- * @param haystack 待搜索的字符串
  * @param needle 要查找的子字符串
  * @return 找到返回true，未找到或参数无效返回false
  */
@@ -511,9 +540,15 @@ static void agent_loop_task(void *arg)
             strncpy(out.channel, msg.channel, sizeof(out.channel) - 1);
             strncpy(out.chat_id, msg.chat_id, sizeof(out.chat_id) - 1);
 
-            if (!final_text || final_text[0] == '\0') {
-                free(final_text);
-                final_text = strdup("Sorry, I encountered an error.");
+            if (!final_text) {
+                final_text = strdup("操作已完成");
+            } else {
+                /* strip 空白字符，若仅含空白则生成默认回复 */
+                trim_whitespace(final_text);
+                if (final_text[0] == '\0') {
+                    free(final_text);
+                    final_text = strdup("操作已完成");
+                }
             }
 
             out.content = final_text;
