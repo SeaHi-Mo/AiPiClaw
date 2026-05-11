@@ -1,12 +1,10 @@
-/**
- * @file web_ui.h
- * @brief Web UI HTML page - AiPiClaw AI Agent Web Chat Interface
- * @note  Auto-generated from web_ui.html. Contains HTML+CSS+JS with Chinese annotations.
- */
-
 #ifndef WEB_UI_H
 #define WEB_UI_H
 
+/**
+ * @brief Web UI HTML page - AiPiClaw AI Agent Web Chat Interface
+ * @note Auto-generated from web_ui.html, do not edit manually
+ */
 static const char WEB_UI_HTML[] =
     "<!DOCTYPE html>\n"
     "<!--\n"
@@ -880,7 +878,6 @@ static const char WEB_UI_HTML[] =
     "</script>\n"
     "</body>\n"
     "</html>\n"
-    "\n"
 ;
 
 #define WEB_UI_HTML_LEN  (sizeof(WEB_UI_HTML) - 1)
