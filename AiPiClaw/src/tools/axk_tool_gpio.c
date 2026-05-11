@@ -17,7 +17,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-static const char *TAG = "tool_gpio";
+static const char *TAG = "tool_gpio";  __attribute__((unused))
 
 /* BL616/BL618 \u5f00\u53d1\u677f\u53ef\u7528GPIO\u5217\u8868 (\u6392\u9664\u7cfb\u7edf\u4fdd\u7559\u5f15\u811a) */
 static const int s_valid_gpio_pins[] = {

@@ -99,6 +99,8 @@ sdk_library_add_sources(src/tools/axk_tool_files.c)
 sdk_library_add_sources(src/tools/axk_tool_web_search.c)
 sdk_library_add_sources(src/tools/axk_tool_gpio.c)
 sdk_library_add_sources(src/tools/axk_gpio_policy.c)
+sdk_library_add_sources(src/tools/axk_gpio_alias.c)
+sdk_library_add_sources(src/tools/axk_tool_gpio_named.c)
 
 # 定时任务服务 (上游代码)
 sdk_library_add_sources(upstream/cron/cron_service.c)
