@@ -63,7 +63,11 @@ static void axk_ota_status_callback(void *arg, https_fota_status_t event)
     }
 }
 
-/* @brief TODO: 描述axk_ota_manager_init的功能 @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_ota_manager_init的功能
+ *
+ * @return 0成功, -1失败
+ */
 int axk_ota_manager_init(void)
 {
     s_ota_mutex = xSemaphoreCreateMutex();

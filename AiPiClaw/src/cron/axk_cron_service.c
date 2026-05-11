@@ -182,7 +182,11 @@ static void axk_cron_gen_id(char *id_buf, size_t len)
     snprintf(id_buf, len, "%08X", (unsigned int)(val & 0xFFFFFFFF));
 }
 
-/* @brief TODO: 描述axk_cron_service_init的功能 @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_cron_service_init的功能
+ *
+ * @return 0成功, -1失败
+ */
 int axk_cron_service_init(void)
 {
     memset(s_jobs, 0, sizeof(s_jobs));
@@ -205,7 +209,11 @@ int axk_cron_service_init(void)
     return 0;
 }
 
-/* @brief TODO: 描述axk_cron_service_stop的功能 @return 无返回值 */
+/**
+ * @brief TODO: 描述axk_cron_service_stop的功能
+ *
+ * @return 无返回值
+ */
 void axk_cron_service_stop(void)
 {
     s_cron_running = false;
@@ -216,7 +224,12 @@ void axk_cron_service_stop(void)
     AXK_LOG_INFO("[axk_cron] crontaskservicestop \r\n");
 }
 
-/* @brief TODO: 描述axk_cron_add_job的功能 @param job TODO: 描述job @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_cron_add_job的功能
+ *
+ * @param job TODO: 描述job
+ * @return 0成功, -1失败
+ */
 int axk_cron_add_job(cron_job_t *job)
 {
     int i;
@@ -266,7 +279,12 @@ int axk_cron_add_job(cron_job_t *job)
     return 0;
 }
 
-/* @brief TODO: 描述axk_cron_remove_job的功能 @param job_id TODO: 描述job_id @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_cron_remove_job的功能
+ *
+ * @param job_id TODO: 描述job_id
+ * @return 0成功, -1失败
+ */
 int axk_cron_remove_job(const char *job_id)
 {
     int i;
@@ -294,7 +312,13 @@ int axk_cron_remove_job(const char *job_id)
     return -1;
 }
 
-/* @brief TODO: 描述axk_cron_list_jobs的功能 @param jobs TODO: 描述jobs @param count TODO: 描述count @return 无返回值 */
+/**
+ * @brief TODO: 描述axk_cron_list_jobs的功能
+ *
+ * @param jobs TODO: 描述jobs
+ * @param count TODO: 描述count
+ * @return 无返回值
+ */
 void axk_cron_list_jobs(const cron_job_t **jobs, int *count)
 {
     if (!s_cron_mutex) {

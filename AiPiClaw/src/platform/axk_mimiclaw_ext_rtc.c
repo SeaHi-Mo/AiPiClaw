@@ -32,7 +32,14 @@ static bool s_ds3231_present;
 
 /* ── internalhelper func  ───────────────────────────────────── */
 
-/* @brief TODO: 描述day_of_year的功能 @param year TODO: 描述year @param month TODO: 描述month @param day TODO: 描述day @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述day_of_year的功能
+ *
+ * @param year TODO: 描述year
+ * @param month TODO: 描述month
+ * @param day TODO: 描述day
+ * @return 0成功, -1失败
+ */
 static int day_of_year(int year, int month, int day)
 {
     static const int day_offset[] = { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 };
@@ -46,19 +53,36 @@ static int day_of_year(int year, int month, int day)
     return yday;
 }
 
-/* @brief TODO: 描述bcd_to_bin的功能 @param bcd TODO: 描述bcd @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述bcd_to_bin的功能
+ *
+ * @param bcd TODO: 描述bcd
+ * @return 0成功, -1失败
+ */
 static uint8_t bcd_to_bin(uint8_t bcd)
 {
     return (uint8_t)(((bcd >> 4) * 10U) + (bcd & 0x0FU));
 }
 
-/* @brief TODO: 描述bin_to_bcd的功能 @param val TODO: 描述val @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述bin_to_bcd的功能
+ *
+ * @param val TODO: 描述val
+ * @return 0成功, -1失败
+ */
 static uint8_t bin_to_bcd(uint8_t val)
 {
     return (uint8_t)(((val / 10U) << 4) | (val % 10U));
 }
 
-/* @brief TODO: 描述ds3231_read_regs的功能 @param reg TODO: 描述reg @param data TODO: 描述data @param len TODO: 描述len @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述ds3231_read_regs的功能
+ *
+ * @param reg TODO: 描述reg
+ * @param data TODO: 描述data
+ * @param len TODO: 描述len
+ * @return 0成功, -1失败
+ */
 static bool ds3231_read_regs(uint8_t reg, uint8_t *data, uint16_t len)
 {
     struct bflb_i2c_msg_s msgs[2];
@@ -77,7 +101,14 @@ static bool ds3231_read_regs(uint8_t reg, uint8_t *data, uint16_t len)
     return bflb_i2c_transfer(s_i2c, msgs, 2) == 0;
 }
 
-/* @brief TODO: 描述ds3231_write_regs的功能 @param reg TODO: 描述reg @param data TODO: 描述data @param len TODO: 描述len @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述ds3231_write_regs的功能
+ *
+ * @param reg TODO: 描述reg
+ * @param data TODO: 描述data
+ * @param len TODO: 描述len
+ * @return 0成功, -1失败
+ */
 static bool ds3231_write_regs(uint8_t reg, const uint8_t *data, uint16_t len)
 {
     struct bflb_i2c_msg_s msg;
@@ -98,7 +129,11 @@ static bool ds3231_write_regs(uint8_t reg, const uint8_t *data, uint16_t len)
     return bflb_i2c_transfer(s_i2c, &msg, 1) == 0;
 }
 
-/* @brief TODO: 描述ensure_ds3231_ready的功能 @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述ensure_ds3231_ready的功能
+ *
+ * @return 0成功, -1失败
+ */
 static bool ensure_ds3231_ready(void)
 {
     uint8_t sec;
@@ -257,14 +292,28 @@ __attribute__((weak)) bool axk_mimiclaw_ext_rtc_write_utc(const struct bflb_tm *
 
 /* ── 简化版helper func （桩实现） ──────────────────────── */
 
-/* @brief TODO: 描述axk_ext_rtc_init的功能 @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_ext_rtc_init的功能
+ *
+ * @return 0成功, -1失败
+ */
 int axk_ext_rtc_init(void)
 {
     /**< initexternal RTCmodule，DS3231in 首次访问时auto init */
     return 0;
 }
 
-/* @brief TODO: 描述axk_ext_rtc_set_time的功能 @param year TODO: 描述year @param month TODO: 描述month @param date TODO: 描述date @param hour TODO: 描述hour @param min TODO: 描述min @param sec TODO: 描述sec @return 无返回值 */
+/**
+ * @brief TODO: 描述axk_ext_rtc_set_time的功能
+ *
+ * @param year TODO: 描述year
+ * @param month TODO: 描述month
+ * @param date TODO: 描述date
+ * @param hour TODO: 描述hour
+ * @param min TODO: 描述min
+ * @param sec TODO: 描述sec
+ * @return 无返回值
+ */
 void axk_ext_rtc_set_time(uint8_t year, uint8_t month, uint8_t date,
                            uint8_t hour, uint8_t min, uint8_t sec)
 {
@@ -278,7 +327,17 @@ void axk_ext_rtc_set_time(uint8_t year, uint8_t month, uint8_t date,
     axk_mimiclaw_ext_rtc_write_utc(&tm);
 }
 
-/* @brief TODO: 描述axk_ext_rtc_get_time的功能 @param year TODO: 描述year @param month TODO: 描述month @param date TODO: 描述date @param hour TODO: 描述hour @param min TODO: 描述min @param sec TODO: 描述sec @return 无返回值 */
+/**
+ * @brief TODO: 描述axk_ext_rtc_get_time的功能
+ *
+ * @param year TODO: 描述year
+ * @param month TODO: 描述month
+ * @param date TODO: 描述date
+ * @param hour TODO: 描述hour
+ * @param min TODO: 描述min
+ * @param sec TODO: 描述sec
+ * @return 无返回值
+ */
 void axk_ext_rtc_get_time(uint8_t *year, uint8_t *month, uint8_t *date,
                            uint8_t *hour, uint8_t *min, uint8_t *sec)
 {
@@ -293,7 +352,11 @@ void axk_ext_rtc_get_time(uint8_t *year, uint8_t *month, uint8_t *date,
     }
 }
 
-/* @brief TODO: 描述axk_ext_rtc_read_temperature的功能 @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_ext_rtc_read_temperature的功能
+ *
+ * @return 0成功, -1失败
+ */
 int16_t axk_ext_rtc_read_temperature(void)
 {
     /**< DS3231 温度传感器read（暂无实现） */

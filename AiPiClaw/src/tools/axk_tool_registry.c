@@ -29,7 +29,11 @@ static mimi_tool_t s_tools[MAX_TOOLS];
 static int s_tool_count = 0;
 static char *s_tools_json = NULL;  /* 缓存JSON数组chars 串 */
 
-/* @brief 注册单个工具到注册表 @param[in] tool 工具描述结构体指针 */
+/**
+ * @brief 注册单个工具到注册表
+ *
+ * @param[in] tool 工具描述结构体指针
+ */
 static void axk_register_tool(const mimi_tool_t *tool)
 {
     if (s_tool_count >= MAX_TOOLS) {
@@ -40,7 +44,10 @@ static void axk_register_tool(const mimi_tool_t *tool)
     AXK_LOG_INFO("[axk_tool_registry] registeredtool: %s\r\n", tool->name);
 }
 
-/* @brief 构建工具列表JSON数组字符串，供LLM API调用 */
+/**
+ * @brief 构建工具列表JSON数组字符串，供LLM API调用
+ *
+ */
 static void axk_build_tools_json(void)
 {
     cJSON *arr = cJSON_CreateArray();
@@ -68,7 +75,11 @@ static void axk_build_tools_json(void)
     AXK_LOG_INFO("[axk_tool_registry] toolJSONbuilt (%d tool)\r\n", s_tool_count);
 }
 
-/* @brief 初始化工具注册表，注册所有内置工具 @return 0成功, -1失败 */
+/**
+ * @brief 初始化工具注册表，注册所有内置工具
+ *
+ * @return 0成功, -1失败
+ */
 int axk_tool_registry_init(void)
 {
     s_tool_count = 0;
@@ -259,7 +270,15 @@ const char *axk_tool_registry_get_tools_json(void)
     return s_tools_json;
 }
 
-/* @brief 按名称执行工具 @param[in] name 工具名称 @param[in] input_json 输入JSON字符串 @param[out] output 输出缓冲区 @param[in] output_size 输出缓冲区大小 @return 0成功, -1失败 */
+/**
+ * @brief 按名称执行工具
+ *
+ * @param[in] name 工具名称
+ * @param[in] input_json 输入JSON字符串
+ * @param[out] output 输出缓冲区
+ * @param[in] output_size 输出缓冲区大小
+ * @return 0成功, -1失败
+ */
 int axk_tool_registry_execute(const char *name, const char *input_json,
                               char *output, size_t output_size)
 {

@@ -27,7 +27,13 @@ static uint32_t s_uptime_sec = 0;
 
 /* ── heartbeatcallback  ────────────────────────────────────── */
 
-/* @brief TODO: 描述heartbeat_timer_cb的功能 @param timer TODO: 描述timer @param arg TODO: 描述arg @return 无返回值 */
+/**
+ * @brief TODO: 描述heartbeat_timer_cb的功能
+ *
+ * @param timer TODO: 描述timer
+ * @param arg TODO: 描述arg
+ * @return 无返回值
+ */
 static void heartbeat_timer_cb(axk_timer_handle_t timer, void *arg)
 {
     char buf[512];

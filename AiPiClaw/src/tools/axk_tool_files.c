@@ -63,7 +63,11 @@ static bool s_fatfs_mounted;
 __attribute__((weak)) void board_sdh_gpio_init(void);
 __attribute__((weak)) void fatfs_sdh_driver_register(void);
 
-/* @brief TODO: 描述ensure_lfs_ready的功能 @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述ensure_lfs_ready的功能
+ *
+ * @return 0成功, -1失败
+ */
 static int ensure_lfs_ready(void)
 {
     size_t i;
@@ -85,7 +89,11 @@ static int ensure_lfs_ready(void)
     return -1;
 }
 
-/* @brief TODO: 描述axk_tool_files_init的功能 @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_tool_files_init的功能
+ *
+ * @return 0成功, -1失败
+ */
 int axk_tool_files_init(void)
 {
     return (ensure_lfs_ready() == 0) ? 0 : -1;
@@ -99,7 +107,12 @@ struct lfs *axk_tool_files_get_lfs(void)
     return s_lfs;
 }
 
-/* @brief TODO: 描述is_sd_path的功能 @param path TODO: 描述path @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述is_sd_path的功能
+ *
+ * @param path TODO: 描述path
+ * @return 0成功, -1失败
+ */
 static bool is_sd_path(const char *path)
 {
     return path &&
@@ -107,7 +120,12 @@ static bool is_sd_path(const char *path)
            (path[3] == '\0' || path[3] == '/');
 }
 
-/* @brief TODO: 描述is_spiffs_path的功能 @param path TODO: 描述path @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述is_spiffs_path的功能
+ *
+ * @param path TODO: 描述path
+ * @return 0成功, -1失败
+ */
 static bool is_spiffs_path(const char *path)
 {
     size_t base_len;
@@ -124,7 +142,12 @@ static bool is_spiffs_path(const char *path)
     return (path[base_len] == '\0' || path[base_len] == '/');
 }
 
-/* @brief TODO: 描述detect_backend的功能 @param path TODO: 描述path @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述detect_backend的功能
+ *
+ * @param path TODO: 描述path
+ * @return 0成功, -1失败
+ */
 static tool_fs_backend_t detect_backend(const char *path)
 {
     if (!path || strstr(path, "..")) {
@@ -142,7 +165,11 @@ static tool_fs_backend_t detect_backend(const char *path)
     return TOOL_FS_BACKEND_INVALID;
 }
 
-/* @brief TODO: 描述ensure_fatfs_ready的功能 @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述ensure_fatfs_ready的功能
+ *
+ * @return 0成功, -1失败
+ */
 static int ensure_fatfs_ready(void)
 {
 #if defined(CONFIG_FATFS) && defined(CONFIG_FATFS_SDH_SDCARD)
@@ -181,7 +208,12 @@ static int ensure_fatfs_ready(void)
 #endif
 }
 
-/* @brief TODO: 描述validate_user_path的功能 @param path TODO: 描述path @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述validate_user_path的功能
+ *
+ * @param path TODO: 描述path
+ * @return 0成功, -1失败
+ */
 static bool validate_user_path(const char *path)
 {
     size_t base_len;
@@ -206,7 +238,14 @@ static bool validate_user_path(const char *path)
     return true;
 }
 
-/* @brief TODO: 描述user_path_to_lfs_path的功能 @param user_path TODO: 描述user_path @param lfs_path TODO: 描述lfs_path @param lfs_path_size TODO: 描述lfs_path_size @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述user_path_to_lfs_path的功能
+ *
+ * @param user_path TODO: 描述user_path
+ * @param lfs_path TODO: 描述lfs_path
+ * @param lfs_path_size TODO: 描述lfs_path_size
+ * @return 0成功, -1失败
+ */
 static int user_path_to_lfs_path(const char *user_path, char *lfs_path, size_t lfs_path_size)
 {
     const char *suffix;
@@ -232,7 +271,14 @@ static int user_path_to_lfs_path(const char *user_path, char *lfs_path, size_t l
     return 0;
 }
 
-/* @brief TODO: 描述lfs_path_to_user_path的功能 @param lfs_path TODO: 描述lfs_path @param user_path TODO: 描述user_path @param user_path_size TODO: 描述user_path_size @return 无返回值 */
+/**
+ * @brief TODO: 描述lfs_path_to_user_path的功能
+ *
+ * @param lfs_path TODO: 描述lfs_path
+ * @param user_path TODO: 描述user_path
+ * @param user_path_size TODO: 描述user_path_size
+ * @return 无返回值
+ */
 static void lfs_path_to_user_path(const char *lfs_path, char *user_path, size_t user_path_size)
 {
     if (!lfs_path || !user_path || user_path_size == 0) {
@@ -251,7 +297,13 @@ static void lfs_path_to_user_path(const char *lfs_path, char *user_path, size_t 
     }
 }
 
-/* @brief TODO: 描述ensure_parent_dirs的功能 @param lfs TODO: 描述lfs @param lfs_path TODO: 描述lfs_path @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述ensure_parent_dirs的功能
+ *
+ * @param lfs TODO: 描述lfs
+ * @param lfs_path TODO: 描述lfs_path
+ * @return 0成功, -1失败
+ */
 static int ensure_parent_dirs(lfs_t *lfs, const char *lfs_path)
 {
     size_t i;
@@ -281,7 +333,15 @@ static int ensure_parent_dirs(lfs_t *lfs, const char *lfs_path)
     return LFS_ERR_OK;
 }
 
-/* @brief TODO: 描述append_line的功能 @param output TODO: 描述output @param output_size TODO: 描述output_size @param off TODO: 描述off @param line TODO: 描述line @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述append_line的功能
+ *
+ * @param output TODO: 描述output
+ * @param output_size TODO: 描述output_size
+ * @param off TODO: 描述off
+ * @param line TODO: 描述line
+ * @return 0成功, -1失败
+ */
 static int append_line(char *output, size_t output_size, size_t *off, const char *line)
 {
     int n;
@@ -300,7 +360,18 @@ static int append_line(char *output, size_t output_size, size_t *off, const char
     return 0;
 }
 
-/* @brief TODO: 描述list_dir_recursive的功能 @param lfs TODO: 描述lfs @param dir_path TODO: 描述dir_path @param prefix TODO: 描述prefix @param output TODO: 描述output @param output_size TODO: 描述output_size @param off TODO: 描述off @param count TODO: 描述count @return 无返回值 */
+/**
+ * @brief TODO: 描述list_dir_recursive的功能
+ *
+ * @param lfs TODO: 描述lfs
+ * @param dir_path TODO: 描述dir_path
+ * @param prefix TODO: 描述prefix
+ * @param output TODO: 描述output
+ * @param output_size TODO: 描述output_size
+ * @param off TODO: 描述off
+ * @param count TODO: 描述count
+ * @return 无返回值
+ */
 static void list_dir_recursive(lfs_t *lfs,
                                const char *dir_path,
                                const char *prefix,
@@ -356,7 +427,12 @@ static void list_dir_recursive(lfs_t *lfs,
     lfs_dir_close(lfs, &dir);
 }
 
-/* @brief TODO: 描述ensure_parent_dirs_fatfs的功能 @param path TODO: 描述path @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述ensure_parent_dirs_fatfs的功能
+ *
+ * @param path TODO: 描述path
+ * @return 0成功, -1失败
+ */
 static int ensure_parent_dirs_fatfs(const char *path)
 {
 #if defined(CONFIG_FATFS) && defined(CONFIG_FATFS_SDH_SDCARD)
@@ -395,7 +471,17 @@ static int ensure_parent_dirs_fatfs(const char *path)
 #endif
 }
 
-/* @brief TODO: 描述list_dir_recursive_fatfs的功能 @param dir_path TODO: 描述dir_path @param prefix TODO: 描述prefix @param output TODO: 描述output @param output_size TODO: 描述output_size @param off TODO: 描述off @param count TODO: 描述count @return 无返回值 */
+/**
+ * @brief TODO: 描述list_dir_recursive_fatfs的功能
+ *
+ * @param dir_path TODO: 描述dir_path
+ * @param prefix TODO: 描述prefix
+ * @param output TODO: 描述output
+ * @param output_size TODO: 描述output_size
+ * @param off TODO: 描述off
+ * @param count TODO: 描述count
+ * @return 无返回值
+ */
 static void list_dir_recursive_fatfs(const char *dir_path,
                                      const char *prefix,
                                      char *output,
@@ -458,7 +544,14 @@ static void list_dir_recursive_fatfs(const char *dir_path,
 #endif
 }
 
-/* @brief TODO: 描述axk_tool_read_file_execute的功能 @param input_json TODO: 描述input_json @param output TODO: 描述output @param output_size TODO: 描述output_size @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_tool_read_file_execute的功能
+ *
+ * @param input_json TODO: 描述input_json
+ * @param output TODO: 描述output
+ * @param output_size TODO: 描述output_size
+ * @return 0成功, -1失败
+ */
 int axk_tool_read_file_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root;
@@ -562,7 +655,14 @@ int axk_tool_read_file_execute(const char *input_json, char *output, size_t outp
     return -1;
 }
 
-/* @brief TODO: 描述axk_tool_write_file_execute的功能 @param input_json TODO: 描述input_json @param output TODO: 描述output @param output_size TODO: 描述output_size @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_tool_write_file_execute的功能
+ *
+ * @param input_json TODO: 描述input_json
+ * @param output TODO: 描述output
+ * @param output_size TODO: 描述output_size
+ * @return 0成功, -1失败
+ */
 int axk_tool_write_file_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root;
@@ -686,7 +786,14 @@ int axk_tool_write_file_execute(const char *input_json, char *output, size_t out
     return -1;
 }
 
-/* @brief TODO: 描述axk_tool_edit_file_execute的功能 @param input_json TODO: 描述input_json @param output TODO: 描述output @param output_size TODO: 描述output_size @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_tool_edit_file_execute的功能
+ *
+ * @param input_json TODO: 描述input_json
+ * @param output TODO: 描述output
+ * @param output_size TODO: 描述output_size
+ * @return 0成功, -1失败
+ */
 int axk_tool_edit_file_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root;
@@ -956,7 +1063,14 @@ int axk_tool_edit_file_execute(const char *input_json, char *output, size_t outp
     return -1;
 }
 
-/* @brief TODO: 描述axk_tool_list_dir_execute的功能 @param input_json TODO: 描述input_json @param output TODO: 描述output @param output_size TODO: 描述output_size @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_tool_list_dir_execute的功能
+ *
+ * @param input_json TODO: 描述input_json
+ * @param output TODO: 描述output
+ * @param output_size TODO: 描述output_size
+ * @return 0成功, -1失败
+ */
 int axk_tool_list_dir_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root = NULL;

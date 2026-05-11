@@ -98,14 +98,25 @@ static int axk_gpio_parse_input(const char *input_json, int *pin, int *value, in
     return 0;
 }
 
-/* @brief 初始化GPIO控制工具 @return 0成功, -1失败 */
+/**
+ * @brief 初始化GPIO控制工具
+ *
+ * @return 0成功, -1失败
+ */
 int axk_tool_gpio_init(void)
 {
     AXK_LOG_INFO("info", "GPIO\u5de5\u5177\u521d\u59cb\u5316\u5b8c\u6210\uff0c\u652f\u6301 %d \u4e2aGPIO\u5f15\u811a", (int)AXK_VALID_GPIO_COUNT);
     return 0;
 }
 
-/* @brief 执行GPIO写操作 @param[in] input_json 输入JSON（含pin和value字段） @param[out] output 输出缓冲区 @param[in] output_size 输出缓冲区大小 @return 0成功, -1失败 */
+/**
+ * @brief 执行GPIO写操作
+ *
+ * @param[in] input_json 输入JSON（含pin和value字段）
+ * @param[out] output 输出缓冲区
+ * @param[in] output_size 输出缓冲区大小
+ * @return 0成功, -1失败
+ */
 int axk_tool_gpio_write_execute(const char *input_json, char *output, size_t output_size)
 {
     int pin;
@@ -132,7 +143,14 @@ int axk_tool_gpio_write_execute(const char *input_json, char *output, size_t out
     return 0;
 }
 
-/* @brief 执行GPIO读操作 @param[in] input_json 输入JSON（含pin字段） @param[out] output 输出缓冲区 @param[in] output_size 输出缓冲区大小 @return 0成功, -1失败 */
+/**
+ * @brief 执行GPIO读操作
+ *
+ * @param[in] input_json 输入JSON（含pin字段）
+ * @param[out] output 输出缓冲区
+ * @param[in] output_size 输出缓冲区大小
+ * @return 0成功, -1失败
+ */
 int axk_tool_gpio_read_execute(const char *input_json, char *output, size_t output_size)
 {
     int pin;
@@ -158,7 +176,14 @@ int axk_tool_gpio_read_execute(const char *input_json, char *output, size_t outp
     return 0;
 }
 
-/* @brief 读取所有GPIO引脚状态 @param[in] input_json 输入JSON（预留） @param[out] output 输出缓冲区 @param[in] output_size 输出缓冲区大小 @return 0成功, -1失败 */
+/**
+ * @brief 读取所有GPIO引脚状态
+ *
+ * @param[in] input_json 输入JSON（预留）
+ * @param[out] output 输出缓冲区
+ * @param[in] output_size 输出缓冲区大小
+ * @return 0成功, -1失败
+ */
 int axk_tool_gpio_read_all_execute(const char *input_json, char *output, size_t output_size)
 {
     size_t i;

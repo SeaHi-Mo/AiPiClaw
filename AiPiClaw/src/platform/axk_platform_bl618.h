@@ -215,19 +215,47 @@ extern "C" {
 #endif
 
 #ifdef CONFIG_BL616_WIFI
-    /* @brief TODO: 描述axk_bl618_wifi_init_impl的功能 @param mode TODO: 描述mode @return 0成功, -1失败 */
+    /**
+ * @brief TODO: 描述axk_bl618_wifi_init_impl的功能
+ *
+ * @param mode TODO: 描述mode
+ * @return 0成功, -1失败
+ */
     int axk_bl618_wifi_init_impl(int mode);
-    /* @brief TODO: 描述axk_bl618_wifi_connect_impl的功能 @param ssid TODO: 描述ssid @param password TODO: 描述password @return 0成功, -1失败 */
+    /**
+ * @brief TODO: 描述axk_bl618_wifi_connect_impl的功能
+ *
+ * @param ssid TODO: 描述ssid
+ * @param password TODO: 描述password
+ * @return 0成功, -1失败
+ */
     int axk_bl618_wifi_connect_impl(const char* ssid, const char* password);
-    /* @brief TODO: 描述axk_bl618_wifi_disconnect_impl的功能 @return 0成功, -1失败 */
+    /**
+ * @brief TODO: 描述axk_bl618_wifi_disconnect_impl的功能
+ *
+ * @return 0成功, -1失败
+ */
     int axk_bl618_wifi_disconnect_impl(void);
-    /* @brief TODO: 描述axk_bl618_wifi_is_connected_impl的功能 @return 0成功, -1失败 */
+    /**
+ * @brief TODO: 描述axk_bl618_wifi_is_connected_impl的功能
+ *
+ * @return 0成功, -1失败
+ */
     int axk_bl618_wifi_is_connected_impl(void);
 #endif
 
-    /* @brief TODO: 描述axk_bl618_ota_start_impl的功能 @param url TODO: 描述url @return 0成功, -1失败 */
+    /**
+ * @brief TODO: 描述axk_bl618_ota_start_impl的功能
+ *
+ * @param url TODO: 描述url
+ * @return 0成功, -1失败
+ */
     int axk_bl618_ota_start_impl(const char* url);
-    /* @brief TODO: 描述axk_bl618_ota_get_progress_impl的功能 @return 0成功, -1失败 */
+    /**
+ * @brief TODO: 描述axk_bl618_ota_get_progress_impl的功能
+ *
+ * @return 0成功, -1失败
+ */
     int axk_bl618_ota_get_progress_impl(void);
 
 #ifdef __cplusplus

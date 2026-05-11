@@ -68,7 +68,13 @@ SHELL_CMD_EXPORT_ALIAS(cmd_mimi, mimi, mimi <msg> - send message to AI Agent);
 
 /* ── Shell cmd: status ──────────────────────────── */
 
-/* @brief TODO: 描述cmd_status的功能 @param argc TODO: 描述argc @param argv TODO: 描述argv @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述cmd_status的功能
+ *
+ * @param argc TODO: 描述argc
+ * @param argv TODO: 描述argv
+ * @return 0成功, -1失败
+ */
 static int cmd_status(int argc, char **argv)
 {
     (void)argc; (void)argv;
@@ -91,7 +97,13 @@ SHELL_CMD_EXPORT_ALIAS(cmd_status, status, status - show system status);
 
 /* ── Shell cmd: sys ─────────────────────────────── */
 
-/* @brief TODO: 描述cmd_sys的功能 @param argc TODO: 描述argc @param argv TODO: 描述argv @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述cmd_sys的功能
+ *
+ * @param argc TODO: 描述argc
+ * @param argv TODO: 描述argv
+ * @return 0成功, -1失败
+ */
 static int cmd_sys(int argc, char **argv)
 {
     if (argc < 2) {
@@ -117,7 +129,13 @@ SHELL_CMD_EXPORT_ALIAS(cmd_sys, sys, sys <reset|info|heap> - system control);
 
 /* ── Shell cmd: gpio ────────────────────────────── */
 
-/* @brief TODO: 描述cmd_gpio的功能 @param argc TODO: 描述argc @param argv TODO: 描述argv @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述cmd_gpio的功能
+ *
+ * @param argc TODO: 描述argc
+ * @param argv TODO: 描述argv
+ * @return 0成功, -1失败
+ */
 static int cmd_gpio(int argc, char **argv)
 {
     int pin, ret;
@@ -155,7 +173,13 @@ SHELL_CMD_EXPORT_ALIAS(cmd_gpio, gpio, gpio <pin> <get|set 0|1> - GPIO control);
 
 /* ── Shell cmd: list ────────────────────────────── */
 
-/* @brief TODO: 描述cmd_list的功能 @param argc TODO: 描述argc @param argv TODO: 描述argv @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述cmd_list的功能
+ *
+ * @param argc TODO: 描述argc
+ * @param argv TODO: 描述argv
+ * @return 0成功, -1失败
+ */
 static int cmd_list(int argc, char **argv)
 {
     (void)argc; (void)argv;
@@ -174,7 +198,11 @@ SHELL_CMD_EXPORT_ALIAS(cmd_list, list, list - list all commands);
 
 /* ── public  API ────────────────────────────────────── */
 
-/* @brief TODO: 描述axk_serial_cli_init的功能 @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_serial_cli_init的功能
+ *
+ * @return 0成功, -1失败
+ */
 int axk_serial_cli_init(void)
 {
     s_cli_mutex = xSemaphoreCreateMutex();
@@ -188,7 +216,11 @@ int axk_serial_cli_init(void)
     return 0;
 }
 
-/* @brief TODO: 描述axk_serial_cli_poll的功能 @return 无返回值 */
+/**
+ * @brief TODO: 描述axk_serial_cli_poll的功能
+ *
+ * @return 无返回值
+ */
 void axk_serial_cli_poll(void)
 {
     /* Shell task (created by shell_init_with_task in main.c) handles UART RX

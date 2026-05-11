@@ -21,7 +21,14 @@
 
 static const char *TAG = "tool_cron";
 
-/* @brief TODO: 描述axk_tool_cron_add_execute的功能 @param input_json TODO: 描述input_json @param output TODO: 描述output @param output_size TODO: 描述output_size @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_tool_cron_add_execute的功能
+ *
+ * @param input_json TODO: 描述input_json
+ * @param output TODO: 描述output
+ * @param output_size TODO: 描述output_size
+ * @return 0成功, -1失败
+ */
 int axk_tool_cron_add_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root;
@@ -127,7 +134,14 @@ int axk_tool_cron_add_execute(const char *input_json, char *output, size_t outpu
     return 0;
 }
 
-/* @brief TODO: 描述axk_tool_cron_list_execute的功能 @param input_json TODO: 描述input_json @param output TODO: 描述output @param output_size TODO: 描述output_size @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_tool_cron_list_execute的功能
+ *
+ * @param input_json TODO: 描述input_json
+ * @param output TODO: 描述output
+ * @param output_size TODO: 描述output_size
+ * @return 0成功, -1失败
+ */
 int axk_tool_cron_list_execute(const char *input_json, char *output, size_t output_size)
 {
     const cron_job_t *jobs;
@@ -198,7 +212,14 @@ int axk_tool_cron_list_execute(const char *input_json, char *output, size_t outp
     return 0;
 }
 
-/* @brief TODO: 描述axk_tool_cron_remove_execute的功能 @param input_json TODO: 描述input_json @param output TODO: 描述output @param output_size TODO: 描述output_size @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_tool_cron_remove_execute的功能
+ *
+ * @param input_json TODO: 描述input_json
+ * @param output TODO: 描述output
+ * @param output_size TODO: 描述output_size
+ * @return 0成功, -1失败
+ */
 int axk_tool_cron_remove_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *root;

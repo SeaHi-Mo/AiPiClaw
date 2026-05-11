@@ -14,7 +14,11 @@
     #include "wifi_mgmr_ext.h"  /**< fhost WiFi6 头file */
     
     /* fhost WiFi6  wifi_mgmr_init 声明not 一致，显式forward decl */
-    /* @brief TODO: 描述wifi_mgmr_init的功能 @return 0成功, -1失败 */
+    /**
+ * @brief TODO: 描述wifi_mgmr_init的功能
+ *
+ * @return 0成功, -1失败
+ */
     int wifi_mgmr_init(void);
 
     static axk_wifi_state_t axk_wifi_state = AXK_WIFI_STATE_IDLE;

@@ -17,13 +17,30 @@
 extern "C" {
 #endif
 
-/* @brief TODO: 描述axk_ota_manager_init的功能 @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_ota_manager_init的功能
+ *
+ * @return 0成功, -1失败
+ */
 int axk_ota_manager_init(void);
-/* @brief TODO: 描述axk_ota_is_in_progress的功能 @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_ota_is_in_progress的功能
+ *
+ * @return 0成功, -1失败
+ */
 bool axk_ota_is_in_progress(void);
-/* @brief TODO: 描述axk_ota_start的功能 @param url TODO: 描述url @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_ota_start的功能
+ *
+ * @param url TODO: 描述url
+ * @return 0成功, -1失败
+ */
 int axk_ota_start(const char *url);
-/* @brief TODO: 描述axk_ota_rollback的功能 @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_ota_rollback的功能
+ *
+ * @return 0成功, -1失败
+ */
 int axk_ota_rollback(void);
 
 

@@ -17,11 +17,28 @@
 extern "C" {
 #endif
 
-/* @brief TODO: 描述axk_session_mgr_init的功能 @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_session_mgr_init的功能
+ *
+ * @return 0成功, -1失败
+ */
 int axk_session_mgr_init(void);
-/* @brief TODO: 描述axk_session_update_context的功能 @param session_id TODO: 描述session_id @param context TODO: 描述context @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_session_update_context的功能
+ *
+ * @param session_id TODO: 描述session_id
+ * @param context TODO: 描述context
+ * @return 0成功, -1失败
+ */
 int axk_session_update_context(const char *session_id, const char *context);
-/* @brief TODO: 描述axk_session_get_context的功能 @param session_id TODO: 描述session_id @param buf TODO: 描述buf @param buf_size TODO: 描述buf_size @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_session_get_context的功能
+ *
+ * @param session_id TODO: 描述session_id
+ * @param buf TODO: 描述buf
+ * @param buf_size TODO: 描述buf_size
+ * @return 0成功, -1失败
+ */
 int axk_session_get_context(const char *session_id, char *buf, size_t buf_size);
 
 

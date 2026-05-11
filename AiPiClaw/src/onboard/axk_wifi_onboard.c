@@ -104,7 +104,11 @@ int axk_wifi_auto_connect(void)
     return axk_wifi_connect(ssid, pwd[0] ? pwd : NULL);
 }
 
-/* @brief TODO: 描述axk_wifi_onboard_init的功能 @return 0成功, -1失败 */
+/**
+ * @brief TODO: 描述axk_wifi_onboard_init的功能
+ *
+ * @return 0成功, -1失败
+ */
 int axk_wifi_onboard_init(void)
 {
     s_onboard_active = false;
@@ -152,7 +156,11 @@ int axk_wifi_onboard_start(void)
     return 0;
 }
 
-/* @brief TODO: 描述axk_wifi_onboard_stop的功能 @return 无返回值 */
+/**
+ * @brief TODO: 描述axk_wifi_onboard_stop的功能
+ *
+ * @return 无返回值
+ */
 void axk_wifi_onboard_stop(void)
 {
     if (!s_onboard_active) {
@@ -162,7 +170,11 @@ void axk_wifi_onboard_stop(void)
     AXK_LOG_INFO("[axk_wifi_onboard] provision mode stop \r\n");
 }
 
-/* @brief TODO: 描述axk_wifi_onboard_poll的功能 @return 无返回值 */
+/**
+ * @brief TODO: 描述axk_wifi_onboard_poll的功能
+ *
+ * @return 无返回值
+ */
 void axk_wifi_onboard_poll(void)
 {
     /* provision status poll ，current 无需process */
