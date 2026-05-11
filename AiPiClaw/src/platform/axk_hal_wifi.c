@@ -104,14 +104,6 @@ int axk_hal_wifi_disconnect(void)
 }
 
 /**
- * @brief 扫描周围WiFi热点（阻塞式）
- *
- * @param[out] ap_list AP信息列表输出缓冲区
- * @param[in] max_count 最大AP数量
- * @param[out] out_count 实际扫描到的AP数量
- * @return 0 成功，-1 参数无效
- */
-int axk_hal_wifi_scan(axk_wifi_ap_info_t* ap_list, uint32_t max_count, uint32_t* out_count)
  * @brief 执行WiFi站点扫描
  * @param[out] ap_list AP信息数组
  * @param[in] max_count 数组最大容量
