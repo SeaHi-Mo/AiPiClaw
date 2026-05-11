@@ -30,7 +30,14 @@ typedef struct {
     bool oom /*< TODO: 描述oom */;
 } http_proxy_resp_t;
 
-/** @brief 追加响应数据到HTTP代理响应缓冲区 @param[in] rb 响应缓冲区指针 @param[in] data 要追加的数据 @param[in] len 数据长度 @return 0成功，-1内存不足 */
+/**
+ * @brief 追加响应数据到HTTP代理响应缓冲区
+ *
+ * @param[in] rb 响应缓冲区指针
+ * @param[in] data 要追加的数据
+ * @param[in] len 数据长度
+ * @return 0成功，-1内存不足
+ */
 static int http_proxy_resp_append(http_proxy_resp_t *rb, const uint8_t *data, size_t len)
 {
     if (!rb || !data || len == 0) {
@@ -52,7 +59,13 @@ static int http_proxy_resp_append(http_proxy_resp_t *rb, const uint8_t *data, si
     return 0;
 }
 
-/** @brief HTTP响应回调，逐片接收响应体并追加到缓冲区 @param[in] rsp HTTP响应结构 @param[in] final_data 是否最后一片数据 @param[in] user_data 用户数据指针（http_proxy_resp_t） */
+/**
+ * @brief HTTP响应回调，逐片接收响应体并追加到缓冲区
+ *
+ * @param[in] rsp HTTP响应结构
+ * @param[in] final_data 是否最后一片数据
+ * @param[in] user_data 用户数据指针（http_proxy_resp_t）
+ */
 static void http_proxy_response_cb(struct http_response *rsp, enum http_final_call final_data, void *user_data)
 {
     http_proxy_resp_t *rb = (http_proxy_resp_t *)user_data;
@@ -70,6 +83,7 @@ static void http_proxy_response_cb(struct http_response *rsp, enum http_final_ca
 
 /**
  * @brief 发起 HTTP/HTTPS request
+ *
  * @param[in] url request URL（http://  or  https://）
  * @param[in] method "GET"  or  "POST"
  * @param[in] payload POST request体（JSON  or other ）
@@ -130,7 +144,11 @@ int axk_http_request(const char *url, const char *method,
     return -1;
 }
 
-/** @brief 初始化HTTP代理模块 @return 0成功 */
+/**
+ * @brief 初始化HTTP代理模块
+ *
+ * @return 0成功
+ */
 int axk_http_proxy_init(void)
 {
     AXK_LOG_INFO("[axk_http_proxy] HTTP proxymoduleinitok\r\n");

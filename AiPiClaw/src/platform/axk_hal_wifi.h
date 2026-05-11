@@ -42,12 +42,14 @@ typedef void (*axk_wifi_event_cb_t)(axk_wifi_state_t state, void* arg);  /**< Wi
 
 /**
  * @brief 初始化WiFi HAL层
+ *
  * @param[in] mode WiFi工作模式
  * @return 0成功，负数错误码
  */
 int axk_hal_wifi_init(axk_wifi_mode_t mode);
 /**
  * @brief 连接到WiFi热点
+ *
  * @param[in] ssid WiFi名称
  * @param[in] password WiFi密码
  * @return 0成功，负数错误码
@@ -55,11 +57,13 @@ int axk_hal_wifi_init(axk_wifi_mode_t mode);
 int axk_hal_wifi_connect(const char* ssid, const char* password);
 /**
  * @brief 断开WiFi连接
+ *
  * @return 0成功
  */
 int axk_hal_wifi_disconnect(void);
 /**
  * @brief 扫描WiFi热点
+ *
  * @param[out] ap_list AP信息数组
  * @param[in] max_count 最大AP数
  * @param[out] out_count 实际扫描到的AP数
@@ -68,11 +72,13 @@ int axk_hal_wifi_disconnect(void);
 int axk_hal_wifi_scan(axk_wifi_ap_info_t* ap_list, uint32_t max_count, uint32_t* out_count);
 /**
  * @brief 获取WiFi连接状态
+ *
  * @return 当前WiFi状态枚举值
  */
 axk_wifi_state_t axk_hal_wifi_get_state(void);
 /**
  * @brief 注册WiFi事件回调
+ *
  * @param[in] cb 回调函数
  * @param[in] arg 用户参数
  * @return 0成功
@@ -80,6 +86,7 @@ axk_wifi_state_t axk_hal_wifi_get_state(void);
 int axk_hal_wifi_register_event_cb(axk_wifi_event_cb_t cb, void* arg);
 /**
  * @brief 获取WiFi连接后的IP地址
+ *
  * @return IP地址字符串
  */
 const char* axk_hal_wifi_get_ip(void);

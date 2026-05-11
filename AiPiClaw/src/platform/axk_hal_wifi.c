@@ -32,6 +32,7 @@
 
 /**
  * @brief 初始化WiFi硬件抽象层
+ *
  * @param[in] mode WiFi工作模式（STA/AP/APSTA）
  * @return 0 成功，负数 失败
  */
@@ -53,6 +54,7 @@ int axk_hal_wifi_init(axk_wifi_mode_t mode)
 
 /**
  * @brief 连接到指定WiFi热点
+ *
  * @param[in] ssid WiFi热点名称
  * @param[in] password WiFi密码（可选，NULL表示开放网络）
  * @return 0 成功，-1 ssid为空
@@ -84,10 +86,12 @@ int axk_hal_wifi_connect(const char* ssid, const char* password)
 
 /**
  * @brief 断开当前WiFi连接
+ *
  * @return 0 成功
  */
 /**
  * @brief 断开当前WiFi连接
+ *
  * @return 0 成功
  */
 int axk_hal_wifi_disconnect(void)
@@ -101,6 +105,7 @@ int axk_hal_wifi_disconnect(void)
 
 /**
  * @brief 扫描周围WiFi热点（阻塞式）
+ *
  * @param[out] ap_list AP信息列表输出缓冲区
  * @param[in] max_count 最大AP数量
  * @param[out] out_count 实际扫描到的AP数量
@@ -142,6 +147,7 @@ int axk_hal_wifi_scan(axk_wifi_ap_info_t* ap_list, uint32_t max_count, uint32_t*
 
 /**
  * @brief 获取当前WiFi连接状态
+ *
  * @return WiFi状态枚举值
  */
 axk_wifi_state_t axk_hal_wifi_get_state(void)
@@ -151,6 +157,7 @@ axk_wifi_state_t axk_hal_wifi_get_state(void)
 
 /**
  * @brief 注册WiFi事件回调函数
+ *
  * @param[in] cb 回调函数指针
  * @param[in] arg 回调用户参数
  * @return 0 成功
@@ -164,6 +171,7 @@ int axk_hal_wifi_register_event_cb(axk_wifi_event_cb_t cb, void* arg)
 
 /**
  * @brief 获取WiFi分配的IP地址
+ *
  * @return IP地址字符串指针，格式如 "192.168.1.100"
  */
 const char* axk_hal_wifi_get_ip(void)
@@ -188,6 +196,7 @@ static int s_scan_count = 0;
 
 /**
  * @brief 启动WiFi AP扫描（异步，结果通过事件回调获取）
+ *
  * @return 0 成功，-1 失败
  */
 int axk_hal_wifi_scan_start(void)
@@ -235,6 +244,7 @@ int axk_hal_wifi_scan_start(void)
 
 /**
  * @brief 获取扫描到的AP数量
+ *
  * @return AP数量
  */
 int axk_hal_wifi_scan_get_count(void)
@@ -244,6 +254,7 @@ int axk_hal_wifi_scan_get_count(void)
 
 /**
  * @brief 获取指定索引的扫描结果
+ *
  * @param[in] index 索引（0 ~ count-1）
  * @param[out] info AP信息输出
  * @return 0 成功，-1 索引无效或参数为空

@@ -42,12 +42,14 @@ typedef struct {
 
 /**
  * @brief initcrontaskservice，from SPIFFSloadtask
+ *
  * @return OKreturn 0
  */
 int axk_cron_service_init(void);
 
 /**
  * @brief startcrontask计时器，建议in WiFiconnect and sync time 后call 
+ *
  * @return OKreturn 0
  */
 int axk_cron_service_start(void);
@@ -59,6 +61,7 @@ void axk_cron_service_stop(void);
 
 /**
  * @brief 添加新crontask
+ *
  * @param[in] job task结构体ptr （idwill auto 生成）
  * @return OKreturn 0，task数达上限return 非零
  */
@@ -66,6 +69,7 @@ int axk_cron_add_job(cron_job_t *job);
 
 /**
  * @brief per IDdelete crontask
+ *
  * @param[in] job_id 8chars taskID
  * @return OKreturn 0，not 找 to return 非零
  */
@@ -73,6 +77,7 @@ int axk_cron_remove_job(const char *job_id);
 
 /**
  * @brief 列出allcrontask
+ *
  * @param[out] jobs output task数组
  * @param[out] count taskcount 
  */
@@ -80,6 +85,7 @@ void axk_cron_list_jobs(const cron_job_t **jobs, int *count);
 
 /**
  * @brief 对crontask目标channel 进行消毒，ensure 有效 chat_id
+ *
  * @param[in,out] job task结构体ptr 
  */
 void axk_cron_sanitize_destination(cron_job_t *job);

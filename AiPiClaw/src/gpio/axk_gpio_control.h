@@ -37,12 +37,14 @@ typedef enum {
 
 /**
  * @brief initGPIO ctrlmodule（IO8key config）
+ *
  * @return OKreturn 0
  */
 int axk_gpio_control_init(void);
 
 /**
  * @brief key poll （需in main loop周期call ）
+ *
  * @note per 10mscall 一次，internalstatus 机detect 长按
  */
 void axk_gpio_control_poll(void);

@@ -127,6 +127,7 @@ static bool ensure_ds3231_ready(void)
 
 /**
  * @brief check  DS3231 external RTCis否可用
+ *
  * @return 可用return true
  */
 __attribute__((weak)) bool axk_mimiclaw_ext_rtc_is_available(void)
@@ -136,6 +137,7 @@ __attribute__((weak)) bool axk_mimiclaw_ext_rtc_is_available(void)
 
 /**
  * @brief from  DS3231 readUTCtime 
+ *
  * @param[out] tm time 结构体ptr 
  * @return OKreturn true
  */
@@ -199,6 +201,7 @@ __attribute__((weak)) bool axk_mimiclaw_ext_rtc_read_utc(struct bflb_tm *tm)
 
 /**
  * @brief  to  DS3231 writeUTCtime 
+ *
  * @param[in] tm time 结构体ptr 
  * @return OKreturn true
  */

@@ -27,6 +27,7 @@ static SemaphoreHandle_t s_ota_mutex = NULL;
 
 /**
  * @brief FOTA\u72b6\u6001\u56de\u8c03\u51fd\u6570
+ *
  * @param[in] arg \u7528\u6237\u53c2\u6570
  * @param[in] event FOTA\u72b6\u6001\u4e8b\u4ef6
  */
@@ -78,6 +79,7 @@ int axk_ota_manager_init(void)
 
 /**
  * @brief \u68c0\u67e5OTA\u662f\u5426\u6b63\u5728\u8fdb\u884c
+ *
  * @return true\u8868\u793aOTA\u4e2d
  */
 bool axk_ota_is_in_progress(void)
@@ -94,6 +96,7 @@ bool axk_ota_is_in_progress(void)
 
 /**
  * @brief \u542f\u52a8OTA\u4e0b\u8f7d\u4efb\u52a1
+ *
  * @param[in] url \u56fa\u4ef6\u4e0b\u8f7dURL
  * @return \u6210\u529f\u8fd4\u56de0\uff0c\u5931\u8d25\u8fd4\u56de\u975e\u96f6
  */
@@ -144,6 +147,7 @@ int axk_ota_start(const char *url)
 
 /**
  * @brief \u56de\u6eda\u5230\u5907\u4efd\u56fa\u4ef6
+ *
  * @return \u6210\u529f\u8fd4\u56de0\uff0c\u5931\u8d25\u8fd4\u56de\u975e\u96f6
  */
 int axk_ota_rollback(void)

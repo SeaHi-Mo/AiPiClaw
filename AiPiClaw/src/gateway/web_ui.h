@@ -1,6 +1,7 @@
 /**
  * @file web_ui.h
  * @brief Web UI HTML page - AiPiClaw AI Agent Web Chat Interface
+ *
  * @note  Auto-generated from web_ui.html. Contains HTML+CSS+JS with Chinese annotations.
  */
 
@@ -285,7 +286,8 @@ static const char WEB_UI_HTML[] =
     "</div>\n"
     "\n"
     "<script>\n"
-    "/**\n"
+    "/**
+ * \n"
     " * ==================================================\n"
     " * AiPiClaw Web Chat — JavaScript 逻辑\n"
     " * ==================================================\n"
@@ -311,7 +313,8 @@ static const char WEB_UI_HTML[] =
     " * 聊天记录: localStorage key=\"mimi_chat_msgs\", 上限 200 条\n"
     " * LLM 配置:  localStorage key=\"mimi_web_config\", 存储 provider/model/apikey\n"
     " * ==================================================\n"
-    " */\n"
+    "
+ */\n"
     "(function(){\n"
     "'use strict';\n"
     "\n"
@@ -323,11 +326,17 @@ static const char WEB_UI_HTML[] =
     "let msgCount=0,hasSent=false,typingEl=null,typewriterActive=false;\n"
     "let atBottom=true;\n"
     "\n"
-    "/**\n"
-    " * @用途 更新输入框左下方的模型名称提示\n"
-    " * @说明 从 cfgModel 读取, 写入 #model-hint 元素\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 更新输入框左下方的模型名称提示\n"
+    " *
+ *
+ * @说明 从 cfgModel 读取, 写入 #model-hint 元素\n"
     " *        无模型配置时留空不显示\n"
-    " */\n"
+    "
+ */\n"
     "function updateModelHint(){\n"
     "  const el=$('model-hint');\n"
     "  if(el)el.textContent=cfgModel||'';\n"
@@ -341,26 +350,44 @@ static const char WEB_UI_HTML[] =
     "const chatArea=$('chat-area'),scrollBtn=$('scroll-btn');\n"
     "\n"
     "// ========================== 滚动控制 ==========================\n"
-    "/**\n"
-    " * @用途 滚动到聊天区最底部\n"
-    " * @说明 同时检查当前是否在底部, 用于控制悬浮按钮显示\n"
-    " */\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 滚动到聊天区最底部\n"
+    " *
+ *
+ * @说明 同时检查当前是否在底部, 用于控制悬浮按钮显示\n"
+    "
+ */\n"
     "function scrollBottom(){\n"
     "  chatArea.scrollTop=chatArea.scrollHeight;checkScroll();\n"
     "}\n"
     "\n"
-    "/**\n"
-    " * @用途 判断用户是否在聊天区底部 (误差 60px)\n"
-    " * @返回 boolean\n"
-    " */\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 判断用户是否在聊天区底部 (误差 60px)\n"
+    " *
+ *
+ * @返回 boolean\n"
+    "
+ */\n"
     "function isAtBottom(){\n"
     "  return chatArea.scrollHeight-chatArea.scrollTop-chatArea.clientHeight<60;\n"
     "}\n"
     "\n"
-    "/**\n"
-    " * @用途 监听滚动事件, 非底部时显示悬浮按钮\n"
-    " * @说明 绑定到 chat-area 的 scroll 事件\n"
-    " */\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 监听滚动事件, 非底部时显示悬浮按钮\n"
+    " *
+ *
+ * @说明 绑定到 chat-area 的 scroll 事件\n"
+    "
+ */\n"
     "function checkScroll(){\n"
     "  atBottom=isAtBottom();\n"
     "  scrollBtn.classList.toggle('show',!atBottom&&msgCount>0);\n"
@@ -372,21 +399,34 @@ static const char WEB_UI_HTML[] =
     "function timeStr(){const d=new Date();return pad(d.getHours())+':'+pad(d.getMinutes());}\n"
     "\n"
     "// ========================== 连接管理 ==========================\n"
-    "/**\n"
-    " * @用途 更新连接状态指示灯\n"
-    " * @参数 state {string} 'green' | 'yellow' | 'red'\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 更新连接状态指示灯\n"
+    " *
+ *
+ * @参数 state {string} 'green' | 'yellow' | 'red'\n"
     " *        分别对应: 已连接 / 连接中 / 已断开\n"
-    " * @说明 同时更新圆点颜色和文字标签\n"
-    " */\n"
+    " *
+ *
+ * @说明 同时更新圆点颜色和文字标签\n"
+    "
+ */\n"
     "function setStatus(state){\n"
     "  statusDot.className='dot '+state;\n"
     "  const label=$('status-label');\n"
     "  if(label){label.className='status-label '+state;label.textContent=state==='green'?'已连接':state==='yellow'?'连接中':'已断开';}\n"
     "}\n"
     "\n"
-    "/**\n"
-    " * @用途 建立 WebSocket 连接\n"
-    " * @说明 连接 ws://{hostname}:18789, 30s 超时\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 建立 WebSocket 连接\n"
+    " *
+ *
+ * @说明 连接 ws://{hostname}:18789, 30s 超时\n"
     " *        连接成功后: 刷新状态、发送暂存消息、启动心跳\n"
     " *        失败时: 指数退避重连\n"
     " *\n"
@@ -395,7 +435,8 @@ static const char WEB_UI_HTML[] =
     " * 2)  onmessage: 收到文本帧, 过滤 __ping__/__pong__, 其余作为 AI 回复\n"
     " * 3)  onclose: 连接断开, 清理计时器, 自动重连\n"
     " * 4)  onerror: 连接错误, 清理后重连\n"
-    " */\n"
+    "
+ */\n"
     "function connect(){\n"
     "  if(ws){ws.onclose=null;ws.close();ws=null;}\n"
     "  if(reconnTimer){clearTimeout(reconnTimer);reconnTimer=null;}\n"
@@ -473,11 +514,17 @@ static const char WEB_UI_HTML[] =
     "  };\n"
     "}\n"
     "\n"
-    "/**\n"
-    " * @用途 指数退避重连调度\n"
-    " * @说明 每次重连间隔递增: 1s → 2s → 4s → 8s → 16s → 30s(上限)\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 指数退避重连调度\n"
+    " *
+ *
+ * @说明 每次重连间隔递增: 1s → 2s → 4s → 8s → 16s → 30s(上限)\n"
     " *        无限重试, 不设次数上限\n"
-    " */\n"
+    "
+ */\n"
     "function scheduleReconnect(){\n"
     "  if(reconnTimer)return;\n"
     "  reconnCount++;\n"
@@ -489,13 +536,23 @@ static const char WEB_UI_HTML[] =
     "// ========================== 消息渲染 ==========================\n"
     "let pendingMsgs=[];\n"
     "\n"
-    "/**\n"
-    " * @用途 添加一条消息到聊天区\n"
-    " * @参数 type {string} 'user' | 'ai' | 'system'\n"
-    " * @参数 text {string} 消息正文\n"
-    " * @说明 AI 消息触发打字机效果, 其他类型立即渲染\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 添加一条消息到聊天区\n"
+    " *
+ *
+ * @参数 type {string} 'user' | 'ai' | 'system'\n"
+    " *
+ *
+ * @参数 text {string} 消息正文\n"
+    " *
+ *
+ * @说明 AI 消息触发打字机效果, 其他类型立即渲染\n"
     " *        第一条消息发送后切换空状态→聊天模式\n"
-    " */\n"
+    "
+ */\n"
     "function addMsg(type,text){\n"
     "  if(type==='ai'){startTypewriter(text);return;}\n"
     "  if(!hasSent){hasSent=true;mainEl.classList.add('chatting');}\n"
@@ -513,10 +570,16 @@ static const char WEB_UI_HTML[] =
     "  if(type!=='system')saveMsg(type,text);\n"
     "}\n"
     "\n"
-    "/**\n"
-    " * @用途 添加一条系统提示消息 (居中灰色小字)\n"
-    " * @参数 text {string} 提示文本\n"
-    " */\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 添加一条系统提示消息 (居中灰色小字)\n"
+    " *
+ *
+ * @参数 text {string} 提示文本\n"
+    "
+ */\n"
     "function addSystem(text){\n"
     "  const row=document.createElement('div');\n"
     "  row.className='msg system';\n"
@@ -529,10 +592,16 @@ static const char WEB_UI_HTML[] =
     "}\n"
     "\n"
     "// ========================== 打字动画 ==========================\n"
-    "/**\n"
-    " * @用途 显示 AI 思考中的三点弹跳动画\n"
-    " * @说明 用户发送消息后调用, 收到 AI 回复时 hideTyping() 移除\n"
-    " */\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 显示 AI 思考中的三点弹跳动画\n"
+    " *
+ *
+ * @说明 用户发送消息后调用, 收到 AI 回复时 hideTyping() 移除\n"
+    "
+ */\n"
     "function showTyping(){\n"
     "  if(typingEl)return;\n"
     "  typingEl=document.createElement('div');\n"
@@ -548,12 +617,20 @@ static const char WEB_UI_HTML[] =
     "let typewriterTimer=null,typewriterRow=null,typewriterBub=null;\n"
     "let typewriterIdx=0,typewriterRaw='';\n"
     "\n"
-    "/**\n"
-    " * @用途 逐字追加 AI 回复文本, 模拟打字效果\n"
-    " * @参数 text {string} AI 回复原文 (纯文本)\n"
-    " * @说明 先以 raw text 逐字填入, 完成后替换为 Markdown 渲染版\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 逐字追加 AI 回复文本, 模拟打字效果\n"
+    " *
+ *
+ * @参数 text {string} AI 回复原文 (纯文本)\n"
+    " *
+ *
+ * @说明 先以 raw text 逐字填入, 完成后替换为 Markdown 渲染版\n"
     " *        速度: 长文本(>200字符) 8ms/步, 短文本 16ms/步\n"
-    " */\n"
+    "
+ */\n"
     "function startTypewriter(text){\n"
     "  if(!text)return;\n"
     "  stopTypewriter();\n"
@@ -582,9 +659,13 @@ static const char WEB_UI_HTML[] =
     "  },speed);\n"
     "}\n"
     "\n"
-    "/**\n"
-    " * @用途 完成打字机效果, 替换为 Markdown 渲染内容\n"
-    " */\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 完成打字机效果, 替换为 Markdown 渲染内容\n"
+    "
+ */\n"
     "function finishTypewriter(){\n"
     "  if(!typewriterActive)return;\n"
     "  typewriterActive=false;\n"
@@ -597,9 +678,13 @@ static const char WEB_UI_HTML[] =
     "  typewriterRow=null;typewriterBub=null;typewriterRaw='';\n"
     "}\n"
     "\n"
-    "/**\n"
-    " * @用途 立即停止打字机效果 (用于清空/重连等场景)\n"
-    " */\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 立即停止打字机效果 (用于清空/重连等场景)\n"
+    "
+ */\n"
     "function stopTypewriter(){\n"
     "  if(typewriterTimer){clearInterval(typewriterTimer);typewriterTimer=null;}\n"
     "  typewriterActive=false;\n"
@@ -608,13 +693,23 @@ static const char WEB_UI_HTML[] =
     "}\n"
     "\n"
     "// ========================== Markdown 渲染 ==========================\n"
-    "/**\n"
-    " * @用途 将纯文本中的 Markdown 语法转换为 HTML\n"
-    " * @参数 t {string} 已 HTML 转义后的文本\n"
-    " * @返回 {string} 渲染后的 HTML\n"
-    " * @说明 支持: 代码块(```) / 行内代码(`) / 粗体(** __) / 斜体(* _)\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 将纯文本中的 Markdown 语法转换为 HTML\n"
+    " *
+ *
+ * @参数 t {string} 已 HTML 转义后的文本\n"
+    " *
+ *
+ * @返回 {string} 渲染后的 HTML\n"
+    " *
+ *
+ * @说明 支持: 代码块(```) / 行内代码(`) / 粗体(** __) / 斜体(* _)\n"
     " *        链接([text](url)) / 无序列表(- *) / 有序列表(1.) / 换行(\\n→<br>)\n"
-    " */\n"
+    "
+ */\n"
     "function renderMarkdown(t){\n"
     "  // 代码块: ```lang\\ncode``` → <pre><code>\n"
     "  t=t.replace(/```(\\w*)\\n?([\\s\\S]*?)```/g,function(_,l,c){return '<pre><code>'+escapeHtml(c.trim())+'</code></pre>';});\n"
@@ -632,31 +727,51 @@ static const char WEB_UI_HTML[] =
     "  return t;\n"
     "}\n"
     "\n"
-    "/**\n"
-    " * @用途 HTML 实体转义, 防止 XSS\n"
-    " * @参数 str {string} 原始文本\n"
-    " * @返回 {string} 转义后的文本\n"
-    " */\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 HTML 实体转义, 防止 XSS\n"
+    " *
+ *
+ * @参数 str {string} 原始文本\n"
+    " *
+ *
+ * @返回 {string} 转义后的文本\n"
+    "
+ */\n"
     "function escapeHtml(str){\n"
     "  const m={'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'};\n"
     "  return str.replace(/[&<>\"']/g,c=>m[c]);\n"
     "}\n"
     "\n"
     "// ========================== 快捷发送 (推荐卡片) ==========================\n"
-    "/**\n"
-    " * @用途 点击推荐卡片时自动填入并发送\n"
-    " * @参数 text {string} 要发送的文本\n"
-    " */\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 点击推荐卡片时自动填入并发送\n"
+    " *
+ *
+ * @参数 text {string} 要发送的文本\n"
+    "
+ */\n"
     "function quickSend(text){\n"
     "  msgInput.value=text;sendMessage();\n"
     "}\n"
     "\n"
     "// ========================== 消息发送 ==========================\n"
-    "/**\n"
-    " * @用途 发送消息主入口\n"
-    " * @说明 先检查 / 前缀指令, 然后显示打字动画并通过 WebSocket 发送\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 发送消息主入口\n"
+    " *
+ *
+ * @说明 先检查 / 前缀指令, 然后显示打字动画并通过 WebSocket 发送\n"
     " *        未连接时消息入 pending 队列, 连接恢复后自动补发\n"
-    " */\n"
+    "
+ */\n"
     "function sendMessage(){\n"
     "  const text=msgInput.value.trim();\n"
     "  if(!text)return;\n"
@@ -673,12 +788,23 @@ static const char WEB_UI_HTML[] =
     "  try{ws.send(text);}catch(e){pendingMsgs.push(text);addSystem('发送失败');}\n"
     "}\n"
     "\n"
-    "/**\n"
-    " * @用途 处理 / 前缀系统指令\n"
-    " * @参数 cmd {string} 指令名 (小写)\n"
-    " * @参数 arg {string} 指令参数 (可能为空)\n"
-    " * @返回 {boolean} true=已处理 / false=未匹配\n"
-    " * @支持指令:\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 处理 / 前缀系统指令\n"
+    " *
+ *
+ * @参数 cmd {string} 指令名 (小写)\n"
+    " *
+ *
+ * @参数 arg {string} 指令参数 (可能为空)\n"
+    " *
+ *
+ * @返回 {boolean} true=已处理 / false=未匹配\n"
+    " *
+ *
+ * @支持指令:\n"
     " *   /help         显示帮助信息\n"
     " *   /clear        清空对话\n"
     " *   /model <名>   设置 LLM 模型名\n"
@@ -687,7 +813,8 @@ static const char WEB_UI_HTML[] =
     " *   /wifi         查看 WiFi 状态 (转发到固件)\n"
     " *   /status       查看系统状态 (转发到固件)\n"
     " *   /ping         测试 WebSocket 连接\n"
-    " */\n"
+    "
+ */\n"
     "function execCmd(cmd,arg){\n"
     "  switch(cmd){\n"
     "    case 'help':addMsg('ai','可用指令: /key /model /provider /wifi /status /clear /ping');return true;\n"
@@ -702,11 +829,19 @@ static const char WEB_UI_HTML[] =
     "  }\n"
     "}\n"
     "\n"
-    "/**\n"
-    " * @用途 通过 WebSocket 发送原始文本 (用于系统指令)\n"
-    " * @参数 text {string} 要发送的文本\n"
-    " * @说明 未连接时入 pending 队列\n"
-    " */\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 通过 WebSocket 发送原始文本 (用于系统指令)\n"
+    " *
+ *
+ * @参数 text {string} 要发送的文本\n"
+    " *
+ *
+ * @说明 未连接时入 pending 队列\n"
+    "
+ */\n"
     "function sendRaw(text){\n"
     "  if(!connected||!ws){pendingMsgs.push(text);return;}\n"
     "  try{ws.send(text);}catch(e){pendingMsgs.push(text);}\n"
@@ -715,18 +850,30 @@ static const char WEB_UI_HTML[] =
     "// ========================== 配置持久化 (localStorage) ==========================\n"
     "const CFG_KEY='mimi_web_config';\n"
     "\n"
-    "/**\n"
-    " * @用途 保存 LLM 配置到 localStorage\n"
-    " * @说明 存储 provider / model / apikey 三个字段\n"
-    " */\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 保存 LLM 配置到 localStorage\n"
+    " *
+ *
+ * @说明 存储 provider / model / apikey 三个字段\n"
+    "
+ */\n"
     "function saveConfig(){\n"
     "  try{localStorage.setItem(CFG_KEY,JSON.stringify({provider:cfgProvider,model:cfgModel,apikey:cfgApiKey}));}catch(e){}\n"
     "}\n"
     "\n"
-    "/**\n"
-    " * @用途 从 localStorage 恢复 LLM 配置\n"
-    " * @说明 页面刷新后自动恢复上一次的模型/提供商设置\n"
-    " */\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 从 localStorage 恢复 LLM 配置\n"
+    " *
+ *
+ * @说明 页面刷新后自动恢复上一次的模型/提供商设置\n"
+    "
+ */\n"
     "function loadConfig(){\n"
     "  try{\n"
     "    const d=JSON.parse(localStorage.getItem(CFG_KEY));\n"
@@ -741,12 +888,22 @@ static const char WEB_UI_HTML[] =
     "// ========================== 消息持久化 (localStorage) ==========================\n"
     "const STORAGE_KEY='mimi_chat_msgs';\n"
     "\n"
-    "/**\n"
-    " * @用途 保存一条聊天记录到 localStorage\n"
-    " * @参数 type {string} 'user' | 'ai' | 'system'\n"
-    " * @参数 content {string} 消息内容\n"
-    " * @说明 上限 200 条, 超出时删除最旧的\n"
-    " */\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 保存一条聊天记录到 localStorage\n"
+    " *
+ *
+ * @参数 type {string} 'user' | 'ai' | 'system'\n"
+    " *
+ *
+ * @参数 content {string} 消息内容\n"
+    " *
+ *
+ * @说明 上限 200 条, 超出时删除最旧的\n"
+    "
+ */\n"
     "function saveMsg(type,content){\n"
     "  try{\n"
     "    let msgs=JSON.parse(localStorage.getItem(STORAGE_KEY))||[];\n"
@@ -756,10 +913,16 @@ static const char WEB_UI_HTML[] =
     "  }catch(e){}\n"
     "}\n"
     "\n"
-    "/**\n"
-    " * @用途 页面加载时从 localStorage 恢复聊天记录\n"
-    " * @说明 从旧到新依次重建消息 DOM, 自动滚动到底部\n"
-    " */\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 页面加载时从 localStorage 恢复聊天记录\n"
+    " *
+ *
+ * @说明 从旧到新依次重建消息 DOM, 自动滚动到底部\n"
+    "
+ */\n"
     "function loadMessages(){\n"
     "  try{\n"
     "    const msgs=JSON.parse(localStorage.getItem(STORAGE_KEY));\n"
@@ -784,10 +947,16 @@ static const char WEB_UI_HTML[] =
     "}\n"
     "\n"
     "// ========================== 新建 / 清空对话 ==========================\n"
-    "/**\n"
-    " * @用途 清空聊天记录并恢复空状态\n"
-    " * @说明 清除 localStorage、DOM、状态变量, 回到欢迎页面\n"
-    " */\n"
+    "/**
+ * \n"
+    " *
+ *
+ * @用途 清空聊天记录并恢复空状态\n"
+    " *
+ *
+ * @说明 清除 localStorage、DOM、状态变量, 回到欢迎页面\n"
+    "
+ */\n"
     "function newChat(){\n"
     "  msgArea.innerHTML='';msgCount=0;hasSent=false;\n"
     "  mainEl.classList.remove('chatting');\n"

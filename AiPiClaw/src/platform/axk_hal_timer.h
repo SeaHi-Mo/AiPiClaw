@@ -13,21 +13,28 @@
 extern "C" {
 #endif
 
-/** @brief 定时器句柄（不透明指针） */
+/**
+ * @brief 定时器句柄（不透明指针）
+ *
+ */
 typedef void* axk_timer_handle_t;
-/** @brief 定时器到期回调函数签名
- *  @param timer 定时器句柄
- *  @param arg   创建时传入的用户参数
+/**
+ * @brief 定时器到期回调函数签名
+ *
+ * @param timer 定时器句柄
+ * @param arg   创建时传入的用户参数
  */
 typedef void (*axk_timer_cb_t)(axk_timer_handle_t timer, void* arg);
 
 /**
  * @brief 初始化定时器子系统
+ *
  * @return 0成功，负数错误码
  */
 int axk_hal_timer_init(void);
 /**
  * @brief 创建一个定时器
+ *
  * @param name        定时器名称（调试用）
  * @param period_ms   周期，单位毫秒
  * @param auto_reload true=自动重载（周期性），false=单次触发
@@ -38,24 +45,28 @@ int axk_hal_timer_init(void);
 axk_timer_handle_t axk_hal_timer_create(const char* name, uint32_t period_ms, bool auto_reload, axk_timer_cb_t cb, void* arg);
 /**
  * @brief 启动定时器
+ *
  * @param timer 定时器句柄
  * @return 0成功，负数错误码
  */
 int axk_hal_timer_start(axk_timer_handle_t timer);
 /**
  * @brief 停止定时器
+ *
  * @param timer 定时器句柄
  * @return 0成功，负数错误码
  */
 int axk_hal_timer_stop(axk_timer_handle_t timer);
 /**
  * @brief 删除定时器，释放资源
+ *
  * @param timer 定时器句柄
  * @return 0成功，负数错误码
  */
 int axk_hal_timer_delete(axk_timer_handle_t timer);
 /**
  * @brief 重置定时器计时（重新从0开始计数）
+ *
  * @param timer 定时器句柄
  * @return 0成功，负数错误码
  */

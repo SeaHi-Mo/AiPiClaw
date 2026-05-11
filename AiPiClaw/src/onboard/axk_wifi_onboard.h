@@ -29,6 +29,7 @@ void axk_wifi_onboard_stop(void);
 
 /**
  * @brief save WiFicredential  to easyflash
+ *
  * @param[in] ssid SSIDchars 串
  * @param[in] password password chars 串（可为NULL or empty chars 串）
  * @return OKreturn 0

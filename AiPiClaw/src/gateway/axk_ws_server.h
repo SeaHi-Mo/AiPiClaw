@@ -18,11 +18,13 @@ extern "C" {
 
 /**
  * @brief 初始化WebSocket服务器模块
+ *
  * @return 0成功，负数错误码
  */
 int axk_ws_server_init(void);
 /**
  * @brief 启动WebSocket服务器监听
+ *
  * @param[in] port 监听端口号
  * @return 0成功，负数错误码
  */
@@ -30,6 +32,7 @@ int axk_ws_server_start(uint16_t port);
 
 /**
  * @brief  to current connect WebSocket 客户端send文本msg
+ *
  * @param[in] text 要send文本
  * @return OKreturn 0，无客户端connect or FAILreturn 非零
  */

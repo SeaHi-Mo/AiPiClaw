@@ -33,13 +33,13 @@
 typedef int (*axk_skill_exec_fn_t)(const char *args, char *out_buf, size_t out_size);
 
 typedef struct {
-    char name[AXK_SKILL_NAME_MAX];        /**< 技能name  */
-    char description[AXK_SKILL_DESC_MAX]; /**< 技能description  */
+    char name[AXK_SKILL_NAME_MAX];        /**< 技能name */
+    char description[AXK_SKILL_DESC_MAX]; /**< 技能description */
     char trigger[AXK_SKILL_TRIG_MAX];     /**< trigger 关键词 */
     axk_skill_exec_fn_t exec;             /**< 执行func （builtin 技能） */
     bool registered;                      /**< is否registered */
     bool is_external;                     /**< is否为external .md fileload技能 */
-    char filepath[AXK_SKILL_PATH_MAX];    /**< external skillsfilepath  */
+    char filepath[AXK_SKILL_PATH_MAX];    /**< external skillsfilepath */
 } axk_skill_t;
 
 static axk_skill_t s_skills[AXK_MAX_SKILLS];
@@ -47,6 +47,7 @@ static int s_skill_count = 0;
 
 /**
  * @brief register built-in skill
+ *
  * @param[in] name 技能name 
  * @param[in] description 技能description 
  * @param[in] trigger trigger 关键词
@@ -81,6 +82,7 @@ static int axk_skill_register(const char *name, const char *description,
 
 /**
  * @brief registerexternal skills（from  .md fileload）
+ *
  * @param[in] name 技能name 
  * @param[in] description 技能description 
  * @param[in] trigger trigger 关键词
@@ -118,6 +120,7 @@ static int axk_skill_register_external(const char *name, const char *description
 
 /**
  * @brief time 查询技能执行func 
+ *
  * @param[in] args param 
  * @param[out] out_buf output buffer 
  * @param[in] out_size buffer size
@@ -134,6 +137,7 @@ static int axk_skill_exec_time(const char *args, char *out_buf, size_t out_size)
 
 /**
  * @brief GPIO ctrl技能执行func 
+ *
  * @param[in] args param （eg. "set 10 1"）
  * @param[out] out_buf output buffer 
  * @param[in] out_size buffer size
@@ -150,6 +154,7 @@ static int axk_skill_exec_gpio(const char *args, char *out_buf, size_t out_size)
 
 /**
  * @brief WiFimgr技能执行func 
+ *
  * @param[in] args param （format : "SSID PASSWORD"  or  "SSID"）
  * @param[out] out_buf output buffer 
  * @param[in] out_size buffer size
@@ -214,6 +219,7 @@ static int axk_skill_exec_wifi(const char *args, char *out_buf, size_t out_size)
 
 /**
  * @brief parse 技能file前置元data（frontmatter）
+ *
  * @note support 极简format ：
  *       ---
  *       name: skill_name
@@ -353,6 +359,7 @@ static int axk_skill_parse_frontmatter(const char *content,
 
 /**
  * @brief from  .md 技能file提取 body content （frontmatter after part ）
+ *
  * @param[in] content filefull content 
  * @param[out] body output  body buffer 
  * @param[in] body_size buffer size
@@ -408,6 +415,7 @@ static int axk_skill_extract_body(const char *content, char *body, size_t body_s
 
 /**
  * @brief from filesystemload /spiffs/skills/ directory 下 .md 技能file
+ *
  * @return OKload技能count ，FAIL or 无filereturn 0
  */
 int axk_skill_load_from_fs(void)

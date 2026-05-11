@@ -13,29 +13,39 @@
 extern "C" {
 #endif
 
-/** @brief Flash扇区擦除粒度（BL618标准：4KB） */
+/**
+ * @brief Flash扇区擦除粒度（BL618标准：4KB）
+ *
+ */
 #define AXK_FLASH_SECTOR_SIZE   4096
-/** @brief Flash页写入粒度（BL618标准：256B） */
+/**
+ * @brief Flash页写入粒度（BL618标准：256B）
+ *
+ */
 #define AXK_FLASH_PAGE_SIZE     256
 
 /**
  * @brief 初始化Flash子系统
+ *
  * @return 0成功，负数错误码
  */
 int axk_hal_flash_init(void);
 /**
  * @brief 擦除指定扇区
+ *
  * @param addr 扇区地址（需4K对齐）
  * @return 0成功，负数错误码
  */
 int axk_hal_flash_erase_sector(uint32_t addr);
 /**
  * @brief 全片擦除Flash
+ *
  * @return 0成功，负数错误码
  */
 int axk_hal_flash_erase_chip(void);
 /**
  * @brief 从Flash读取数据
+ *
  * @param addr 起始地址
  * @param buf 输出缓冲区
  * @param len 读取长度
@@ -44,6 +54,7 @@ int axk_hal_flash_erase_chip(void);
 int axk_hal_flash_read(uint32_t addr, uint8_t* buf, uint32_t len);
 /**
  * @brief 向Flash写入数据
+ *
  * @param addr 起始地址
  * @param data 数据源
  * @param len 写入长度
@@ -52,6 +63,7 @@ int axk_hal_flash_read(uint32_t addr, uint8_t* buf, uint32_t len);
 int axk_hal_flash_write(uint32_t addr, const uint8_t* data, uint32_t len);
 /**
  * @brief 获取Flash总容量
+ *
  * @return Flash大小，单位字节
  */
 uint32_t axk_hal_flash_get_size(void);

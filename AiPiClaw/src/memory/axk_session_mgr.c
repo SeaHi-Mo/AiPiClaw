@@ -22,11 +22,13 @@
 #include <easyflash.h>
 
 #define AXK_MAX_SESSIONS      8     /**< 最大会话数 */
-#define AXK_SESSION_CTX_LEN   512   /**< 上下文最大length  */
-#define AXK_SESSION_ID_LEN    64    /**< 会话ID最大length  */
+#define AXK_SESSION_CTX_LEN   512   /**< 上下文最大length */
+#define AXK_SESSION_ID_LEN    64    /**< 会话ID最大length */
 #define SESSION_KV_PREFIX     "sess_"  /**< easyflash key前缀 */
 
-/** 会话条目 */
+/**
+ * 会话条目
+ */
 typedef struct {
     bool     in_use /*< TODO: 描述in_use */;
     char     id[AXK_SESSION_ID_LEN] /*< TODO: 描述id */;

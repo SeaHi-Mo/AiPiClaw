@@ -22,6 +22,7 @@ extern "C" {
 /* ===================== heartbeatmodule ===================== */
 /**
  * @brief initheartbeatmodule
+ *
  * @return OKreturn 0，FAILreturn 非零
  */
 int axk_heartbeat_init(void);
@@ -34,6 +35,7 @@ void axk_heartbeat_tick(void);
 /* ===================== memory mgrmodule ===================== */
 /**
  * @brief init内存storemodule
+ *
  * @return OKreturn 0，FAILreturn 非零
  */
 int axk_memory_store_init(void);
@@ -41,6 +43,7 @@ int axk_memory_store_init(void);
 /* ===================== session mgrmodule ===================== */
 /**
  * @brief initsession mgr器
+ *
  * @return OKreturn 0，FAILreturn 非零
  */
 int axk_session_mgr_init(void);
@@ -48,6 +51,7 @@ int axk_session_mgr_init(void);
 /* ===================== message busmodule ===================== */
 /**
  * @brief initmessage bus
+ *
  * @return OKreturn 0，FAILreturn 非零
  */
 int axk_message_bus_init(void);
@@ -60,6 +64,7 @@ void axk_message_bus_poll(void);
 /* ===================== WiFimgrmodule ===================== */
 /**
  * @brief initWiFimanager
+ *
  * @return OKreturn 0，FAILreturn 非零
  * @note need 先okWiFi硬件init
  */
@@ -73,6 +78,7 @@ void axk_wifi_manager_poll(void);
 /* ===================== serial CLImodule ===================== */
 /**
  * @brief initserial CLI界面
+ *
  * @return OKreturn 0，FAILreturn 非零
  */
 int axk_serial_cli_init(void);
@@ -85,6 +91,7 @@ void axk_serial_cli_poll(void);
 /* ===================== tool registrymodule ===================== */
 /**
  * @brief inittool registry
+ *
  * @return OKreturn 0，FAILreturn 非零
  */
 int axk_tool_registry_init(void);
@@ -92,6 +99,7 @@ int axk_tool_registry_init(void);
 /* ===================== skill loadermodule ===================== */
 /**
  * @brief initskill loader
+ *
  * @return OKreturn 0，FAILreturn 非零
  */
 int axk_skill_loader_init(void);
@@ -99,12 +107,14 @@ int axk_skill_loader_init(void);
 /* ===================== agentmain loopmodule ===================== */
 /**
  * @brief initagentmain loop
+ *
  * @return OKreturn 0，FAILreturn 非零
  */
 int axk_agent_loop_init(void);
 
 /**
  * @brief startagentmain looptask
+ *
  * @return OKreturn 0，FAILreturn 非零
  */
 int axk_agent_loop_start(void);

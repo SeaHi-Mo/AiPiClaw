@@ -1,6 +1,7 @@
 /**
  * @file axk_agent_loop.c
  * @brief agentmain loop - 安信可科技 BL618 port
+ *
  * @note 整合自官方solution/mimiclaw/port
  * @copyright Copyright (c) 2026 AI-Thinker
  */

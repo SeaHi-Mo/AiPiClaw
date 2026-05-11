@@ -14,7 +14,10 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-/** @brief BL618 RTC外设头文件 */
+/**
+ * @brief BL618 RTC外设头文件
+ *
+ */
 #include <bflb_rtc.h>
 
 #ifdef __cplusplus
@@ -23,28 +26,33 @@ extern "C" {
 
 /**
  * @brief 初始化外部RTC模块
+ *
  * @return 0成功，负数错误码
  */
 int axk_ext_rtc_init(void);
 /**
  * @brief 检查RTC是否可用
+ *
  * @return true=可用，false=未初始化或故障
  */
 bool axk_mimiclaw_ext_rtc_is_available(void);
 /**
  * @brief 读取UTC时间
+ *
  * @param tm[out] 输出的时间结构体
  * @return true=读取成功，false=失败
  */
 bool axk_mimiclaw_ext_rtc_read_utc(struct bflb_tm *tm);
 /**
  * @brief 写入UTC时间
+ *
  * @param tm[in] 要设置的时间结构体
  * @return true=写入成功，false=失败
  */
 bool axk_mimiclaw_ext_rtc_write_utc(const struct bflb_tm *tm);
 /**
  * @brief 设置RTC时间（分解为字段）
+ *
  * @param year  年（后两位，如24表示2024）
  * @param month 月（1-12）
  * @param date  日（1-31）
@@ -56,6 +64,7 @@ void axk_ext_rtc_set_time(uint8_t year, uint8_t month, uint8_t date,
                            uint8_t hour, uint8_t min, uint8_t sec);
 /**
  * @brief 读取RTC时间（分解为字段）
+ *
  * @param year[out]  年
  * @param month[out] 月
  * @param date[out]  日
@@ -67,6 +76,7 @@ void axk_ext_rtc_get_time(uint8_t *year, uint8_t *month, uint8_t *date,
                            uint8_t *hour, uint8_t *min, uint8_t *sec);
 /**
  * @brief 读取芯片温度
+ *
  * @return 温度值（摄氏度 × 10），如250表示25.0°C。
  *         负数表示错误。
  * @note BL618内部温度传感器，精度约±2°C

@@ -1,6 +1,7 @@
 /**
  * @file axk_llm_proxy.c
  * @brief LLM agent (Claude/OpenAI/DeepSeek/MiniMax) - 安信可科技 BL618 port
+ *
  * @note 整合自官方solution/mimiclaw/port
  * @copyright Copyright (c) 2026 AI-Thinker
  */
@@ -55,6 +56,7 @@ typedef struct {
 
 /**
  * @brief 安全拷贝字符串，防止缓冲区溢出
+ *
  * @param dst 目标缓冲区
  * @param dst_size 目标缓冲区大小
  * @param src 源字符串
@@ -79,6 +81,7 @@ static void safe_copy(char *dst, size_t dst_size, const char *src)
 
 /**
  * @brief 判断当前LLM提供商是否为OpenAI
+ *
  * @return true表示是OpenAI，false表示不是
  */
 static bool provider_is_openai(void)
@@ -88,6 +91,7 @@ static bool provider_is_openai(void)
 
 /**
  * @brief 判断当前LLM提供商是否为DeepSeek
+ *
  * @return true表示是DeepSeek，false表示不是
  */
 static bool provider_is_deepseek(void)
@@ -97,6 +101,7 @@ static bool provider_is_deepseek(void)
 
 /**
  * @brief 判断当前LLM提供商是否为MiniMax
+ *
  * @return true表示是MiniMax，false表示不是
  */
 static bool provider_is_minimax(void)
@@ -106,6 +111,7 @@ static bool provider_is_minimax(void)
 
 /**
  * @brief 判断当前LLM提供商是否使用OpenAI兼容的API格式
+ *
  * @return true表示使用OpenAI格式，false表示使用Anthropic格式
  */
 static bool provider_uses_openai_format(void)
@@ -115,6 +121,7 @@ static bool provider_uses_openai_format(void)
 
 /**
  * @brief 根据当前提供商返回对应的LLM API URL
+ *
  * @return API URL字符串指针
  */
 static const char *llm_api_url(void)
@@ -133,6 +140,7 @@ static const char *llm_api_url(void)
 
 /**
  * @brief 根据提供商规范化模型名称，不兼容的模型自动替换为默认值
+ *
  * @return true表示模型名称被修正过，false表示无需修正
  */
 static bool normalize_model_for_provider(void)
@@ -176,6 +184,7 @@ static bool normalize_model_for_provider(void)
 
 /**
  * @brief 向LLM响应缓冲区追加数据，容量不足时自动扩容
+ *
  * @param rb 响应缓冲区指针
  * @param data 待追加的数据
  * @param len 数据长度
@@ -206,6 +215,7 @@ static int llm_resp_buf_append(llm_resp_buf_t *rb, const uint8_t *data, size_t l
 
 /**
  * @brief LLM HTTP响应回调函数，接收分片数据并追加到缓冲区
+ *
  * @param rsp HTTP响应结构体指针
  * @param final_data 是否为最后一块数据
  * @param user_data 用户数据指针（指向llm_resp_buf_t）
@@ -233,6 +243,7 @@ static void llm_http_response_cb(struct http_response *rsp, enum http_final_call
 
 /**
  * @brief 执行LLM HTTP调用，发送POST请求并接收响应
+ *
  * @param post_data JSON格式的POST请求体
  * @param rb 响应缓冲区指针
  * @return 0成功，-1失败
@@ -298,6 +309,7 @@ static int llm_http_call(const char *post_data, llm_resp_buf_t *rb)
 
 /**
  * @brief 将Anthropic格式的tools JSON转换为OpenAI兼容格式
+ *
  * @param tools_json Anthropic格式的tools JSON字符串
  * @return OpenAI格式的tools cJSON数组，失败返回NULL
  */
@@ -351,6 +363,7 @@ static cJSON *convert_tools_openai(const char *tools_json)
 
 /**
  * @brief 将Anthropic格式的消息数组转换为OpenAI兼容格式
+ *
  * @param system_prompt 系统提示词
  * @param messages Anthropic格式的消息cJSON数组
  * @return OpenAI格式的消息cJSON数组
@@ -523,6 +536,7 @@ static cJSON *convert_messages_openai(const char *system_prompt, cJSON *messages
 
 /**
  * @brief 释放LLM响应结构体中动态分配的内存
+ *
  * @param resp 响应结构体指针
  */
 void axk_llm_response_free(llm_response_t *resp)
@@ -546,6 +560,7 @@ void axk_llm_response_free(llm_response_t *resp)
 
 /**
  * @brief 发送带工具调用的LLM聊天请求，支持OpenAI/Anthropic/DeepSeek/MiniMax
+ *
  * @param system_prompt 系统提示词
  * @param messages 消息历史cJSON数组
  * @param tools_json 工具定义JSON字符串，为NULL表示不使用工具
@@ -802,6 +817,7 @@ int axk_llm_chat_tools(const char *system_prompt,
 
 /**
  * @brief 初始化LLM代理模块，从配置/密钥中加载API Key、模型和提供商
+ *
  * @return 0成功，负数错误码
  */
 int axk_llm_proxy_init(void)
@@ -846,6 +862,7 @@ int axk_llm_proxy_init(void)
 
 /**
  * @brief 设置LLM API密钥并持久化到KV存储
+ *
  * @param api_key API密钥字符串
  * @return 0成功，-1失败
  */
@@ -868,6 +885,7 @@ int axk_llm_set_api_key(const char *api_key)
 
 /**
  * @brief 设置LLM模型名称并持久化到KV存储，自动规范化
+ *
  * @param model 模型标识字符串（如"claude-sonnet-4-20250514"）
  * @return 0成功，-1失败
  */
@@ -893,6 +911,7 @@ int axk_llm_set_model(const char *model)
 
 /**
  * @brief 设置LLM提供商并持久化到KV存储，自动规范化模型名称
+ *
  * @param provider 提供商名称（"openai"/"deepseek"/"minimax"等）
  * @return 0成功，-1失败
  */

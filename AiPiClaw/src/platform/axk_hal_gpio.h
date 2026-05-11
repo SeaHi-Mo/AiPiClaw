@@ -59,11 +59,13 @@ typedef struct {
 
 /**
  * @brief 初始化GPIO硬件抽象层
+ *
  * @return 0 成功，非零 失败
  */
 int axk_hal_gpio_init(void);
 /**
  * @brief 设置GPIO引脚方向
+ *
  * @param[in] pin GPIO引脚号
  * @param[in] mode 引脚模式（AXK_GPIO_MODE_IN / OUT / OD / AF）
  * @return 0 成功
@@ -72,6 +74,7 @@ int axk_hal_gpio_set_direction(uint32_t pin, uint32_t mode);
 
 /**
  * @brief 配置GPIO引脚（模式、上下拉、驱动能力）
+ *
  * @param[in] pin GPIO引脚号
  * @param[in] cfg 配置结构体指针
  * @return 0 成功，非零 失败
@@ -80,6 +83,7 @@ int axk_hal_gpio_config(uint32_t pin, const axk_gpio_cfg_t* cfg);
 
 /**
  * @brief 设置GPIO输出电平
+ *
  * @param[in] pin GPIO引脚号
  * @param[in] level 电平值（0=低电平，1=高电平）
  * @return 0 成功
@@ -88,6 +92,7 @@ int axk_hal_gpio_set_level(uint32_t pin, uint32_t level);
 
 /**
  * @brief 读取GPIO输入电平
+ *
  * @param[in] pin GPIO引脚号
  * @return 1 高电平，0 低电平，-1 失败
  */
@@ -95,6 +100,7 @@ int axk_hal_gpio_get_level(uint32_t pin);
 
 /**
  * @brief 翻转GPIO电平
+ *
  * @param[in] pin GPIO引脚号
  * @return 0 成功
  */
@@ -102,6 +108,7 @@ int axk_hal_gpio_toggle(uint32_t pin);
 
 /**
  * @brief GPIO中断回调函数类型定义
+ *
  * @param[in] pin 触发中断的引脚号
  * @param[in] arg 用户自定义参数
  */
@@ -115,6 +122,7 @@ typedef void (*axk_gpio_isr_cb_t)(uint32_t pin, void* arg);
 
 /**
  * @brief 设置GPIO引脚中断回调
+ *
  * @param[in] pin GPIO引脚号
  * @param[in] trigger 触发方式（POSEDGE/NEGEDGE/ANYEDGE/LOW_LEVEL/HIGH_LEVEL）
  * @param[in] cb 中断回调函数
@@ -125,6 +133,7 @@ int axk_hal_gpio_set_interrupt(uint32_t pin, uint32_t trigger, axk_gpio_isr_cb_t
 
 /**
  * @brief 使能GPIO引脚中断
+ *
  * @param[in] pin GPIO引脚号
  * @return 0 成功
  */
@@ -132,6 +141,7 @@ int axk_hal_gpio_intr_enable(uint32_t pin);
 
 /**
  * @brief 禁能GPIO引脚中断
+ *
  * @param[in] pin GPIO引脚号
  * @return 0 成功
  */
@@ -139,6 +149,7 @@ int axk_hal_gpio_intr_disable(uint32_t pin);
 
 /**
  * @brief 设置GPIO上下拉电阻
+ *
  * @param[in] pin GPIO引脚号
  * @param[in] pull 上下拉模式（AXK_GPIO_PULL_UP / DOWN / NONE）
  * @return 0 成功
@@ -147,6 +158,7 @@ int axk_hal_gpio_set_pull(uint32_t pin, uint32_t pull);
 
 /**
  * @brief 获取GPIO上下拉配置
+ *
  * @param[in] pin GPIO引脚号
  * @return 上下拉类型
  */

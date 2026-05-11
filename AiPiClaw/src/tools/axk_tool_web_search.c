@@ -1,6 +1,7 @@
 /**
  * @file axk_tool_web_search.c
  * @brief 网络搜索tool (Bocha/Brave) - 安信可科技 BL618 port
+ *
  * @note 整合自官方solution/mimiclaw/port
  * @copyright Copyright (c) 2026 AI-Thinker
  */

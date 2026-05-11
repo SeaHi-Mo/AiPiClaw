@@ -29,15 +29,21 @@
  * 静态变量
  * ============================================================ */
 
-/** GPIOdevice handle  */
+/**
+ * GPIOdevice handle
+ */
 #if AXK_PLATFORM_BL618
 static struct bflb_device_s *s_gpio_dev = NULL;
 #endif
 
-/** current key status  */
+/**
+ * current key status
+ */
 static axk_btn_state_t s_btn_state = AXK_BTN_IDLE;
 
-/** key 按下时刻(ms) */
+/**
+ * key 按下时刻(ms)
+ */
 static uint32_t s_btn_press_start_ms = 0;
 
 /* ============================================================

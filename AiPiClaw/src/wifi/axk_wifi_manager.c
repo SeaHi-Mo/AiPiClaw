@@ -38,11 +38,11 @@
  * @brief WiFimanager上下文结构
  */
 typedef struct {
-    axk_wifi_state_t state;                         /**< current WiFistatus  */
+    axk_wifi_state_t state;                         /**< current WiFistatus */
     char ssid[AXK_WIFI_SSID_MAX_LEN + 1];           /**< save SSID */
-    char password[AXK_WIFI_PASSWORD_MAX_LEN + 1];   /**< save password  */
+    char password[AXK_WIFI_PASSWORD_MAX_LEN + 1];   /**< save password */
     bool auto_reconnect;                            /**< auto reconnect enabled */
-    bool pending_reconnect;                         /**< 待执行reconnect  */
+    bool pending_reconnect;                         /**< 待执行reconnect */
     uint32_t reconnect_tick;                        /**< reconnect timer */
 
     axk_wifi_event_cb_t cbs[AXK_WIFI_MAX_CB_NUM];   /**< registercallback func 数组 */
@@ -65,6 +65,7 @@ static inline uint32_t axk_wifi_get_tick_ms(void)
 
 /**
  * @brief notify allregistercallback func status 变化
+ *
  * @param[in] state 新WiFistatus 
  */
 static void axk_wifi_notify_callbacks(axk_wifi_state_t state)
@@ -78,6 +79,7 @@ static void axk_wifi_notify_callbacks(axk_wifi_state_t state)
 
 /**
  * @brief update WiFistatus ， and trigger callback 
+ *
  * @param[in] new_state 新status 
  */
 static void axk_wifi_set_state(axk_wifi_state_t new_state)
@@ -93,6 +95,7 @@ static void axk_wifi_set_state(axk_wifi_state_t new_state)
 
 /**
  * @brief WiFi异步事件processfunc 
+ *
  * @param[in] event 事件结构体
  * @param[in] private_data private data
  * @note 该func 由async事件systemcall 

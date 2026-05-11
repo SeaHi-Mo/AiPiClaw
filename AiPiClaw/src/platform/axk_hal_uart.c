@@ -23,10 +23,13 @@
     static struct bflb_device_s* axk_uart_devs[3] = {NULL, NULL, NULL}; /**< BL618 UART设备句柄数组 */
 
     /**
-     * @brief 获取UART设备句柄（单例懒加载）
-     * @param[in] port UART端口号（0/1/2）
-     * @return UART设备指针，端口无效返回NULL
-     */
+ * @brief 获取UART设备句柄（单例懒加载）
+     *
+ *
+ * @param[in] port UART端口号（0/1/2）
+     *
+ * @return UART设备指针，端口无效返回NULL
+ */
     static struct bflb_device_s* axk_uart_get_dev(uint32_t port)
     {
         if (port > 2) return NULL;
@@ -48,6 +51,7 @@
 
 /**
  * @brief 初始化UART硬件抽象层
+ *
  * @return 0 成功
  */
 int axk_hal_uart_init(void)
@@ -61,6 +65,7 @@ int axk_hal_uart_init(void)
 
 /**
  * @brief 配置UART端口参数（波特率、流控等）
+ *
  * @param[in] port UART端口号（0/1/2）
  * @param[in] cfg UART配置结构体指针
  * @return 0 成功，-1 参数无效
@@ -109,6 +114,7 @@ int axk_hal_uart_config(uint32_t port, const axk_uart_cfg_t* cfg)
 
 /**
  * @brief UART发送单字节
+ *
  * @param[in] port UART端口号（0/1/2）
  * @param[in] ch 待发送的字节
  * @return 0 成功，-1 端口无效
@@ -129,6 +135,7 @@ int axk_hal_uart_putchar(uint32_t port, uint8_t ch)
 
 /**
  * @brief UART接收单字节（带超时）
+ *
  * @param[in] port UART端口号（0/1/2）
  * @param[out] ch 接收到的字节
  * @param[in] timeout_ms 超时时间（毫秒）
@@ -165,6 +172,7 @@ int axk_hal_uart_getchar(uint32_t port, uint8_t* ch, uint32_t timeout_ms)
 
 /**
  * @brief UART发送多字节数据
+ *
  * @param[in] port UART端口号（0/1/2）
  * @param[in] data 待发送的数据缓冲区
  * @param[in] len 数据长度
@@ -191,6 +199,7 @@ int axk_hal_uart_write(uint32_t port, const uint8_t* data, uint32_t len)
 
 /**
  * @brief UART接收多字节数据（带超时）
+ *
  * @param[in] port UART端口号（0/1/2）
  * @param[out] buf 接收缓冲区
  * @param[in] len 最大接收长度
@@ -230,6 +239,7 @@ int axk_hal_uart_read(uint32_t port, uint8_t* buf, uint32_t len, uint32_t timeou
 
 /**
  * @brief 清空UART接收缓冲区
+ *
  * @param[in] port UART端口号（0/1/2）
  * @return 0 成功，-1 端口无效
  */
@@ -252,6 +262,7 @@ int axk_hal_uart_flush_rx(uint32_t port)
 
 /**
  * @brief UART格式化输出（类似printf）
+ *
  * @param[in] port UART端口号（0/1/2）
  * @param[in] fmt 格式化字符串
  * @return 实际输出的字符数，负数失败
@@ -287,6 +298,7 @@ static void *s_dma_rx_user[3] = {NULL};
 
 /**
  * @brief 启动UART DMA接收（框架，硬件就绪后启用）
+ *
  * @param[in] port UART端口号（0/1/2）
  * @param[in] cb 接收回调函数
  * @param[in] user_data 用户数据
@@ -336,6 +348,7 @@ int axk_hal_uart_dma_recv_stop(uint32_t port)
 #else
 /**
  * @brief 启动UART DMA接收（非BL618平台桩函数）
+ *
  * @param[in] port UART端口号
  * @param[in] cb 接收回调函数
  * @param[in] user_data 用户数据
@@ -348,6 +361,7 @@ int axk_hal_uart_dma_recv_start(uint32_t port, void *cb, void *user_data)
 }
 /**
  * @brief 停止UART DMA接收（非BL618平台桩函数）
+ *
  * @param[in] port UART端口号
  * @return -1 不支持
  */

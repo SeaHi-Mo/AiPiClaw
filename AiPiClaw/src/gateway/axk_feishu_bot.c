@@ -46,7 +46,14 @@ static char s_fs_app_secret[FS_APP_SECRET_MAX_LEN] = "";
 static char s_fs_token[FS_TOKEN_MAX_LEN] = "";
 static uint32_t s_fs_token_expire_at = 0;
 
-/** @brief 追加响应数据到飞书HTTP响应缓冲区 @param[in] rb 响应缓冲区指针 @param[in] data 要追加的数据 @param[in] len 数据长度 @return 0成功，-1内存不足 */
+/**
+ * @brief 追加响应数据到飞书HTTP响应缓冲区
+ *
+ * @param[in] rb 响应缓冲区指针
+ * @param[in] data 要追加的数据
+ * @param[in] len 数据长度
+ * @return 0成功，-1内存不足
+ */
 static int fs_resp_append(fs_http_resp_t *rb, const uint8_t *data, size_t len)
 {
     if (!rb || !data || len == 0) {
@@ -68,7 +75,13 @@ static int fs_resp_append(fs_http_resp_t *rb, const uint8_t *data, size_t len)
     return 0;
 }
 
-/** @brief 飞书HTTP响应回调，逐片接收响应体并追加到缓冲区 @param[in] rsp HTTP响应结构 @param[in] final_data 是否最后一片数据 @param[in] user_data 用户数据指针（fs_http_resp_t） */
+/**
+ * @brief 飞书HTTP响应回调，逐片接收响应体并追加到缓冲区
+ *
+ * @param[in] rsp HTTP响应结构
+ * @param[in] final_data 是否最后一片数据
+ * @param[in] user_data 用户数据指针（fs_http_resp_t）
+ */
 static void fs_http_response_cb(struct http_response *rsp, enum http_final_call final_data, void *user_data)
 {
     fs_http_resp_t *rb = (fs_http_resp_t *)user_data;
@@ -144,6 +157,7 @@ static int fs_https_post(const char *url, const char *payload,
 
 /**
  * @brief \u83b7\u53d6 Feishu tenant_access_token
+ *
  * @return \u6210\u529f\u8fd4\u56de 0
  */
 static int fs_refresh_token(void)
@@ -209,16 +223,24 @@ static int fs_refresh_token(void)
     return 0;
 }
 
-/** @brief 初始化飞书Bot模块 @return 0成功 */
+/**
+ * @brief 初始化飞书Bot模块
+ *
+ * @return 0成功
+ */
 int axk_feishu_bot_init(void)
 {
     s_fs_initialized = true;
-    /* \u53ef\u4ece KV \u5b58\u50a8\u52a0\u8f7d app_id/app_secret */
-    AXK_LOG_INFO("[%s] Feishu Bot \u521d\u59cb\u5316\u5b8c\u6210\r\n", TAG);
+    /* 可从 KV 存储加载 app_id/app_secret */
+    AXK_LOG_INFO("[%s] Feishu Bot 初始化完成\r\n", TAG);
     return 0;
 }
 
-/** @brief 启动飞书Bot（消息发送与Webhook接收服务） @return 0成功，-1未初始化 */
+/**
+ * @brief 启动飞书Bot（消息发送与Webhook接收服务）
+ *
+ * @return 0成功，-1未初始化
+ */
 int axk_feishu_bot_start(void)
 {
     if (!s_fs_initialized) {
@@ -230,7 +252,13 @@ int axk_feishu_bot_start(void)
     return 0;
 }
 
-/** @brief 发送文本消息到飞书聊天 @param[in] chat_id 聊天ID @param[in] text 消息文本内容 @return 0成功，-1失败 */
+/**
+ * @brief 发送文本消息到飞书聊天
+ *
+ * @param[in] chat_id 聊天ID
+ * @param[in] text 消息文本内容
+ * @return 0成功，-1失败
+ */
 int axk_feishu_send_message(const char *chat_id, const char *text)
 {
     char url[384];
@@ -270,7 +298,13 @@ int axk_feishu_send_message(const char *chat_id, const char *text)
     return 0;
 }
 
-/** @brief 设置飞书应用凭证（App ID 和 App Secret） @param[in] app_id 应用ID @param[in] app_secret 应用密钥 @return 0成功，-1参数无效 */
+/**
+ * @brief 设置飞书应用凭证（App ID 和 App Secret）
+ *
+ * @param[in] app_id 应用ID
+ * @param[in] app_secret 应用密钥
+ * @return 0成功，-1参数无效
+ */
 int axk_feishu_set_credentials(const char *app_id, const char *app_secret)
 {
     if (!app_id || !app_secret) {
@@ -484,7 +518,11 @@ static void fs_webhook_task(void *param)
     vTaskDelete(NULL);
 }
 
-/** @brief 启动飞书Webhook HTTP接收服务器（长连接轮询消息） @return 0成功，-1任务创建失败 */
+/**
+ * @brief 启动飞书Webhook HTTP接收服务器（长连接轮询消息）
+ *
+ * @return 0成功，-1任务创建失败
+ */
 int axk_feishu_bot_start_webhook(void)
 {
     if (s_fs_webhook_running) {

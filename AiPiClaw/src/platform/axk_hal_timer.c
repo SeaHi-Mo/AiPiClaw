@@ -22,18 +22,20 @@
     #include "esp_timer.h"
 #endif
 
-#define AXK_TIMER_POOL_SIZE   8  /**< 最大 and 发timercount  */
-#define AXK_TIMER_NAME_MAX   16  /**< timername 最大length  */
+#define AXK_TIMER_POOL_SIZE   8  /**< 最大 and 发timercount */
+#define AXK_TIMER_NAME_MAX   16  /**< timername 最大length */
 
-/** timer条目 */
+/**
+ * timer条目
+ */
 typedef struct {
-    char         name[AXK_TIMER_NAME_MAX]; /**< timername  */
+    char         name[AXK_TIMER_NAME_MAX]; /**< timername */
     uint32_t     period_ms;    /**< cron周期(ms) */
     bool         auto_reload;  /**< is否auto 重载 */
-    bool         active;       /**< is否active  */
+    bool         active;       /**< is否active */
     uint64_t     next_expire;  /**< 下次expirestime (mstime 戳) */
-    axk_timer_cb_t cb;         /**< callback func  */
-    void        *arg;          /**< callback param  */
+    axk_timer_cb_t cb;         /**< callback func */
+    void        *arg;          /**< callback param */
 } axk_timer_entry_t;
 
 static axk_timer_entry_t s_timers[AXK_TIMER_POOL_SIZE];
@@ -57,6 +59,7 @@ static uint64_t axk_timer_now_ms(void)
 
 /**
  * @brief inittimermodule
+ *
  * @return OKreturn 0
  */
 int axk_hal_timer_init(void)
@@ -72,6 +75,7 @@ int axk_hal_timer_init(void)
 
 /**
  * @brief createtimer
+ *
  * @param[in] name timername （for debug ）
  * @param[in] period_ms cron周期(毫s)
  * @param[in] auto_reload true=周期cron，false=单次cron
@@ -96,7 +100,7 @@ axk_timer_handle_t axk_hal_timer_create(const char *name, uint32_t period_ms,
             s_timers[i].auto_reload = auto_reload;
             s_timers[i].cb = cb;
             s_timers[i].arg = arg;
-            s_timers[i].next_expire = 0;  /**< not start, start时set  */
+            s_timers[i].next_expire = 0;  /**< not start, start时set */
 
             if (name) {
                 strncpy(s_timers[i].name, name, AXK_TIMER_NAME_MAX - 1);
@@ -107,7 +111,7 @@ axk_timer_handle_t axk_hal_timer_create(const char *name, uint32_t period_ms,
 
             AXK_LOG_DEBUG("[axk_hal_timer] createtimer '%s' period=%ums reload=%d\r\n",
                           s_timers[i].name, (int)period_ms, (int)auto_reload);
-            return (axk_timer_handle_t)(uintptr_t)(i + 1);  /**< return  1-based index  */
+            return (axk_timer_handle_t)(uintptr_t)(i + 1);  /**< return  1-based index */
         }
     }
 
@@ -117,6 +121,7 @@ axk_timer_handle_t axk_hal_timer_create(const char *name, uint32_t period_ms,
 
 /**
  * @brief start timer
+ *
  * @param[in] timer timerhandle 
  * @return OKreturn 0
  */
@@ -139,6 +144,7 @@ int axk_hal_timer_start(axk_timer_handle_t timer)
 
 /**
  * @brief stop timer
+ *
  * @param[in] timer timerhandle 
  * @return OKreturn 0
  */
@@ -160,6 +166,7 @@ int axk_hal_timer_stop(axk_timer_handle_t timer)
 
 /**
  * @brief delete timer and release 资源
+ *
  * @param[in] timer timerhandle 
  * @return OKreturn 0
  */
@@ -181,6 +188,7 @@ int axk_hal_timer_delete(axk_timer_handle_t timer)
 
 /**
  * @brief reset timer（重新start计时）
+ *
  * @param[in] timer timerhandle 
  * @return OKreturn 0
  */
@@ -201,6 +209,7 @@ int axk_hal_timer_reset(axk_timer_handle_t timer)
 
 /**
  * @brief timerpoll  - in main loopcall ，check  and trigger expirestimer
+ *
  * @note 应in per main loop迭代call 一次
  */
 void axk_hal_timer_poll(void)

@@ -34,6 +34,7 @@ int axk_context_builder_init(void)
 
 /**
  * @brief get system提示词
+ *
  * @return system提示词chars 串ptr 
  */
 const char *axk_context_builder_get_system_prompt(void)
@@ -43,6 +44,7 @@ const char *axk_context_builder_get_system_prompt(void)
 
 /**
  * @brief build full requestJSON
+ *
  * @param[in] user_message usermsg
  * @param[in] tools_json toolJSONchars 串
  * @param[in] session_context 会话上下文

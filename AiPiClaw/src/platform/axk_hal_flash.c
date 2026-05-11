@@ -22,11 +22,12 @@
     #include "esp_partition.h"
 #endif
 
-/** from  flash_prog_cfg.ini 可知fw起始于 0x000000
+/**
+ * from  flash_prog_cfg.ini 可知fw起始于 0x000000
  *  保守估计fwused 前 2MB（实际约 1.2MB）
  *  data区from  FLASH_SAFE_OFFSET start
  */
-#define FLASH_SAFE_OFFSET   (2 * 1024 * 1024)  /**< 2MB, fwprotected region  */
+#define FLASH_SAFE_OFFSET   (2 * 1024 * 1024)  /**< 2MB, fwprotected region */
 
 static bool s_initialized = false;
 static uint32_t s_flash_size = 0;
@@ -35,6 +36,7 @@ static uint32_t s_flash_size = 0;
 
 /**
  * @brief init Flash module
+ *
  * @return OKreturn 0
  */
 int axk_hal_flash_init(void)
@@ -61,6 +63,7 @@ int axk_hal_flash_init(void)
 
 /**
  * @brief erase  Flash sector （4KBaligned ）
+ *
  * @param[in] addr sector 起始addr （must 4KBaligned ）
  * @return OKreturn 0，addr in protected region return -1
  * @note auto denied erase fwprotected region  (0 ~ FLASH_SAFE_OFFSET)
@@ -103,6 +106,7 @@ int axk_hal_flash_erase_sector(uint32_t addr)
 
 /**
  * @brief full chip erase （data区，not 含fw区）
+ *
  * @return OKreturn 0
  * @warning 此操作耗时较长，仅erase  FLASH_SAFE_OFFSET after data区
  */
@@ -133,6 +137,7 @@ int axk_hal_flash_erase_chip(void)
 
 /**
  * @brief from  Flash readdata
+ *
  * @param[in] addr 起始addr 
  * @param[out] buf output buffer 
  * @param[in] len readlength 
@@ -162,6 +167,7 @@ int axk_hal_flash_read(uint32_t addr, uint8_t *buf, uint32_t len)
 
 /**
  * @brief  to  Flash writedata
+ *
  * @param[in] addr 起始addr 
  * @param[in] data dataptr 
  * @param[in] len writelength 
@@ -203,6 +209,7 @@ int axk_hal_flash_write(uint32_t addr, const uint8_t *data, uint32_t len)
 
 /**
  * @brief get  Flash 总容量
+ *
  * @return Flash size（bytes）
  */
 uint32_t axk_hal_flash_get_size(void)

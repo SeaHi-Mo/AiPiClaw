@@ -18,11 +18,13 @@ extern "C" {
 
 /**
  * @brief 初始化HTTP代理模块
+ *
  * @return 0成功，负数错误码
  */
 int axk_http_proxy_init(void);
 /**
  * @brief 发送HTTP请求
+ *
  * @param[in] url 请求URL
  * @param[in] method HTTP方法（GET/POST）
  * @param[in] payload 请求体（GET时传NULL）

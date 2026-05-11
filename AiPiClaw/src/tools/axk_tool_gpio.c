@@ -29,6 +29,7 @@ static const int s_valid_gpio_pins[] = {
 
 /**
  * @brief \u68c0\u67e5GPIO\u5f15\u811a\u662f\u5426\u5408\u6cd5
+ *
  * @param[in] pin \u5f15\u811a\u53f7
  * @return \u5408\u6cd5\u8fd4\u56detrue
  */
@@ -45,6 +46,7 @@ static bool axk_gpio_pin_valid(int pin)
 
 /**
  * @brief \u89e3\u6790JSON\u8f93\u5165\uff0c\u63d0\u53d6pin\u548cvalue
+ *
  * @param[in] input_json \u8f93\u5165JSON\u5b57\u7b26\u4e32
  * @param[out] pin \u5f15\u811a\u53f7\u8f93\u51fa
  * @param[out] value \u7535\u5e73\u503c\u8f93\u51fa\uff08\u53ea\u5bf9write\u6709\u6548\uff09

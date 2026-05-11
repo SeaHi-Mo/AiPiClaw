@@ -18,18 +18,21 @@ extern "C" {
 
 /**
  * @brief initTelegram Bot
+ *
  * @return OKreturn 0，FAILreturn 非零
  */
 int axk_telegram_bot_init(void);
 
 /**
  * @brief startTelegrampoll task
+ *
  * @return OKreturn 0
  */
 int axk_telegram_bot_start(void);
 
 /**
  * @brief send文本msg to Telegram聊天
+ *
  * @param[in] chat_id 聊天ID
  * @param[in] text msgcontent 
  * @return OKreturn 0
@@ -38,6 +41,7 @@ int axk_telegram_send_message(const char *chat_id, const char *text);
 
 /**
  * @brief save Telegram Bot Token to NVS
+ *
  * @param[in] token Bot Token
  * @return OKreturn 0
  */

@@ -27,6 +27,7 @@ static bool s_onboard_active = false;
 
 /**
  * @brief save WiFicredential  to easyflash
+ *
  * @param[in] ssid SSIDchars 串
  * @param[in] password password chars 串（可为NULL or empty chars 串）
  * @return OKreturn 0
@@ -58,6 +59,7 @@ int axk_wifi_save_credentials(const char *ssid, const char *password)
 
 /**
  * @brief from easyflashloadWiFicredential 
+ *
  * @param[out] ssid_buf SSIDoutput buffer 
  * @param[in] ssid_buf_len buffer length 
  * @param[out] pwd_buf password output buffer 
@@ -85,6 +87,7 @@ static int axk_wifi_load_credentials(char *ssid_buf, size_t ssid_buf_len,
 
 /**
  * @brief attempting saved WiFi connect
+ *
  * @return OK发起connectreturn 0，无save credential return -1
  */
 int axk_wifi_auto_connect(void)
@@ -169,6 +172,7 @@ void axk_wifi_onboard_poll(void)
 
 /**
  * @brief Shellcmd：wifi_set <ssid> [password]
+ *
  * @note set WiFicredential  and immediate attempt connect
  */
 static void cmd_wifi_set(int argc, char **argv)
@@ -201,6 +205,7 @@ SHELL_CMD_EXPORT_ALIAS(cmd_wifi_set, wifi_set, set WiFi SSID & password and conn
 
 /**
  * @brief Shellcmd：wifi_status
+ *
  * @note show current WiFiconnectstatus 
  */
 static void cmd_wifi_status(int argc, char **argv)
@@ -239,6 +244,7 @@ SHELL_CMD_EXPORT_ALIAS(cmd_wifi_status, wifi_status, show WiFi connection status
 
 /**
  * @brief Shellcmd：wifi_disconnect
+ *
  * @note disconnectcurrent WiFiconnect
  */
 static void cmd_wifi_disconnect(int argc, char **argv)

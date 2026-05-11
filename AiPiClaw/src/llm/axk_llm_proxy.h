@@ -23,12 +23,14 @@ extern "C" {
 
 /**
  * @brief 初始化LLM代理模块，加载API密钥和配置
+ *
  * @return 成功返回0，失败返回非零
  */
 int axk_llm_proxy_init(void);
 
 /**
  * @brief 设置LLM API密钥并持久化存储
+ *
  * @param[in] api_key API密钥字符串
  * @return 成功返回0，失败返回-1
  */
@@ -36,6 +38,7 @@ int axk_llm_set_api_key(const char *api_key);
 
 /**
  * @brief 设置LLM提供商并持久化存储，自动规范化模型名称
+ *
  * @param[in] provider 提供商名称（如"openai"/"deepseek"/"minimax"等）
  * @return 成功返回0，失败返回-1
  */
@@ -43,6 +46,7 @@ int axk_llm_set_provider(const char *provider);
 
 /**
  * @brief 设置LLM模型名称并持久化存储，自动规范化
+ *
  * @param[in] model 模型标识字符串（如"claude-sonnet-4-20250514"）
  * @return 成功返回0，失败返回-1
  */
@@ -67,12 +71,14 @@ typedef struct {
 
 /**
  * @brief 释放LLM响应结构体中动态分配的内存
+ *
  * @param resp 响应结构体指针
  */
 void axk_llm_response_free(llm_response_t *resp);
 
 /**
  * @brief 发送带工具调用的LLM聊天请求，支持OpenAI/Anthropic/DeepSeek/MiniMax多后端
+ *
  * @param[in] system_prompt 系统提示词
  * @param[in] messages 消息历史cJSON数组
  * @param[in] tools_json 工具定义JSON字符串，为NULL表示不使用工具

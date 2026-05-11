@@ -70,6 +70,7 @@ static void heartbeat_timer_cb(axk_timer_handle_t timer, void *arg)
 
 /**
  * @brief initheartbeatmodule
+ *
  * @return OKreturn 0
  */
 int axk_heartbeat_init(void)
@@ -91,6 +92,7 @@ int axk_heartbeat_init(void)
 
 /**
  * @brief heartbeatpoll ——in main loopcall 
+ *
  * @note 驱动 hal_timer check expirescallback 
  */
 void axk_heartbeat_tick(void)
@@ -100,6 +102,7 @@ void axk_heartbeat_tick(void)
 
 /**
  * @brief enable heartbeatreport 
+ *
  * @param[in] enable trueenable , falsedisable 
  */
 void axk_heartbeat_set_report_enabled(bool enable)
@@ -110,6 +113,7 @@ void axk_heartbeat_set_report_enabled(bool enable)
 
 /**
  * @brief get system运行time 
+ *
  * @return 运行time (s)
  */
 uint32_t axk_heartbeat_get_uptime_sec(void)

@@ -11,6 +11,7 @@
 
 /**
  * @brief get system运行time （毫s）
+ *
  * @return 运行time ，单位毫s
  */
 uint32_t axk_mimiclaw_port_uptime_ms(void)
@@ -20,6 +21,7 @@ uint32_t axk_mimiclaw_port_uptime_ms(void)
 
 /**
  * @brief 延时指定毫s数
+ *
  * @param[in] ms 延时time ，单位毫s
  * @note if FreeRTOS调度器正in 运行then use vTaskDelay，否then use 硬件延时
  */
@@ -38,6 +40,7 @@ void axk_mimiclaw_port_sleep_ms(uint32_t ms)
 
 /**
  * @brief get random 数
+ *
  * @return 32位random 数
  * @note 基于bflb硬件random 数生成器
  */
@@ -53,6 +56,7 @@ uint32_t axk_mimiclaw_port_random(void)
 
 /**
  * @brief compute 两time 戳between 差value （带溢出保护）
+ *
  * @param[in] later 较晚time 戳
  * @param[in] earlier 较早time 戳
  * @return time 差，单位毫s

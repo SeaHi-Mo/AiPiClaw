@@ -1,6 +1,7 @@
 /**
  * @file axk_tool_get_time.c
  * @brief time get tool (NTP + RTC) - 安信可科技 BL618 port
+ *
  * @note 整合自官方solution/mimiclaw/port
  * @copyright Copyright (c) 2026 AI-Thinker
  */

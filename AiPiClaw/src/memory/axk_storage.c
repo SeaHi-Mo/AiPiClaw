@@ -17,6 +17,7 @@
 
 /**
  * @brief set 键value 对（blobformat ）
+ *
  * @param[in] key 键名
  * @param[in] value value dataptr 
  * @param[in] len datalength 
@@ -37,6 +38,7 @@ int axk_kv_set_blob(const char *key, const void *value, size_t len)
 
 /**
  * @brief get 键value 对（blobformat ）
+ *
  * @param[in] key 键名
  * @param[out] buf output buffer 
  * @param[in] buf_len buffer size
@@ -57,6 +59,7 @@ int axk_kv_get_blob(const char *key, void *buf, size_t buf_len, size_t *saved_le
 
 /**
  * @brief delete 键value 对
+ *
  * @param[in] key 键名
  * @return OKreturn 0
  */
@@ -69,6 +72,7 @@ int axk_kv_del(const char *key)
 
 /**
  * @brief check 键is否存in 
+ *
  * @param[in] key 键名
  * @return 存in return true
  */
@@ -82,11 +86,12 @@ bool axk_kv_exists(const char *key)
 
 /**
  * @brief 清除all键value 对（遍历delete ）
+ *
  * @return OKreturn 0
  */
 int axk_kv_clear(void)
 {
-    /**< easyflash 无全局清除API，call ef_env_set_defaultrestore default  */
+    /**< easyflash 无全局清除API，call ef_env_set_defaultrestore default */
     ef_env_set_default();
     ef_save_env();
     return 0;

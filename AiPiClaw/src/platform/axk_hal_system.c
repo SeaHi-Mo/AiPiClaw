@@ -32,6 +32,7 @@
 
 /**
  * @brief initsystem HAL
+ *
  * @return OKreturn 0
  */
 int axk_hal_system_init(void)
@@ -59,6 +60,7 @@ void axk_hal_system_reset(void)
 
 /**
  * @brief get system运行time （毫s）
+ *
  * @return 运行time (ms)
  */
 uint32_t axk_hal_system_get_time_ms(void)
@@ -74,6 +76,7 @@ uint32_t axk_hal_system_get_time_ms(void)
 
 /**
  * @brief get system运行time （微s）
+ *
  * @return 运行time (us)
  */
 uint32_t axk_hal_system_get_time_us(void)
@@ -89,6 +92,7 @@ uint32_t axk_hal_system_get_time_us(void)
 
 /**
  * @brief get 剩余堆内存
+ *
  * @return 剩余堆size(bytes)
  */
 uint32_t axk_hal_system_get_free_heap(void)
@@ -104,6 +108,7 @@ uint32_t axk_hal_system_get_free_heap(void)
 
 /**
  * @brief get chipname 
+ *
  * @return chipname chars 串
  */
 const char *axk_hal_system_get_chip_name(void)
@@ -113,6 +118,7 @@ const char *axk_hal_system_get_chip_name(void)
 
 /**
  * @brief get  SDK ver
+ *
  * @return SDKverchars 串
  */
 const char *axk_hal_system_get_sdk_version(void)

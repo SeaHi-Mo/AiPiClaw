@@ -16,9 +16,9 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define STORE_BUCKETS    32      /**< hash 桶count  */
-#define KEY_MAX_LEN      64      /**< 键最大length  */
-#define VAL_MAX_LEN      512     /**< value 最大length  */
+#define STORE_BUCKETS    32      /**< hash 桶count */
+#define KEY_MAX_LEN      64      /**< 键最大length */
+#define VAL_MAX_LEN      512     /**< value 最大length */
 
 typedef struct store_entry {
     char key[KEY_MAX_LEN];

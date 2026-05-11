@@ -62,12 +62,14 @@ typedef struct {
 
 /**
  * @brief initUARTmodule
+ *
  * @return OKreturn 0
  */
 int axk_hal_uart_init(void);
 
 /**
  * @brief UART configport 
+ *
  * @param[in] port port 号
  * @param[in] cfg configparam 
  * @return OKreturn 0
@@ -76,6 +78,7 @@ int axk_hal_uart_config(uint32_t port, const axk_uart_cfg_t* cfg);
 
 /**
  * @brief send单bytes
+ *
  * @param[in] port port 号
  * @param[in] ch bytes
  * @return OKreturn 0
@@ -84,6 +87,7 @@ int axk_hal_uart_putchar(uint32_t port, uint8_t ch);
 
 /**
  * @brief recv单bytes
+ *
  * @param[in] port port 号
  * @param[out] ch bytesptr 
  * @param[in] timeout_ms timeouttime （毫s，0=非阻塞）
@@ -93,6 +97,7 @@ int axk_hal_uart_getchar(uint32_t port, uint8_t* ch, uint32_t timeout_ms);
 
 /**
  * @brief senddata
+ *
  * @param[in] port port 号
  * @param[in] data dataptr 
  * @param[in] len length 
@@ -102,6 +107,7 @@ int axk_hal_uart_write(uint32_t port, const uint8_t* data, uint32_t len);
 
 /**
  * @brief recvdata
+ *
  * @param[in] port port 号
  * @param[out] buf buffer ptr 
  * @param[in] len 最大length 
@@ -112,6 +118,7 @@ int axk_hal_uart_read(uint32_t port, uint8_t* buf, uint32_t len, uint32_t timeou
 
 /**
  * @brief 清empty recvbuffer 
+ *
  * @param[in] port port 号
  * @return OKreturn 0
  */
@@ -119,6 +126,7 @@ int axk_hal_uart_flush_rx(uint32_t port);
 
 /**
  * @brief format 化output （类似printf）
+ *
  * @param[in] port port 号
  * @param[in] fmt format chars 串
  * @param[in] ... 可变param 

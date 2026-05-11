@@ -19,6 +19,7 @@ extern "C" {
 
 /**
  * @brief set KVdata
+ *
  * @param[in] key 键名
  * @param[in] value dataptr 
  * @param[in] len datalength 
@@ -28,6 +29,7 @@ int axk_kv_set_blob(const char *key, const void *value, size_t len);
 
 /**
  * @brief get KVdata
+ *
  * @param[in] key 键名
  * @param[out] buf buffer ptr 
  * @param[in] buf_len buffer size

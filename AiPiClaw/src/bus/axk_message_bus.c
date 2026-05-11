@@ -46,6 +46,7 @@ static const char *prio_name(mimi_priority_t p)
 
 /**
  * @brief initmessage bus
+ *
  * @return OKreturn 0
  */
 int axk_message_bus_init(void)
@@ -86,6 +87,7 @@ void axk_message_bus_set_outbound_consumer(TaskHandle_t task)
 
 /**
  * @brief will msg推入inboundqueue
+ *
  * @param[in] msg msgptr ，internal会 strdup content
  * @return OKreturn 0
  */
@@ -129,6 +131,7 @@ int axk_message_bus_push_inbound(const mimi_msg_t *msg)
 
 /**
  * @brief from inbound弹出msg（高priority 优先）
+ *
  * @param[out] msg output msg
  * @param[in] timeout_ms timeout(ms)
  * @return OKreturn 0
@@ -162,6 +165,7 @@ int axk_message_bus_pop_inbound(mimi_msg_t *msg, uint32_t timeout_ms)
 
 /**
  * @brief will msg推入outboundqueue
+ *
  * @param[in] msg msgptr 
  * @return OKreturn 0
  */
@@ -204,6 +208,7 @@ int axk_message_bus_push_outbound(const mimi_msg_t *msg)
 
 /**
  * @brief from outbound弹出msg（高priority 优先）
+ *
  * @param[out] msg output msg
  * @param[in] timeout_ms timeout(ms)
  * @return OKreturn 0

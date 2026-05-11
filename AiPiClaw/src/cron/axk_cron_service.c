@@ -320,6 +320,7 @@ void axk_cron_list_jobs(const cron_job_t **jobs, int *count)
 
 /**
  * @brief 对crontask目标channel 进行消毒，ensure 有效 chat_id
+ *
  * @note 果 channel 为empty then default 为 system；果is telegram but 缺少有效 chat_idthen 回退 to  system
  */
 void axk_cron_sanitize_destination(cron_job_t *job)
@@ -424,6 +425,7 @@ static void axk_cron_task(void *param)
 
 /**
  * @brief startcrontaskpoll task
+ *
  * @note in  axk_cron_service_start after 由主modulecall 
  */
 int axk_cron_service_start(void)

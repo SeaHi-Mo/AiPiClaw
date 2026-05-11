@@ -191,6 +191,7 @@ extern "C" {
 
 /**
  * @brief get 平台name chars 串
+ *
  * @return 平台name chars 串
  */
 static inline const char* axk_platform_get_name(void)
@@ -200,6 +201,7 @@ static inline const char* axk_platform_get_name(void)
 
 /**
  * @brief check 平台能力
+ *
  * @param[in] cap 能力枚举value 
  * @return support return true，not support return false
  */

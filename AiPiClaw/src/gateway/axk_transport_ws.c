@@ -26,6 +26,7 @@ static axk_ws_text_handler_t s_text_handler;
 
 /**
  * @brief WebSocket连接成功回调
+ *
  * @param socket WebSocket套接字
  */
 static void on_socket_connected(rws_socket socket)
@@ -37,6 +38,7 @@ static void on_socket_connected(rws_socket socket)
 
 /**
  * @brief WebSocket断开连接回调
+ *
  * @param socket WebSocket套接字
  */
 static void on_socket_disconnected(rws_socket socket)
@@ -55,6 +57,7 @@ static void on_socket_disconnected(rws_socket socket)
 
 /**
  * @brief WebSocket接收文本消息回调
+ *
  * @param socket WebSocket套接字
  * @param text 接收到的文本数据
  * @param length 文本长度
@@ -86,6 +89,7 @@ static void on_socket_received_text(rws_socket socket, const char *text,
 
 /**
  * @brief 建立 WebSocket connect
+ *
  * @param[in] scheme 协议 (ws  or  wss)
  * @param[in] host service器addr 
  * @param[in] port port 号
@@ -148,6 +152,7 @@ int axk_ws_connect(const char *scheme, const char *host, uint16_t port, const ch
 
 /**
  * @brief disconnect WebSocket connect and release 资源
+ *
  * @return OKreturn 0
  */
 int axk_ws_disconnect(void)
@@ -163,6 +168,7 @@ int axk_ws_disconnect(void)
 
 /**
  * @brief check  WebSocket is否connect
+ *
  * @return connectreturn true
  */
 bool axk_ws_is_connected(void)
@@ -172,6 +178,7 @@ bool axk_ws_is_connected(void)
 
 /**
  * @brief send文本msg
+ *
  * @param[in] text 要send文本（null-terminated）
  * @return OKreturn 0，FAILreturn -1
  */
@@ -186,6 +193,7 @@ int axk_ws_send_text(const char *text)
 
 /**
  * @brief send二进制data（auto 分片）
+ *
  * @param[in] data dataptr 
  * @param[in] len datalength 
  * @return OKreturn 0，FAILreturn -1
@@ -232,6 +240,7 @@ int axk_ws_send_binary(const void *data, size_t len)
 
 /**
  * @brief set 文本msgcallback process器
+ *
  * @param[in] handler callback func 
  */
 void axk_ws_set_text_handler(axk_ws_text_handler_t handler)
