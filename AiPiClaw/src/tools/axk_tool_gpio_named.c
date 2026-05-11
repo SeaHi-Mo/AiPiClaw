@@ -76,6 +76,12 @@ int axk_tool_gpio_write_named_execute(const char *input_json, char *output, size
     int level, do_toggle;
     const char *pin_name = NULL;
     const char *state = NULL;
+    static bool policy_inited = false;
+
+    if (!policy_inited) {
+        axk_gpio_policy_init();
+        policy_inited = true;
+    }
 
     if (!input_json || !output || output_size == 0) {
         return -1;
