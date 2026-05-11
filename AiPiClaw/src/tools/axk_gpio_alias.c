@@ -8,6 +8,8 @@
 
 #include "axk_gpio_alias.h"
 #include "axk_platform.h"
+#include "axk_hal_gpio.h"
+#include "shell.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -131,3 +133,38 @@ int axk_gpio_alias_list(char *buf, size_t size)
 
     return (int)pos;
 }
+
+/* ── CLI 命令 ─────────────────────────────────────── */
+
+/** gpio_alias - 显示所有已注册的别名 */
+static int cmd_gpio_alias(int argc, char **argv)
+{
+    char buf[1024];
+    (void)argc;
+    (void)argv;
+    axk_gpio_alias_list(buf, sizeof(buf));
+    printf("%s", buf);
+    return 0;
+}
+SHELL_CMD_EXPORT_ALIAS(cmd_gpio_alias, gpio_alias, gpio_alias - list all GPIO aliases);
+
+/** gpio_status - 显示所有别名引脚的当前状态 */
+static int cmd_gpio_status(int argc, char **argv)
+{
+    int i;
+    (void)argc;
+    (void)argv;
+
+    printf("GPIO状态:\r\n");
+    for (i = 0; i < s_alias_count; i++) {
+        int raw = axk_hal_gpio_get_level(s_aliases[i].pin);
+        int on = (raw == s_aliases[i].active_level) ? 1 : 0;
+        printf("  %-16s GPIO%-2d 状态=%s (%s)\r\n",
+               s_aliases[i].name,
+               s_aliases[i].pin,
+               on ? "on" : "off",
+               s_aliases[i].description);
+    }
+    return 0;
+}
+SHELL_CMD_EXPORT_ALIAS(cmd_gpio_status, gpio_status, gpio_status - show GPIO alias pin states);
