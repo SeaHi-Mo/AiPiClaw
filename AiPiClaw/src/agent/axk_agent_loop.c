@@ -32,6 +32,7 @@ static const char *TAG __attribute__((unused)) = "agent";
 
 static TaskHandle_t s_agent_task = NULL;
 
+/* @brief 不区分大小写检查haystack中是否包含needle子字符串 @param haystack 待搜索的字符串 @param needle 要查找的子字符串 @return 找到返回true，未找到或参数无效返回false */
 static bool str_contains_nocase(const char *haystack, const char *needle)
 {
     size_t needle_len;
@@ -51,6 +52,7 @@ static bool str_contains_nocase(const char *haystack, const char *needle)
     return false;
 }
 
+/* @brief 检查文本是否包含实时/当前时间锚点关键词（如today/now/最新/今天等） @param text 待检查的文本字符串 @return 包含时间锚点关键词返回true，否则返回false */
 static bool text_has_current_time_anchor(const char *text)
 {
     static const char *terms[] = {
@@ -73,6 +75,7 @@ static bool text_has_current_time_anchor(const char *text)
     return false;
 }
 
+/* @brief 从文本中提取显式出现的4位年份数字（2000-2099范围） @param text 待解析的文本字符串 @return 成功返回年份值（2000-2099），未找到返回0 */
 static int extract_explicit_year(const char *text)
 {
     const char *p;
@@ -103,6 +106,7 @@ static int extract_explicit_year(const char *text)
     return 0;
 }
 
+/* @brief 从RTC时钟获取当前年份 @param year_out 输出参数，接收当前年份值 @return 成功返回true，RTC无效或参数为空返回false */
 static bool get_current_year(int *year_out)
 {
     struct bflb_tm tm_now;
@@ -117,6 +121,7 @@ static bool get_current_year(int *year_out)
     return true;
 }
 
+/* @brief 判断web_search查询是否应锚定回用户原始输入（当用户查询含时间锚点但工具查询缺少时触发） @param user_query 用户的原始查询文本 @param tool_query LLM生成的工具调用查询文本 @return 需要重写工具查询返回true，否则返回false */
 static bool should_anchor_web_search_to_user(const char *user_query, const char *tool_query)
 {
     int user_year;
@@ -176,6 +181,7 @@ static char *rewrite_web_search_input(const char *tool_input, const char *replac
     return rewritten;
 }
 
+/* @brief 预处理工具调用输入参数，对web_search调用进行时间锚定改写 @param resp LLM的tool_use响应结果 @param user_query 用户的原始查询文本 @param tool_inputs 输出数组，存储改写后的工具输入JSON字符串（调用者负责分配数组，元素由本函数malloc） @return 无返回值 */
 static void prepare_tool_inputs(const llm_response_t *resp, const char *user_query, char **tool_inputs)
 {
     int i;
@@ -213,6 +219,7 @@ static void prepare_tool_inputs(const llm_response_t *resp, const char *user_que
     }
 }
 
+/* @brief 释放prepare_tool_inputs分配的每个工具输入字符串内存 @param resp LLM的tool_use响应结果（用于获取call_count确定数组长度） @param tool_inputs 工具输入字符串数组 @return 无返回值 */
 static void free_tool_inputs(const llm_response_t *resp, char **tool_inputs)
 {
     int i;
@@ -223,6 +230,7 @@ static void free_tool_inputs(const llm_response_t *resp, char **tool_inputs)
     }
 }
 
+/* @brief 构建LLM系统提示词，包含当前日期上下文和MimiClaw行为规范指令 @param buf 输出缓冲区指针 @param size 缓冲区最大字节数 @return 无返回值 */
 static void build_system_prompt(char *buf, size_t size)
 {
     uint64_t now = bflb_rtc_get_utc_timestamp();
@@ -308,6 +316,7 @@ static cJSON *build_tool_results(const llm_response_t *resp,
     return content;
 }
 
+/* @brief Agent主循环FreeRTOS任务：从消息总线拉取入站消息，执行技能匹配或LLM对话（含工具调用迭代） @param arg 任务参数（未使用，保留兼容） @return 无返回值 */
 static void agent_loop_task(void *arg)
 {
     const char *tools_json;
@@ -445,18 +454,21 @@ static void agent_loop_task(void *arg)
     }
 }
 
+/* @brief Agent循环运行入口（API兼容保留，实际任务由axk_agent_loop_start创建独立FreeRTOS任务执行） @return 无返回值 */
 void axk_agent_loop_run(void)
 {
     /* main loop由 axk_agent_loop_start() start为 FreeRTOS 独立task */
     /* 本func 为 API 兼容性保留，not 执行实际操作 */
 }
 
+/* @brief 初始化Agent循环模块，打印初始化日志 @return 成功返回0 */
 int axk_agent_loop_init(void)
 {
     AXK_LOG_INFO("agent", "agent loop initialized");
     return 0;
 }
 
+/* @brief 启动Agent循环，创建agent_loop_task FreeRTOS任务（仅首次调用有效，重复调用直接返回成功） @return 成功返回0，任务创建失败返回-1 */
 int axk_agent_loop_start(void)
 {
     if (s_agent_task) {

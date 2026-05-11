@@ -59,7 +59,9 @@ typedef struct {
 int axk_message_bus_init(void);
 
 /** Set task handles for Task Notification wake-up */
+/* @brief 设置入站消息消费者任务句柄，pop_inbound收到消息时通过Task Notification唤醒该任务 @param task 消费者FreeRTOS任务句柄 */
 void axk_message_bus_set_inbound_consumer(TaskHandle_t task);
+/* @brief 设置出站消息消费者任务句柄，push_outbound成功后通过Task Notification唤醒该任务 @param task 消费者FreeRTOS任务句柄 */
 void axk_message_bus_set_outbound_consumer(TaskHandle_t task);
 
 /**

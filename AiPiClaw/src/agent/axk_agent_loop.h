@@ -16,8 +16,11 @@
 extern "C" {
 #endif
 
+/* @brief 初始化Agent循环模块 @return 成功返回0 */
 int axk_agent_loop_init(void);
+/* @brief Agent循环运行入口（API兼容保留，实际由start创建独立FreeRTOS任务执行） @return 无返回值 */
 void axk_agent_loop_run(void);
+/* @brief 启动Agent循环FreeRTOS任务（仅首次调用有效） @return 成功返回0，创建失败返回-1 */
 int axk_agent_loop_start(void);
 
 

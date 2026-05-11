@@ -72,11 +72,13 @@ int axk_message_bus_init(void)
     return 0;
 }
 
+/* @brief 注册入站消息消费者任务句柄，用于Task Notification唤醒 @param task 消费者FreeRTOS任务句柄（通常为agent_loop任务） @return 无返回值 */
 void axk_message_bus_set_inbound_consumer(TaskHandle_t task)
 {
     s_inbound_consumer = task;
 }
 
+/* @brief 注册出站消息消费者任务句柄，用于Task Notification唤醒 @param task 消费者FreeRTOS任务句柄（通常为main_loop任务） @return 无返回值 */
 void axk_message_bus_set_outbound_consumer(TaskHandle_t task)
 {
     s_outbound_consumer = task;
