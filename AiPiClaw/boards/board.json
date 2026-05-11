@@ -1,0 +1,59 @@
+{
+  "board_name": "AiPi-Eyes-DU",
+  "manufacturer": "安信可科技 (AI-Thinker)",
+  "chip": {
+    "model": "BL618",
+    "core": "RISC-V E907",
+    "frequency_mhz": 480,
+    "sram_kb": 512,
+    "psram_mb": 4,
+    "flash_mb": 4
+  },
+  "leds": {
+    "polarity": "active_high",
+    "list": [
+      {"gpio": 12, "alias_zh": "红灯", "alias_en": "red_led",   "desc": "板载红色指示灯"},
+      {"gpio": 14, "alias_zh": "绿灯", "alias_en": "green_led", "desc": "板载绿色指示灯"},
+      {"gpio": 15, "alias_zh": "蓝灯", "alias_en": "blue_led",  "desc": "板载蓝色指示灯"}
+    ]
+  },
+  "buttons": [
+    {"gpio": 10, "alias_zh": "按键0", "alias_en": "key_0", "desc": "板载按键 KEY_0 (I2C0_SDA 共用)"},
+    {"gpio": 11, "alias_zh": "按键1", "alias_en": "key_1", "desc": "板载按键 KEY_1 (SPI0_CS 共用)"}
+  ],
+  "pinmap": [
+    {"pin": 0,  "aliases": ["GPIO0"],     "functions": ["GPIO"],           "allowed": false},
+    {"pin": 1,  "aliases": ["GPIO1"],     "functions": ["GPIO"],           "allowed": false},
+    {"pin": 2,  "aliases": ["GPIO2"],     "functions": ["GPIO", "UART1_TX"], "allowed": false},
+    {"pin": 3,  "aliases": ["GPIO3"],     "functions": ["GPIO", "UART1_RX"], "allowed": false},
+    {"pin": 10, "aliases": ["KEY_0", "key_0"], "functions": ["GPIO", "I2C0_SDA"], "allowed": true, "direction": "in"},
+    {"pin": 11, "aliases": ["KEY_1", "key_1"], "functions": ["GPIO", "I2C0_SCL"], "allowed": true, "direction": "in"},
+    {"pin": 12, "aliases": ["LED_R", "red_led", "红灯"], "functions": ["GPIO"], "allowed": true, "direction": "out", "active_high": true},
+    {"pin": 14, "aliases": ["LED_G", "green_led", "绿灯"], "functions": ["GPIO"], "allowed": true, "direction": "out", "active_high": true},
+    {"pin": 15, "aliases": ["LED_B", "blue_led", "蓝灯"], "functions": ["GPIO"], "allowed": true, "direction": "out", "active_high": true},
+    {"pin": 17, "aliases": ["TEST_PIN"], "functions": ["GPIO"], "allowed": true, "direction": "in"}
+  ],
+  "gpio_default_policy": {
+    "allow_pins": [10, 11, 12, 14, 15, 17],
+    "allow_actions": ["set_level", "get_level", "set_direction"]
+  },
+  "peripherals": [
+    {"name": "UART0",   "pins": [21, 22], "desc": "调试串口, 115200-8N1"},
+    {"name": "SPI0",    "pins": [11, 4, 5, 6], "desc": "SPI Flash 接口"},
+    {"name": "I2C0",    "pins": [10, 11], "desc": "外接 I2C 设备"},
+    {"name": "USB",     "pins": [24, 25], "desc": "USB OTG"},
+    {"name": "PWM0",    "pins": [12, 14, 15], "desc": "LED PWM (可复用)"}
+  ],
+  "firmware": {
+    "sdk": "bouffalo_sdk_v2.0.x",
+    "rtos": "FreeRTOS",
+    "version": "v0.8.0-dev"
+  },
+  "capabilities": {
+    "wifi": {"present": true,  "type": "2.4GHz b/g/n", "antenna": "板载PCB天线"},
+    "ble":  {"present": true,  "version": "BLE 5.0"},
+    "usb_otg": {"present": true,  "pins": [24, 25]},
+    "adc":  {"present": true,  "channels": 8, "bits": 12},
+    "psram": {"present": true,  "size_mb": 4}
+  }
+}
