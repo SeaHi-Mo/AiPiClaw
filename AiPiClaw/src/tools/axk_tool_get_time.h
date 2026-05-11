@@ -18,17 +18,17 @@ extern "C" {
 #endif
 
 /**
- * @brief TODO: 描述axk_tool_get_time_init的功能
+ * @brief 初始化时间获取工具，注册时间查询执行接口
  *
  * @return 0成功, -1失败
  */
 int axk_tool_get_time_init(void);
 /**
- * @brief TODO: 描述axk_tool_get_time_execute的功能
+ * @brief 执行获取当前UTC时间的操作：优先使用系统RTC，必要时通过NTP同步
  *
- * @param input_json TODO: 描述input_json
- * @param output TODO: 描述output
- * @param output_size TODO: 描述output_size
+ * @param input_json JSON输入（可选，包含"sync"布尔字段强制NTP同步）
+ * @param output 输出缓冲区，用于存放UTC时间字符串
+ * @param output_size 输出缓冲区大小（字节）
  * @return 0成功, -1失败
  */
 int axk_tool_get_time_execute(const char *input_json, char *output, size_t output_size);

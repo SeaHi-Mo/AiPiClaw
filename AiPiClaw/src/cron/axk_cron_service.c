@@ -183,7 +183,7 @@ static void axk_cron_gen_id(char *id_buf, size_t len)
 }
 
 /**
- * @brief TODO: 描述axk_cron_service_init的功能
+ * @brief 初始化cron定时任务服务：创建互斥锁并从EasyFlash KV存储加载持久化的定时任务
  *
  * @return 0成功, -1失败
  */
@@ -210,7 +210,7 @@ int axk_cron_service_init(void)
 }
 
 /**
- * @brief TODO: 描述axk_cron_service_stop的功能
+ * @brief 停止cron定时任务服务：终止后台FreeRTOS轮询任务
  *
  * @return 无返回值
  */
@@ -225,10 +225,10 @@ void axk_cron_service_stop(void)
 }
 
 /**
- * @brief TODO: 描述axk_cron_add_job的功能
+ * @brief 添加一个新的定时任务到任务列表，生成唯一ID并持久化到EasyFlash KV存储
  *
- * @param job TODO: 描述job
- * @return 0成功, -1失败
+ * @param job 待添加的定时任务结构体指针（输入输出参数，函数将回填生成的唯一任务ID）
+ * @return 0成功, -1失败（任务数已满或参数无效）
  */
 int axk_cron_add_job(cron_job_t *job)
 {
@@ -280,10 +280,10 @@ int axk_cron_add_job(cron_job_t *job)
 }
 
 /**
- * @brief TODO: 描述axk_cron_remove_job的功能
+ * @brief 根据任务ID从任务列表中删除指定定时任务并更新持久化存储
  *
- * @param job_id TODO: 描述job_id
- * @return 0成功, -1失败
+ * @param job_id 要删除的任务ID字符串（8位十六进制）
+ * @return 0成功, -1失败（未找到匹配任务）
  */
 int axk_cron_remove_job(const char *job_id)
 {
@@ -313,10 +313,10 @@ int axk_cron_remove_job(const char *job_id)
 }
 
 /**
- * @brief TODO: 描述axk_cron_list_jobs的功能
+ * @brief 获取当前所有定时任务的列表引用（返回内部数组指针，仅用于只读遍历）
  *
- * @param jobs TODO: 描述jobs
- * @param count TODO: 描述count
+ * @param jobs 输出参数，接收指向内部任务数组的指针
+ * @param count 输出参数，接收当前有效任务数量
  * @return 无返回值
  */
 void axk_cron_list_jobs(const cron_job_t **jobs, int *count)

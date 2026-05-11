@@ -22,11 +22,11 @@
 static const char *TAG = "tool_cron";
 
 /**
- * @brief TODO: 描述axk_tool_cron_add_execute的功能
+ * @brief 执行添加定时任务操作：解析JSON参数（name/schedule_type/message等），注册到cron服务并持久化
  *
- * @param input_json TODO: 描述input_json
- * @param output TODO: 描述output
- * @param output_size TODO: 描述output_size
+ * @param input_json JSON输入，需包含name（任务名）、schedule_type（"every"或"at"）、message（通知内容）等字段
+ * @param output 输出缓冲区，用于存放操作结果和任务ID
+ * @param output_size 输出缓冲区大小（字节）
  * @return 0成功, -1失败
  */
 int axk_tool_cron_add_execute(const char *input_json, char *output, size_t output_size)
@@ -135,11 +135,11 @@ int axk_tool_cron_add_execute(const char *input_json, char *output, size_t outpu
 }
 
 /**
- * @brief TODO: 描述axk_tool_cron_list_execute的功能
+ * @brief 执行列出所有定时任务的操作：遍历cron服务中的任务列表并格式化输出
  *
- * @param input_json TODO: 描述input_json
- * @param output TODO: 描述output
- * @param output_size TODO: 描述output_size
+ * @param input_json JSON输入（当前忽略，预留扩展）
+ * @param output 输出缓冲区，用于存放格式化任务列表
+ * @param output_size 输出缓冲区大小（字节）
  * @return 0成功, -1失败
  */
 int axk_tool_cron_list_execute(const char *input_json, char *output, size_t output_size)
@@ -213,11 +213,11 @@ int axk_tool_cron_list_execute(const char *input_json, char *output, size_t outp
 }
 
 /**
- * @brief TODO: 描述axk_tool_cron_remove_execute的功能
+ * @brief 执行删除指定定时任务的操作：根据job_id从cron服务中移除对应任务
  *
- * @param input_json TODO: 描述input_json
- * @param output TODO: 描述output
- * @param output_size TODO: 描述output_size
+ * @param input_json JSON输入，需包含"job_id"任务ID字段
+ * @param output 输出缓冲区，用于存放操作结果
+ * @param output_size 输出缓冲区大小（字节）
  * @return 0成功, -1失败
  */
 int axk_tool_cron_remove_execute(const char *input_json, char *output, size_t output_size)

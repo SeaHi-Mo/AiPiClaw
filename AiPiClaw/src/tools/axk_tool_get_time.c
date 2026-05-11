@@ -149,9 +149,9 @@ static bool format_utc_time(char *out, size_t out_size)
 }
 
 /**
- * @brief TODO: 描述sync_from_external_rtc的功能
+ * @brief 从外部RTC芯片读取时间并同步到系统RTC
  *
- * @return 0成功, -1失败
+ * @return true表示同步成功，false表示外部RTC不可用或读取失败
  */
 static bool sync_from_external_rtc(void)
 {
@@ -170,7 +170,7 @@ static bool sync_from_external_rtc(void)
 }
 
 /**
- * @brief TODO: 描述sync_to_external_rtc的功能
+ * @brief 将系统RTC当前时间写回外部RTC芯片以持久化
  *
  * @return 无返回值
  */
@@ -187,10 +187,10 @@ static void sync_to_external_rtc(void)
 }
 
 /**
- * @brief TODO: 描述sync_time_once_from_server的功能
+ * @brief 向指定NTP服务器发送UDP请求，解析回复并更新系统RTC时间
  *
- * @param server TODO: 描述server
- * @return 0成功, -1失败
+ * @param server NTP服务器域名或IP地址
+ * @return 0成功, -1失败（超时或解析错误）
  */
 static int sync_time_once_from_server(const char *server)
 {
@@ -264,11 +264,11 @@ static int sync_time_once_from_server(const char *server)
 }
 
 /**
- * @brief TODO: 描述axk_tool_get_time_execute的功能
+ * @brief 执行获取时间工具操作：先尝试从RTC获取，必要时自动NTP同步并返回UTC时间字符串
  *
- * @param input_json TODO: 描述input_json
- * @param output TODO: 描述output
- * @param output_size TODO: 描述output_size
+ * @param input_json JSON输入（可选，包含"sync"布尔字段强制NTP同步）
+ * @param output 输出缓冲区，存放格式化UTC时间字符串
+ * @param output_size 输出缓冲区大小（字节）
  * @return 0成功, -1失败
  */
 int axk_tool_get_time_execute(const char *input_json, char *output, size_t output_size)

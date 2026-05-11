@@ -51,7 +51,7 @@ static uint32_t s_btn_press_start_ms = 0;
  * ============================================================ */
 
 /**
- * @brief TODO: 描述axk_gpio_control_init的功能
+ * @brief 初始化GPIO按键控制：配置IO8为输入上拉模式，用于出厂复位按键检测
  *
  * @return 0成功, -1失败
  */
@@ -75,7 +75,7 @@ int axk_gpio_control_init(void)
 }
 
 /**
- * @brief TODO: 描述axk_gpio_control_poll的功能
+ * @brief 轮询IO8按键状态：短按仅唤醒记录日志，长按超过阈值时间触发恢复出厂设置并重启系统
  *
  * @return 无返回值
  */

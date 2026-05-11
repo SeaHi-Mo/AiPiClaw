@@ -46,9 +46,9 @@ static const char *TAG = "web_search";
 
 typedef struct {
     char *data;
-    size_t len /*< TODO: 描述len */;
-    size_t cap /*< TODO: 描述cap */;
-    int status_code /*< TODO: 描述status_code */;
+    size_t len /**< 已接收数据的长度（字节） */;
+    size_t cap /**< 缓冲区总容量（字节） */;
+    int status_code /**< HTTP 响应状态码 */;
 } search_buf_t;
 
 typedef bool (*search_format_fn_t)(cJSON *root, char *output, size_t output_size);
@@ -56,8 +56,8 @@ typedef bool (*search_format_fn_t)(cJSON *root, char *output, size_t output_size
 typedef struct {
     const char *query;
     const char *freshness;
-    int count /*< TODO: 描述count */;
-    bool summary /*< TODO: 描述summary */;
+    int count /**< 期望返回的搜索结果条数 */;
+    bool summary /**< 是否要求生成摘要 */;
 } search_options_t;
 
 static char s_search_key[SEARCH_KEY_MAX_LEN] = { 0 };
