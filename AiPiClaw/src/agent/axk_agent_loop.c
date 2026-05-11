@@ -547,14 +547,23 @@ static void agent_loop_task(void *arg)
             strncpy(out.channel, msg.channel, sizeof(out.channel) - 1);
             strncpy(out.chat_id, msg.chat_id, sizeof(out.chat_id) - 1);
 
-            if (!final_text) {
-                final_text = strdup("操作已完成");
+            if (!final_text || final_text[0] == '\0') {
+                /* 无LLM回复时，用最后一个工具的返回结果 */
+                if (final_text) free(final_text);
+                if (tool_output[0] != '\0') {
+                    final_text = strdup(tool_output);
+                } else {
+                    final_text = strdup("Sorry, no response.");
+                }
             } else {
-                /* strip 空白字符，若仅含空白则生成默认回复 */
                 trim_whitespace(final_text);
                 if (final_text[0] == '\0') {
                     free(final_text);
-                    final_text = strdup("操作已完成");
+                    if (tool_output[0] != '\0') {
+                        final_text = strdup(tool_output);
+                    } else {
+                        final_text = strdup("Sorry, no response.");
+                    }
                 }
             }
 
