@@ -216,6 +216,11 @@ int axk_hal_gpio_get_level(uint32_t pin)
  * @param[in] pin GPIO引脚号
  * @return 0 成功
  */
+/**
+ * @brief 翻转GPIO引脚输出电平
+ * @param[in] pin GPIO引脚号
+ * @return 0 成功
+ */
 int axk_hal_gpio_toggle(uint32_t pin)
 {
 #if AXK_PLATFORM_BL618
