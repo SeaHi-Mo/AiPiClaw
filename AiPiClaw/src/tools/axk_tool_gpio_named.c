@@ -133,11 +133,19 @@ int axk_tool_gpio_write_named_execute(const char *input_json, char *output, size
 
     /* 执行操作 */
     if (do_toggle) {
+        /* 翻转: 先配为输入读当前值，再配为输出写翻转值 */
+        axk_gpio_cfg_t in_cfg = { .mode = AXK_GPIO_MODE_IN, .pull = AXK_GPIO_PULL_NONE, .drive = AXK_GPIO_DRIVE_WEAK };
+        axk_hal_gpio_config(alias.pin, &in_cfg);
         int current = axk_hal_gpio_get_level(alias.pin);
         level = (current == alias.active_level) ? 0 : alias.active_level;
+        /* 再配置为输出 */
+        axk_gpio_cfg_t out_cfg = { .mode = AXK_GPIO_MODE_OUT, .pull = AXK_GPIO_PULL_NONE, .drive = AXK_GPIO_DRIVE_STRONG };
+        axk_hal_gpio_config(alias.pin, &out_cfg);
     } else {
-        /* 将 on/off 语义映射为 pin 的物理电平 */
+        /* 将 on/off 语义映射为 pin 的物理电平，配置为输出 */
         level = level ? alias.active_level : (!alias.active_level);
+        axk_gpio_cfg_t out_cfg = { .mode = AXK_GPIO_MODE_OUT, .pull = AXK_GPIO_PULL_NONE, .drive = AXK_GPIO_DRIVE_STRONG };
+        axk_hal_gpio_config(alias.pin, &out_cfg);
     }
 
     axk_hal_gpio_set_level(alias.pin, (uint32_t)level);
@@ -198,7 +206,11 @@ int axk_tool_gpio_read_named_execute(const char *input_json, char *output, size_
         return -1;
     }
 
-    /* 读取状态 */
+    /* 配置为输入，然后读取状态 */
+    {
+        axk_gpio_cfg_t in_cfg = { .mode = AXK_GPIO_MODE_IN, .pull = AXK_GPIO_PULL_NONE, .drive = AXK_GPIO_DRIVE_WEAK };
+        axk_hal_gpio_config(alias.pin, &in_cfg);
+    }
     {
         char state_buf[8];
         get_state_str(&alias, state_buf, sizeof(state_buf));
