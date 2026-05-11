@@ -29,6 +29,11 @@
     static char axk_wifi_ip[16] = "0.0.0.0";
 #endif
 
+/**
+ * @brief 初始化WiFi硬件抽象层
+ * @param[in] mode WiFi工作模式（STA/AP/APSTA）
+ * @return 0 成功，负数 失败
+ */
 int axk_hal_wifi_init(axk_wifi_mode_t mode)
 {
     AXK_LOG_INFO("[axk_hal_wifi] initWiFi HAL, mode =%d\r\n", mode);
@@ -45,6 +50,12 @@ int axk_hal_wifi_init(axk_wifi_mode_t mode)
     return 0;
 }
 
+/**
+ * @brief 连接到指定WiFi热点
+ * @param[in] ssid WiFi热点名称
+ * @param[in] password WiFi密码（可选，NULL表示开放网络）
+ * @return 0 成功，-1 ssid为空
+ */
 int axk_hal_wifi_connect(const char* ssid, const char* password)
 {
     if (ssid == NULL) return -1;
@@ -70,6 +81,14 @@ int axk_hal_wifi_connect(const char* ssid, const char* password)
     return 0;
 }
 
+/**
+ * @brief 断开当前WiFi连接
+ * @return 0 成功
+ */
+/**
+ * @brief 断开当前WiFi连接
+ * @return 0 成功
+ */
 int axk_hal_wifi_disconnect(void)
 {
 #if AXK_PLATFORM_BL618
@@ -79,6 +98,20 @@ int axk_hal_wifi_disconnect(void)
     return 0;
 }
 
+/**
+ * @brief 扫描周围WiFi热点（阻塞式）
+ * @param[out] ap_list AP信息列表输出缓冲区
+ * @param[in] max_count 最大AP数量
+ * @param[out] out_count 实际扫描到的AP数量
+ * @return 0 成功，-1 参数无效
+ */
+int axk_hal_wifi_scan(axk_wifi_ap_info_t* ap_list, uint32_t max_count, uint32_t* out_count)
+ * @brief 执行WiFi站点扫描
+ * @param[out] ap_list AP信息数组
+ * @param[in] max_count 数组最大容量
+ * @param[out] out_count 扫描到的AP数量
+ * @return 0 成功，-1 参数无效或扫描失败
+ */
 int axk_hal_wifi_scan(axk_wifi_ap_info_t* ap_list, uint32_t max_count, uint32_t* out_count)
 {
 #if AXK_PLATFORM_BL618
@@ -106,11 +139,21 @@ int axk_hal_wifi_scan(axk_wifi_ap_info_t* ap_list, uint32_t max_count, uint32_t*
 #endif
 }
 
+/**
+ * @brief 获取当前WiFi连接状态
+ * @return WiFi状态枚举值
+ */
 axk_wifi_state_t axk_hal_wifi_get_state(void)
 {
     return axk_wifi_state;
 }
 
+/**
+ * @brief 注册WiFi事件回调函数
+ * @param[in] cb 回调函数指针
+ * @param[in] arg 回调用户参数
+ * @return 0 成功
+ */
 int axk_hal_wifi_register_event_cb(axk_wifi_event_cb_t cb, void* arg)
 {
     axk_wifi_cb = cb;
@@ -118,6 +161,10 @@ int axk_hal_wifi_register_event_cb(axk_wifi_event_cb_t cb, void* arg)
     return 0;
 }
 
+/**
+ * @brief 获取WiFi分配的IP地址
+ * @return IP地址字符串指针，格式如 "192.168.1.100"
+ */
 const char* axk_hal_wifi_get_ip(void)
 {
 #if AXK_PLATFORM_BL618
@@ -139,8 +186,8 @@ static axk_wifi_ap_info_t s_scan_results[AXK_WIFI_SCAN_MAX_APS];
 static int s_scan_count = 0;
 
 /**
- * @brief start WiFi AP scan (non-blocking, results arrive via event callback)
- * @return OK return 0, error return -1
+ * @brief 启动WiFi AP扫描（异步，结果通过事件回调获取）
+ * @return 0 成功，-1 失败
  */
 int axk_hal_wifi_scan_start(void)
 {
@@ -186,8 +233,8 @@ int axk_hal_wifi_scan_start(void)
 }
 
 /**
- * @brief get scan 结果count 
- * @return AP count 
+ * @brief 获取扫描到的AP数量
+ * @return AP数量
  */
 int axk_hal_wifi_scan_get_count(void)
 {
@@ -195,10 +242,10 @@ int axk_hal_wifi_scan_get_count(void)
 }
 
 /**
- * @brief get # N scan 结果
- * @param[in] index index  (0 ~ count-1)
- * @param[out] info APINFOoutput 
- * @return OKreturn 0
+ * @brief 获取指定索引的扫描结果
+ * @param[in] index 索引（0 ~ count-1）
+ * @param[out] info AP信息输出
+ * @return 0 成功，-1 索引无效或参数为空
  */
 int axk_hal_wifi_scan_get_result(int index, axk_wifi_ap_info_t *info)
 {
