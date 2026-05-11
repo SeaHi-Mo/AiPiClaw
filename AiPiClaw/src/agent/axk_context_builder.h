@@ -16,6 +16,7 @@
 extern "C" {
 #endif
 
+/* @brief TODO: 描述axk_context_builder_init的功能 @return 0成功, -1失败 */
 int axk_context_builder_init(void);
 const char *axk_context_builder_get_system_prompt(void);
 char *axk_context_builder_build_request(const char *user_message,

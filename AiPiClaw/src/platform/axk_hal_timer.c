@@ -41,6 +41,7 @@ static bool s_initialized = false;
 
 /* ── get current time 戳 ──────────────────────────────── */
 
+/* @brief TODO: 描述axk_timer_now_ms的功能 @return 0成功, -1失败 */
 static uint64_t axk_timer_now_ms(void)
 {
 #if AXK_PLATFORM_BL618

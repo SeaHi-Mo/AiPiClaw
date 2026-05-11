@@ -16,7 +16,9 @@
 extern "C" {
 #endif
 
+/* @brief TODO: 描述axk_serial_cli_init的功能 @return 0成功, -1失败 */
 int axk_serial_cli_init(void);
+/* @brief TODO: 描述axk_serial_cli_poll的功能 @return 无返回值 */
 void axk_serial_cli_poll(void);
 
 

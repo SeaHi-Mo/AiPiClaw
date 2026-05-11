@@ -16,7 +16,9 @@
 extern "C" {
 #endif
 
+/* @brief TODO: 描述axk_gpio_policy_init的功能 @return 0成功, -1失败 */
 int axk_gpio_policy_init(void);
+/* @brief TODO: 描述axk_gpio_policy_check的功能 @param pin TODO: 描述pin @param action TODO: 描述action @return 0成功, -1失败 */
 int axk_gpio_policy_check(uint8_t pin, const char *action);
 
 

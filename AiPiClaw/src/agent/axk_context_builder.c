@@ -20,6 +20,7 @@
 
 static char s_system_prompt[AXK_CTX_MAX_LEN];
 
+/* @brief TODO: 描述axk_context_builder_init的功能 @return 0成功, -1失败 */
 int axk_context_builder_init(void)
 {
     snprintf(s_system_prompt, sizeof(s_system_prompt),

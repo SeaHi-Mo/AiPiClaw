@@ -31,6 +31,7 @@ static bool s_initialized = false;
 
 /* ── hash func  ──────────────────────────────────── */
 
+/* @brief TODO: 描述store_hash的功能 @param key TODO: 描述key @return 0成功, -1失败 */
 static unsigned int store_hash(const char *key)
 {
     unsigned int h = 5381;
@@ -42,6 +43,7 @@ static unsigned int store_hash(const char *key)
 
 /* ── public  API ────────────────────────────────────── */
 
+/* @brief TODO: 描述axk_memory_store_init的功能 @return 0成功, -1失败 */
 int axk_memory_store_init(void)
 {
     if (s_initialized) return 0;
@@ -51,6 +53,7 @@ int axk_memory_store_init(void)
     return 0;
 }
 
+/* @brief TODO: 描述axk_memory_store_set_string的功能 @param key TODO: 描述key @param value TODO: 描述value @return 0成功, -1失败 */
 int axk_memory_store_set_string(const char *key, const char *value)
 {
     unsigned int bucket;
@@ -83,6 +86,7 @@ int axk_memory_store_set_string(const char *key, const char *value)
     return 0;
 }
 
+/* @brief TODO: 描述axk_memory_store_get_string的功能 @param key TODO: 描述key @param buf TODO: 描述buf @param buf_size TODO: 描述buf_size @return 0成功, -1失败 */
 int axk_memory_store_get_string(const char *key, char *buf, size_t buf_size)
 {
     unsigned int bucket;
@@ -101,6 +105,7 @@ int axk_memory_store_get_string(const char *key, char *buf, size_t buf_size)
     return -1;
 }
 
+/* @brief TODO: 描述axk_memory_store_del的功能 @param key TODO: 描述key @return 0成功, -1失败 */
 int axk_memory_store_del(const char *key)
 {
     unsigned int bucket;
@@ -120,6 +125,7 @@ int axk_memory_store_del(const char *key)
     return -1;
 }
 
+/* @brief TODO: 描述axk_memory_store_exists的功能 @param key TODO: 描述key @return 0成功, -1失败 */
 bool axk_memory_store_exists(const char *key)
 {
     unsigned int bucket;
@@ -134,6 +140,7 @@ bool axk_memory_store_exists(const char *key)
     return false;
 }
 
+/* @brief TODO: 描述axk_memory_store_clear的功能 @return 无返回值 */
 void axk_memory_store_clear(void)
 {
     int i;

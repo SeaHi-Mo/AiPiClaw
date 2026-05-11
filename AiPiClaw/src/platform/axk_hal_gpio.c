@@ -66,8 +66,8 @@ int axk_hal_gpio_init(void)
 #if AXK_PLATFORM_BL618
     axk_gpio_get_dev(); /* 初始化GPIO设备句柄 */
 
-    /* Init RGB LED pins (active-high: 1=ON, 0=OFF).
-     * GPIO12=Red, GPIO14=Green, GPIO15=Blue. OUTPUT|FLOAT|DRV_3. */
+    /* 初始化RGB LED引脚（高电平有效：1=亮, 0=灭）。
+     * GPIO12=红色, GPIO14=绿色, GPIO15=蓝色。推挽输出|浮空|驱动强度3。 */
     {
         axk_gpio_cfg_t led_cfg = {
             .mode = AXK_GPIO_MODE_OUT,
@@ -257,7 +257,7 @@ int axk_hal_gpio_toggle(uint32_t pin)
         struct bflb_device_s *dev = axk_gpio_get_dev();
         if (!dev) return;
 
-        /* 去抖动: 50ms 内重复trigger ignore  */
+        /* 去抖动: 50ms 内重复触发忽略  */
 #if AXK_PLATFORM_BL618
         now = bflb_mtimer_get_time_ms();
 #else

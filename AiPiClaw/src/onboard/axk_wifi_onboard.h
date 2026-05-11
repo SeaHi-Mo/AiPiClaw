@@ -16,10 +16,15 @@
 extern "C" {
 #endif
 
+/* @brief TODO: 描述axk_wifi_onboard_init的功能 @return 0成功, -1失败 */
 int axk_wifi_onboard_init(void);
+/* @brief TODO: 描述axk_wifi_onboard_poll的功能 @return 无返回值 */
 void axk_wifi_onboard_poll(void);
+/* @brief TODO: 描述axk_wifi_auto_connect的功能 @return 0成功, -1失败 */
 int axk_wifi_auto_connect(void);
+/* @brief TODO: 描述axk_wifi_onboard_start的功能 @return 0成功, -1失败 */
 int axk_wifi_onboard_start(void);
+/* @brief TODO: 描述axk_wifi_onboard_stop的功能 @return 无返回值 */
 void axk_wifi_onboard_stop(void);
 
 /**

@@ -294,6 +294,7 @@ static void *s_dma_rx_user[3] = {NULL};
  * @note TODO: 硬件接入后取消 #if 0 保护
  */
 #if 0  /* 硬件未接入，编译框架用 */
+/* @brief 启动UART DMA接收，配置DMA通道并注册回调 @param port UART端口号（0/1/2） @param cb 接收完成回调函数 @param user_data 用户自定义数据 @return 0成功, -1失败 */
 int axk_hal_uart_dma_recv_start(uint32_t port, axk_uart_rx_cb_t cb, void *user_data)
 {
     struct bflb_device_s *dma_dev;
@@ -306,7 +307,7 @@ int axk_hal_uart_dma_recv_start(uint32_t port, axk_uart_rx_cb_t cb, void *user_d
     dma_dev = bflb_device_get_by_name("dma");
     if (!dma_dev) return -1;
 
-    /* DMA channel config */
+    /* DMA通道配置 */
     struct bflb_dma_channel_config_s dma_cfg = {
         .direction = DMA_PERIPH_TO_MEMORY,
         .src_req = DMA_REQUEST_UART0_RX + port,

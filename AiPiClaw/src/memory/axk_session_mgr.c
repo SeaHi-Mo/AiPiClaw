@@ -28,9 +28,9 @@
 
 /** 会话条目 */
 typedef struct {
-    bool     in_use;
-    char     id[AXK_SESSION_ID_LEN];
-    char     context[AXK_SESSION_CTX_LEN];
+    bool     in_use /*< TODO: 描述in_use */;
+    char     id[AXK_SESSION_ID_LEN] /*< TODO: 描述id */;
+    char     context[AXK_SESSION_CTX_LEN] /*< TODO: 描述context */;
     uint32_t last_active;          /**< 最后活跃time (tick) */
 } session_entry_t;
 
@@ -40,6 +40,7 @@ static bool s_initialized = false;
 
 /* ── persisthelper  ────────────────────────────────── */
 
+/* @brief TODO: 描述session_save_to_flash的功能 @param idx TODO: 描述idx @return 无返回值 */
 static void session_save_to_flash(int idx)
 {
     char kv_key[AXK_SESSION_ID_LEN + 8];
@@ -55,6 +56,7 @@ static void session_save_to_flash(int idx)
     }
 }
 
+/* @brief TODO: 描述session_load_all_from_flash的功能 @return 无返回值 */
 static void session_load_all_from_flash(void)
 {
     /* easyflash not support 遍历，按需load；
@@ -63,6 +65,7 @@ static void session_load_all_from_flash(void)
 
 /* ── internalfind  ────────────────────────────────────── */
 
+/* @brief TODO: 描述session_find的功能 @param session_id TODO: 描述session_id @return 0成功, -1失败 */
 static int session_find(const char *session_id)
 {
     int i;
@@ -75,6 +78,7 @@ static int session_find(const char *session_id)
     return -1;
 }
 
+/* @brief TODO: 描述session_alloc的功能 @param session_id TODO: 描述session_id @return 0成功, -1失败 */
 static int session_alloc(const char *session_id)
 {
     int i;
@@ -106,6 +110,7 @@ static int session_alloc(const char *session_id)
 
 /* ── public  API ────────────────────────────────────── */
 
+/* @brief TODO: 描述axk_session_mgr_init的功能 @return 0成功, -1失败 */
 int axk_session_mgr_init(void)
 {
     if (s_initialized) return 0;
@@ -126,6 +131,7 @@ int axk_session_mgr_init(void)
     return 0;
 }
 
+/* @brief TODO: 描述axk_session_update_context的功能 @param session_id TODO: 描述session_id @param context TODO: 描述context @return 0成功, -1失败 */
 int axk_session_update_context(const char *session_id, const char *context)
 {
     int idx;
@@ -175,6 +181,7 @@ int axk_session_update_context(const char *session_id, const char *context)
     return 0;
 }
 
+/* @brief TODO: 描述axk_session_get_context的功能 @param session_id TODO: 描述session_id @param buf TODO: 描述buf @param buf_size TODO: 描述buf_size @return 0成功, -1失败 */
 int axk_session_get_context(const char *session_id, char *buf, size_t buf_size)
 {
     int i;

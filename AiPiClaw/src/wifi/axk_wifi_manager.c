@@ -159,6 +159,7 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
 
 /* ============== externalAPI实现 ============== */
 
+/* @brief 初始化WiFi管理器 @return 0成功, -1失败 */
 int axk_wifi_manager_init(void)
 {
     memset(&g_wifi_ctx, 0, sizeof(g_wifi_ctx));
@@ -187,6 +188,7 @@ int axk_wifi_manager_init(void)
     return 0;
 }
 
+/* @brief 轮询WiFi事件（连接状态、断线重连等） */
 void axk_wifi_manager_poll(void)
 {
     if (g_wifi_ctx.mutex == NULL) {
@@ -216,6 +218,7 @@ void axk_wifi_manager_poll(void)
     xSemaphoreGive(g_wifi_ctx.mutex);
 }
 
+/* @brief 连接指定WiFi热点 @param[in] ssid WiFi SSID @param[in] password WiFi密码（开放网络传NULL） @return 0成功, -1失败 */
 int axk_wifi_connect(const char *ssid, const char *password)
 {
     if (ssid == NULL || ssid[0] == '\0') {
@@ -271,6 +274,7 @@ int axk_wifi_connect(const char *ssid, const char *password)
     return 0;
 }
 
+/* @brief 断开当前WiFi连接 @return 0成功, -1失败 */
 int axk_wifi_disconnect(void)
 {
     AXK_LOG_INFO("[axk_wifi_manager] disconnectWiFiconnect\r\n");
@@ -292,6 +296,7 @@ int axk_wifi_disconnect(void)
     return 0;
 }
 
+/* @brief 获取当前WiFi连接状态 @return 当前状态枚举值 */
 axk_wifi_state_t axk_wifi_get_state(void)
 {
     axk_wifi_state_t state;
@@ -306,11 +311,13 @@ axk_wifi_state_t axk_wifi_get_state(void)
     return state;
 }
 
+/* @brief 检查WiFi是否已连接AP并获取IP @return true表示网络就绪，false表示未就绪 */
 bool axk_wifi_is_connected(void)
 {
     return (axk_wifi_get_state() == AXK_WIFI_STATE_GOT_IP);
 }
 
+/* @brief 获取当前IP地址字符串 @param[out] buf 输出缓冲区 @param[in] buf_size 缓冲区大小 @return 0成功, -1失败 */
 int axk_wifi_get_ip(char *buf, size_t buf_size)
 {
     if (buf == NULL || buf_size < 16) {
@@ -331,6 +338,7 @@ int axk_wifi_get_ip(char *buf, size_t buf_size)
     return 0;
 }
 
+/* @brief 获取当前RSSI信号强度 @param[out] rssi RSSI值（dBm） @return 0成功, -1失败 */
 int axk_wifi_get_rssi(int *rssi)
 {
     if (rssi == NULL) {
@@ -345,6 +353,7 @@ int axk_wifi_get_rssi(int *rssi)
     return 0;
 }
 
+/* @brief 获取当前连接SSID @param[out] buf 输出缓冲区 @param[in] buf_size 缓冲区大小 @return 0成功, -1失败 */
 int axk_wifi_get_ssid(char *buf, size_t buf_size)
 {
     if (buf == NULL || buf_size == 0) {
@@ -368,6 +377,7 @@ int axk_wifi_get_ssid(char *buf, size_t buf_size)
     return 0;
 }
 
+/* @brief 注册WiFi状态变化回调 @param[in] cb 回调函数 @param[in] user_data 用户自定义数据 @return 0成功, -1失败 */
 int axk_wifi_register_event_cb(axk_wifi_event_cb_t cb, void *user_data)
 {
     if (cb == NULL) {
@@ -392,6 +402,7 @@ int axk_wifi_register_event_cb(axk_wifi_event_cb_t cb, void *user_data)
     return -1;
 }
 
+/* @brief 注销WiFi状态变化回调 @param[in] cb 回调函数 @return 0成功, -1失败 */
 int axk_wifi_unregister_event_cb(axk_wifi_event_cb_t cb)
 {
     if (cb == NULL) {
@@ -415,6 +426,7 @@ int axk_wifi_unregister_event_cb(axk_wifi_event_cb_t cb)
     return -1;
 }
 
+/* @brief 设置WiFi自动重连开关 @param[in] enable true启用，false禁用 */
 void axk_wifi_set_auto_reconnect(bool enable)
 {
     if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
@@ -434,6 +446,7 @@ void axk_wifi_set_auto_reconnect(bool enable)
     AXK_LOG_INFO("[axk_wifi_manager] auto reconnect %s\r\n", enable ? "enabled" : "disable ");
 }
 
+/* @brief 获取WiFi自动重连状态 @return true表示自动重连已启用 */
 bool axk_wifi_get_auto_reconnect(void)
 {
     bool enable;

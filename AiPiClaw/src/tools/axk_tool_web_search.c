@@ -45,9 +45,9 @@ static const char *TAG = "web_search";
 
 typedef struct {
     char *data;
-    size_t len;
-    size_t cap;
-    int status_code;
+    size_t len /*< TODO: 描述len */;
+    size_t cap /*< TODO: 描述cap */;
+    int status_code /*< TODO: 描述status_code */;
 } search_buf_t;
 
 typedef bool (*search_format_fn_t)(cJSON *root, char *output, size_t output_size);
@@ -55,29 +55,33 @@ typedef bool (*search_format_fn_t)(cJSON *root, char *output, size_t output_size
 typedef struct {
     const char *query;
     const char *freshness;
-    int count;
-    bool summary;
+    int count /*< TODO: 描述count */;
+    bool summary /*< TODO: 描述summary */;
 } search_options_t;
 
 static char s_search_key[SEARCH_KEY_MAX_LEN] = { 0 };
 static char s_search_provider[SEARCH_PROVIDER_MAX_LEN] = SEARCH_PROVIDER_DEFAULT;
 
+/* @brief 检查当前搜索提供商是否为Bocha @return true表示是Bocha */
 static bool provider_is_bocha(void)
 {
     return strcmp(s_search_provider, "bocha") == 0;
 }
 
+/* @brief 检查当前搜索提供商是否为Brave @return true表示是Brave */
 static bool provider_is_brave(void)
 {
     return strcmp(s_search_provider, "brave") == 0;
 }
 
+/* @brief 检查提供商是否受支持 @param[in] provider 提供商名称 @return true表示受支持（bocha或brave） */
 static bool provider_is_supported(const char *provider)
 {
     return provider &&
            (strcmp(provider, "bocha") == 0 || strcmp(provider, "brave") == 0);
 }
 
+/* @brief 大小写不敏感的子串查找 @param[in] haystack 待搜索字符串 @param[in] needle 要查找的子串 @return true表示找到 */
 static bool str_contains_nocase(const char *haystack, const char *needle)
 {
     size_t needle_len;
@@ -96,6 +100,7 @@ static bool str_contains_nocase(const char *haystack, const char *needle)
     return false;
 }
 
+/* @brief 判断查询是否对时间敏感 @param[in] query 查询字符串 @return true表示时间敏感查询 */
 static bool query_is_time_sensitive(const char *query)
 {
     static const char *time_sensitive_terms[] = {
@@ -121,6 +126,7 @@ static bool query_is_time_sensitive(const char *query)
     return false;
 }
 
+/* @brief 判断查询是否包含时效性提示 @param[in] query 查询字符串 @return true表示已有时效性关键词 */
 static bool query_has_recency_hint(const char *query)
 {
     return str_contains_nocase(query, "latest") ||
@@ -131,6 +137,7 @@ static bool query_has_recency_hint(const char *query)
            strstr(query, "current ") != NULL;
 }
 
+/* @brief 为时间敏感查询构建带时效关键词的查询 @param[in] query 原始查询 @param[out] buf 输出缓冲区 @param[in] buf_size 缓冲区大小 @return true表示成功构建 */
 static bool build_timely_query(const char *query, char *buf, size_t buf_size)
 {
     int wr;
@@ -158,11 +165,13 @@ static bool build_timely_query(const char *query, char *buf, size_t buf_size)
     return true;
 }
 
+/* @brief 检查搜索输出是否无结果 @param[in] output 搜索输出 @return true表示无结果 */
 static bool search_output_has_no_results(const char *output)
 {
     return output && strcmp(output, "No web results found.") == 0;
 }
 
+/* @brief 规范化搜索提供商名称，不支持的退回到默认值 */
 static void normalize_provider(void)
 {
     if (!provider_is_supported(s_search_provider)) {
@@ -171,6 +180,7 @@ static void normalize_provider(void)
     }
 }
 
+/* @brief 格式化追加输出到缓冲区 @param[out] output 输出缓冲区 @param[in] output_size 缓冲区大小 @param[in,out] off 当前写入偏移 @param[in] fmt printf风格格式串 */
 static void append_printf(char *output, size_t output_size, size_t *off, const char *fmt, ...)
 {
     int wr;
@@ -197,6 +207,7 @@ static void append_printf(char *output, size_t output_size, size_t *off, const c
     *off += (size_t)wr;
 }
 
+/* @brief URL编码字符串 @param[in] src 源字符串 @param[out] dst 目标缓冲区 @param[in] dst_size 目标缓冲区大小 @return 编码后长度 */
 static size_t url_encode(const char *src, char *dst, size_t dst_size)
 {
     static const char hex[] = "0123456789ABCDEF";
@@ -220,6 +231,7 @@ static size_t url_encode(const char *src, char *dst, size_t dst_size)
     return pos;
 }
 
+/* @brief 追加单条搜索结果到输出 @param[out] output 输出缓冲区 @param[in] output_size 缓冲区大小 @param[in,out] off 当前偏移 @param[in] index 结果序号 @param[in] title 标题 @param[in] url 链接 @param[in] text 摘要文本 @param[in] date 发布日期 */
 static void append_result(char *output,
                           size_t output_size,
                           size_t *off,
@@ -378,6 +390,7 @@ static bool format_bocha_results(cJSON *root, char *output, size_t output_size)
     return true;
 }
 
+/* @brief HTTP搜索响应回调函数 @param[in] rsp HTTP响应结构体 @param[in] final_data 最终数据标志 @param[in] user_data 用户数据（search_buf_t指针） */
 static void search_response_cb(struct http_response *rsp, enum http_final_call final_data, void *user_data)
 {
     search_buf_t *sb = (search_buf_t *)user_data;
@@ -407,6 +420,7 @@ static void search_response_cb(struct http_response *rsp, enum http_final_call f
     sb->data[sb->len] = '\0';
 }
 
+/* @brief 执行搜索HTTP请求（带重试） @param[in] req HTTP请求配置 @param[out] output 输出缓冲区 @param[in] output_size 输出大小 @param[in] format_results 结果格式化函数 @param[in] provider_name 提供商名称 @return 0成功, -1失败 */
 static int perform_search_request(const struct https_client_request *req,
                                         char *output,
                                         size_t output_size,
@@ -586,6 +600,7 @@ const char *axk_mimiclaw_web_search_get_provider(void)
     return s_search_provider;
 }
 
+/* @brief 设置网络搜索提供商 @param[in] provider 提供商名称（bocha或brave） @return 0成功, -1失败 */
 int axk_mimiclaw_web_search_set_provider(const char *provider)
 {
     size_t len;
@@ -609,6 +624,7 @@ int axk_mimiclaw_web_search_set_provider(const char *provider)
     return 0;
 }
 
+/* @brief 初始化网络搜索工具（加载API密钥和提供商配置） @return 0成功, -1失败 */
 int axk_tool_web_search_init(void)
 {
     char key_buf[SEARCH_KEY_MAX_LEN] = { 0 };
@@ -649,6 +665,7 @@ int axk_tool_web_search_init(void)
     return 0;
 }
 
+/* @brief 设置搜索API密钥 @param[in] api_key API密钥字符串 @return 0成功, -1失败 */
 int axk_tool_web_search_set_key(const char *api_key)
 {
     size_t len;
@@ -672,6 +689,7 @@ int axk_tool_web_search_set_key(const char *api_key)
     return 0;
 }
 
+/* @brief 执行网络搜索 @param[in] input_json 输入JSON（含query字段） @param[out] output 输出缓冲区 @param[in] output_size 输出缓冲区大小 @return 0成功, -1失败 */
 int axk_tool_web_search_execute(const char *input_json, char *output, size_t output_size)
 {
     cJSON *input;

@@ -487,6 +487,7 @@ int axk_skill_load_from_fs(void)
     return loaded;
 }
 
+/* @brief TODO: 描述axk_skill_loader_init的功能 @return 0成功, -1失败 */
 int axk_skill_loader_init(void)
 {
     memset(s_skills, 0, sizeof(s_skills));
@@ -505,8 +506,10 @@ int axk_skill_loader_init(void)
     return 0;
 }
 
+/* @brief TODO: 描述str_contains_nocase的功能 @param haystack TODO: 描述haystack @param needle TODO: 描述needle @return 0成功, -1失败 */
 static bool str_contains_nocase(const char *haystack, const char *needle);
 
+/* @brief TODO: 描述str_contains_nocase的功能 @param haystack TODO: 描述haystack @param needle TODO: 描述needle @return 0成功, -1失败 */
 static bool str_contains_nocase(const char *haystack, const char *needle)
 {
     size_t needle_len;
@@ -543,6 +546,7 @@ const char *axk_skill_match(const char *text)
     return NULL;
 }
 
+/* @brief TODO: 描述axk_skill_execute的功能 @param name TODO: 描述name @param args TODO: 描述args @param out_buf TODO: 描述out_buf @param out_size TODO: 描述out_size @return 0成功, -1失败 */
 int axk_skill_execute(const char *name, const char *args, char *out_buf, size_t out_size)
 {
     int i;
@@ -595,6 +599,7 @@ int axk_skill_execute(const char *name, const char *args, char *out_buf, size_t 
     return -1;
 }
 
+/* @brief TODO: 描述axk_skill_get_prompt的功能 @param name TODO: 描述name @param buf TODO: 描述buf @param buf_size TODO: 描述buf_size @return 0成功, -1失败 */
 int axk_skill_get_prompt(const char *name, char *buf, size_t buf_size)
 {
     int i;

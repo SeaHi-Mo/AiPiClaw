@@ -1,0 +1,472 @@
+/**
+ * @file axk_agent_loop.c
+ * @brief agentmain loop - 安信可科技 BL618 port
+ * @note 整合自官方solution/mimiclaw/port
+ * @copyright Copyright (c) 2026 AI-Thinker
+ */
+
+#include "axk_agent_loop.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+#include <time.h>
+
+#include "bflb_rtc.h"
+#include "axk_message_bus.h"
+#include "axk_llm_proxy.h"
+#include "axk_tool_registry.h"
+#include "axk_skill_loader.h"
+#include "axk_serial_cli.h"
+
+#include "cJSON.h"
+#include "axk_platform.h"
+#include "FreeRTOS.h"
+#include "task.h"
+
+static const char *TAG __attribute__((unused)) = "agent";
+
+#define TOOL_OUTPUT_SIZE  (8 * 1024)
+#define SYSTEM_PROMPT_SIZE 1024
+
+static TaskHandle_t s_agent_task = NULL;
+
+static bool str_contains_nocase(const char *haystack, const char *needle)
+{
+    size_t needle_len;
+
+    if (!haystack || !needle || needle[0] == '\0') {
+        return false;
+    }
+
+    needle_len = strlen(needle);
+    while (*haystack != '\0') {
+        if (strncasecmp(haystack, needle, needle_len) == 0) {
+            return true;
+        }
+        haystack++;
+    }
+
+    return false;
+}
+
+static bool text_has_current_time_anchor(const char *text)
+{
+    static const char *terms[] = {
+        "today", "tonight", "now", "current", "currently", "latest",
+        "recent", "recently", "breaking", "today's", "今天", "今日",
+        "现in ", "current ", "实时", "最新", "近期", "最近", NULL
+    };
+    int i;
+
+    if (!text || text[0] == '\0') {
+        return false;
+    }
+
+    for (i = 0; terms[i] != NULL; i++) {
+        if (str_contains_nocase(text, terms[i]) || strstr(text, terms[i]) != NULL) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static int extract_explicit_year(const char *text)
+{
+    const char *p;
+
+    if (!text) {
+        return 0;
+    }
+
+    for (p = text; p[0] && p[1] && p[2] && p[3]; p++) {
+        int year;
+
+        if (p[0] < '0' || p[0] > '9' ||
+            p[1] < '0' || p[1] > '9' ||
+            p[2] < '0' || p[2] > '9' ||
+            p[3] < '0' || p[3] > '9') {
+            continue;
+        }
+
+        year = (p[0] - '0') * 1000 +
+               (p[1] - '0') * 100 +
+               (p[2] - '0') * 10 +
+               (p[3] - '0');
+        if (year >= 2000 && year <= 2099) {
+            return year;
+        }
+    }
+
+    return 0;
+}
+
+static bool get_current_year(int *year_out)
+{
+    struct bflb_tm tm_now;
+    uint64_t ts = bflb_rtc_get_utc_timestamp();
+
+    if (!year_out || ts < 1735689600) {
+        return false;
+    }
+
+    bflb_rtc_get_utc_time(&tm_now);
+    *year_out = tm_now.tm_year + 1900;
+    return true;
+}
+
+static bool should_anchor_web_search_to_user(const char *user_query, const char *tool_query)
+{
+    int user_year;
+    int tool_year;
+    int current_year = 0;
+    bool have_current_year;
+
+    if (!text_has_current_time_anchor(user_query)) {
+        return false;
+    }
+
+    if (!tool_query || tool_query[0] == '\0') {
+        return true;
+    }
+
+    if (!text_has_current_time_anchor(tool_query)) {
+        return true;
+    }
+
+    user_year = extract_explicit_year(user_query);
+    tool_year = extract_explicit_year(tool_query);
+    have_current_year = get_current_year(&current_year);
+
+    if (user_year == 0 && tool_year != 0) {
+        if (!have_current_year || tool_year != current_year) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static char *rewrite_web_search_input(const char *tool_input, const char *replacement_query)
+{
+    cJSON *input;
+    cJSON *query_item;
+    char *rewritten;
+
+    if (!replacement_query || replacement_query[0] == '\0') {
+        return NULL;
+    }
+
+    input = cJSON_Parse(tool_input ? tool_input : "{}");
+    if (!input) {
+        return NULL;
+    }
+
+    query_item = cJSON_GetObjectItem(input, "query");
+    if (query_item) {
+        cJSON_SetValuestring(query_item, replacement_query);
+    } else {
+        cJSON_AddStringToObject(input, "query", replacement_query);
+    }
+
+    rewritten = cJSON_PrintUnformatted(input);
+    cJSON_Delete(input);
+    return rewritten;
+}
+
+static void prepare_tool_inputs(const llm_response_t *resp, const char *user_query, char **tool_inputs)
+{
+    int i;
+
+    for (i = 0; i < resp->call_count; i++) {
+        const llm_tool_call_t *call = &resp->calls[i];
+        cJSON *input = NULL;
+        cJSON *query = NULL;
+        const char *tool_query = NULL;
+
+        tool_inputs[i] = NULL;
+        if (strcmp(call->name, "web_search") != 0 || !user_query || user_query[0] == '\0') {
+            continue;
+        }
+
+        input = cJSON_Parse(call->input ? call->input : "{}");
+        if (input) {
+            query = cJSON_GetObjectItem(input, "query");
+            if (query && cJSON_IsString(query)) {
+                tool_query = query->valuestring;
+            }
+        }
+
+        if (should_anchor_web_search_to_user(user_query, tool_query)) {
+            tool_inputs[i] = rewrite_web_search_input(call->input, user_query);
+            if (tool_inputs[i]) {
+                AXK_LOG_INFO("agent",
+                         "anchored web_search query to user text: original=%s replacement=%s",
+                         tool_query ? tool_query : "(empty)",
+                         user_query);
+            }
+        }
+
+        cJSON_Delete(input);
+    }
+}
+
+static void free_tool_inputs(const llm_response_t *resp, char **tool_inputs)
+{
+    int i;
+
+    for (i = 0; i < resp->call_count; i++) {
+        free(tool_inputs[i]);
+        tool_inputs[i] = NULL;
+    }
+}
+
+static void build_system_prompt(char *buf, size_t size)
+{
+    uint64_t now = bflb_rtc_get_utc_timestamp();
+    struct bflb_tm tm_now;
+    char date_line[64] = { 0 };
+
+    if (now >= 1735689600) {
+        bflb_rtc_get_utc_time(&tm_now);
+        snprintf(date_line,
+                 sizeof(date_line),
+                 "Current local date context: %04d-%02d-%02d.\n",
+                 tm_now.tm_year + 1900,
+                 tm_now.tm_mon + 1,
+                 tm_now.tm_mday);
+    }
+
+    snprintf(buf, size,
+             "You are MimiClaw running on Bouffalo SDK.\n"
+             "Use available tools when needed.\n"
+             "If user asks for current time/date, call get_current_time.\n"
+             "For time-sensitive questions about today/latest/current/recent news, prices, weather, or markets:\n"
+             "- Keep the first web_search query very close to the user's original wording.\n"
+             "- Do not invent or change years unless the user explicitly specifies a year.\n"
+             "- If the user asks about today/latest and gives no year, prefer current-date information over historical years.\n"
+             "When finished, answer clearly and concisely.\n"
+             "%s",
+             date_line);
+}
+
+static cJSON *build_assistant_content(const llm_response_t *resp, char **tool_inputs)
+{
+    cJSON *content = cJSON_CreateArray();
+    int i;
+
+    if (resp->text && resp->text_len > 0) {
+        cJSON *text_block = cJSON_CreateObject();
+        cJSON_AddStringToObject(text_block, "type", "text");
+        cJSON_AddStringToObject(text_block, "text", resp->text);
+        cJSON_AddItemToArray(content, text_block);
+    }
+
+    for (i = 0; i < resp->call_count; i++) {
+        const llm_tool_call_t *call = &resp->calls[i];
+        cJSON *tool_block = cJSON_CreateObject();
+        const char *tool_input = tool_inputs && tool_inputs[i] ? tool_inputs[i] : (call->input ? call->input : "{}");
+        cJSON *input = cJSON_Parse(tool_input);
+
+        cJSON_AddStringToObject(tool_block, "type", "tool_use");
+        cJSON_AddStringToObject(tool_block, "id", call->id);
+        cJSON_AddStringToObject(tool_block, "name", call->name);
+        cJSON_AddItemToObject(tool_block, "input", input ? input : cJSON_CreateObject());
+        cJSON_AddItemToArray(content, tool_block);
+    }
+
+    return content;
+}
+
+static cJSON *build_tool_results(const llm_response_t *resp,
+                                 char **tool_inputs,
+                                 char *tool_output,
+                                 size_t tool_output_size)
+{
+    cJSON *content = cJSON_CreateArray();
+    int i;
+
+    for (i = 0; i < resp->call_count; i++) {
+        const llm_tool_call_t *call = &resp->calls[i];
+        const char *tool_input = tool_inputs && tool_inputs[i] ? tool_inputs[i] : (call->input ? call->input : "{}");
+        cJSON *result_block;
+        int tool_ret;
+
+        tool_output[0] = '\0';
+        tool_ret = axk_tool_registry_execute(call->name, tool_input, tool_output, tool_output_size);
+        AXK_LOG_INFO("agent", "Tool %s ret=%s(%d)", call->name, (int)tool_ret, tool_ret);
+
+        result_block = cJSON_CreateObject();
+        cJSON_AddStringToObject(result_block, "type", "tool_result");
+        cJSON_AddStringToObject(result_block, "tool_use_id", call->id);
+        cJSON_AddStringToObject(result_block, "content", tool_output);
+        cJSON_AddItemToArray(content, result_block);
+    }
+
+    return content;
+}
+
+static void agent_loop_task(void *arg)
+{
+    const char *tools_json;
+    char system_prompt[SYSTEM_PROMPT_SIZE];
+    static char tool_output[TOOL_OUTPUT_SIZE];
+    (void)arg;
+
+    /* Early printf to confirm task scheduling - must appear before any blocking call */
+    printf("[agent] === task entry ===\r\n");
+    printf("[agent] agent loop started\r\n");
+
+    /* Fetch tools_json after early logging to help pinpoint any crash location */
+    tools_json = axk_tool_registry_get_tools_json();
+    printf("[agent] tools_json=%p\r\n", (void*)tools_json);
+
+    /* Register as inbound consumer for Task Notification wake-up */
+    axk_message_bus_set_inbound_consumer(xTaskGetCurrentTaskHandle());
+    printf("[agent] registered as inbound consumer\r\n");
+
+    while (1) {
+        axk_serial_cli_poll();  /* 轮询 UART RX，检查是否有串口输入 */
+        mimi_msg_t msg;
+        cJSON *messages = NULL;
+        cJSON *user_msg = NULL;
+        char *final_text = NULL;
+        int iteration = 0;
+        int err = axk_message_bus_pop_inbound(&msg, UINT32_MAX);
+        if (err != 0) {
+            if (err == -2) {
+                vTaskDelay(pdMS_TO_TICKS(500));
+            }
+            continue;
+        }
+
+        printf("[AGENT] inbound ch=%s content=%.60s\r\n", msg.channel, msg.content ? msg.content : "(null)");
+
+        /* skill match ：优先执行本地技能，skip  LLM call  */
+        {
+            const char *skill_name = axk_skill_match(msg.content);
+            if (skill_name) {
+                char skill_out[512];
+                int skill_ret = axk_skill_execute(skill_name, msg.content, skill_out, sizeof(skill_out));
+                if (skill_ret == 0) {
+                    mimi_msg_t out = { 0 };
+                    strncpy(out.channel, msg.channel, sizeof(out.channel) - 1);
+                    strncpy(out.chat_id, msg.chat_id, sizeof(out.chat_id) - 1);
+                    out.content = strdup(skill_out);
+                    if (out.content) {
+                        out.priority = MIMI_PRIO_NORMAL;  /**< AIresponsemsg */
+                        if (axk_message_bus_push_outbound(&out) != 0) {
+                            AXK_LOG_WARN("agent", "drop outbound: queue full");
+                        }
+                        free(out.content);  /**< pushinternalstrdup副本，无论成败都release call 者副本 */
+                    }
+                    free(msg.content);
+                    continue;   /* skip 后续 LLM process */
+                }
+                AXK_LOG_WARN("agent", "skill '%s' execute failed, fallback to LLM", skill_name);
+            }
+        }
+
+        messages = cJSON_CreateArray();
+        user_msg = cJSON_CreateObject();
+        cJSON_AddStringToObject(user_msg, "role", "user");
+        cJSON_AddStringToObject(user_msg, "content", msg.content ? msg.content : "");
+        cJSON_AddItemToArray(messages, user_msg);
+
+        while (iteration < MIMI_AGENT_MAX_TOOL_ITER) {
+            llm_response_t resp;
+            char *tool_inputs[MIMI_MAX_TOOL_CALLS] = { 0 };
+
+            build_system_prompt(system_prompt, sizeof(system_prompt));
+            err = axk_llm_chat_tools(system_prompt, messages, tools_json, &resp);
+            if (err != 0) {
+                AXK_LOG_ERROR("agent", "llm call failed: %s", (int)err);
+                break;
+            }
+
+            if (!resp.tool_use) {
+                if (resp.text && resp.text_len > 0) {
+                    final_text = strdup(resp.text);
+                }
+                axk_llm_response_free(&resp);
+                break;
+            }
+
+            AXK_LOG_INFO("agent", "tool_use iteration=%d calls=%d", iteration + 1, resp.call_count);
+            prepare_tool_inputs(&resp, msg.content, tool_inputs);
+
+            cJSON *asst_msg = cJSON_CreateObject();
+            cJSON_AddStringToObject(asst_msg, "role", "assistant");
+            cJSON_AddItemToObject(asst_msg, "content", build_assistant_content(&resp, tool_inputs));
+            cJSON_AddItemToArray(messages, asst_msg);
+
+            cJSON *result_msg = cJSON_CreateObject();
+            cJSON_AddStringToObject(result_msg, "role", "user");
+            cJSON_AddItemToObject(result_msg,
+                                  "content",
+                                  build_tool_results(&resp, tool_inputs, tool_output, sizeof(tool_output)));
+            cJSON_AddItemToArray(messages, result_msg);
+
+            free_tool_inputs(&resp, tool_inputs);
+            axk_llm_response_free(&resp);
+            iteration++;
+        }
+
+        cJSON_Delete(messages);
+
+        {
+            mimi_msg_t out = { 0 };
+            strncpy(out.channel, msg.channel, sizeof(out.channel) - 1);
+            strncpy(out.chat_id, msg.chat_id, sizeof(out.chat_id) - 1);
+
+            if (!final_text || final_text[0] == '\0') {
+                free(final_text);
+                final_text = strdup("Sorry, I encountered an error.");
+            }
+
+            out.content = final_text;
+            out.priority = MIMI_PRIO_NORMAL;  /**< AIresponsemsg */
+            if (!out.content) {
+                AXK_LOG_WARN("agent", "drop outbound: no memory");
+            } else if (axk_message_bus_push_outbound(&out) != 0) {
+                AXK_LOG_WARN("agent", "drop outbound: queue full");
+                free(out.content);
+                final_text = NULL;  /**< pushFAIL后置empty ，避免后续double-free */
+            } else {
+                final_text = NULL;
+            }
+        }
+
+        free(final_text);
+        final_text = NULL;
+        free(msg.content);
+    }
+}
+
+void axk_agent_loop_run(void)
+{
+    /* main loop由 axk_agent_loop_start() start为 FreeRTOS 独立task */
+    /* 本func 为 API 兼容性保留，not 执行实际操作 */
+}
+
+int axk_agent_loop_init(void)
+{
+    AXK_LOG_INFO("agent", "agent loop initialized");
+    return 0;
+}
+
+int axk_agent_loop_start(void)
+{
+    if (s_agent_task) {
+        return 0;
+    }
+
+    if (xTaskCreate(agent_loop_task, "agent_loop", MIMI_AGENT_STACK, NULL, MIMI_AGENT_PRIO, &s_agent_task) != pdPASS) {
+        s_agent_task = NULL;
+        return -1;
+    }
+
+    return 0;
+}

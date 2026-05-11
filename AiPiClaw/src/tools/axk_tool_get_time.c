@@ -36,6 +36,7 @@ static const char *s_ntp_servers[] = {
     "ntp.aliyun.com",
 };
 
+/* @brief 检查RTC时间是否可信 @return true表示RTC时间在合理范围内 */
 static bool rtc_time_plausible(void)
 {
     struct bflb_tm tm;
@@ -63,6 +64,7 @@ static bool rtc_time_plausible(void)
     return true;
 }
 
+/* @brief 计算一年中的第几天 @param[in] year 年份 @param[in] month 月份（1-12） @param[in] day 日期 @return 一年中的天数（0-365） */
 static int day_of_year(int year, int month, int day)
 {
     static const int day_offset[] = { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 };
@@ -78,6 +80,7 @@ static int day_of_year(int year, int month, int day)
     return yday;
 }
 
+/* @brief Unix时间戳转UTC分解时间 @param[in] unix_sec Unix秒时间戳 @param[out] tm 输出时间结构体 */
 static void unix_to_tm_utc(uint32_t unix_sec, struct bflb_tm *tm)
 {
     uint32_t sec_of_day = unix_sec % 86400U;
@@ -128,6 +131,7 @@ static bool format_utc_time(char *out, size_t out_size)
     return n > 0 && (size_t)n < out_size;
 }
 
+/* @brief TODO: 描述sync_from_external_rtc的功能 @return 0成功, -1失败 */
 static bool sync_from_external_rtc(void)
 {
     struct bflb_tm tm;
@@ -144,6 +148,7 @@ static bool sync_from_external_rtc(void)
     return true;
 }
 
+/* @brief TODO: 描述sync_to_external_rtc的功能 @return 无返回值 */
 static void sync_to_external_rtc(void)
 {
     struct bflb_tm tm;
@@ -156,6 +161,7 @@ static void sync_to_external_rtc(void)
     (void)axk_mimiclaw_ext_rtc_write_utc(&tm);
 }
 
+/* @brief TODO: 描述sync_time_once_from_server的功能 @param server TODO: 描述server @return 0成功, -1失败 */
 static int sync_time_once_from_server(const char *server)
 {
     struct addrinfo hints;
@@ -227,6 +233,7 @@ static int sync_time_once_from_server(const char *server)
     return -1;
 }
 
+/* @brief TODO: 描述axk_tool_get_time_execute的功能 @param input_json TODO: 描述input_json @param output TODO: 描述output @param output_size TODO: 描述output_size @return 0成功, -1失败 */
 int axk_tool_get_time_execute(const char *input_json, char *output, size_t output_size)
 {
     size_t i;

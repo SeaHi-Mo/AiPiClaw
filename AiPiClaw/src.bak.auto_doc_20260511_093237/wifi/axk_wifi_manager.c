@@ -1,0 +1,449 @@
+/**
+ * @file axk_wifi_manager.c
+ * @brief WiFimanager实现 - 基于 Bouffalo SDK fhost (WiFi6)
+ * @version 1.0
+ * @date 2026-04-23
+ *
+ * @copyright Copyright (c) 2026 AI-Thinker
+ * @note provide STAmode 下connect、disconnect、status 查询、auto reconnect  etc功能
+ */
+
+#include "axk_wifi_manager.h"
+#include "axk_mimiclaw.h"
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
+
+/* Bouffalo SDK WiFi6 (fhost) 头file */
+#include "wifi_mgmr_ext.h"
+#include "wifi_mgmr.h"
+#include "async_event.h"
+
+/* lwIP 头file，for IPaddr convert  */
+#include "lwip/ip_addr.h"
+
+/* ============== private data结构 ============== */
+
+#define AXK_WIFI_SSID_MAX_LEN      32
+#define AXK_WIFI_PASSWORD_MAX_LEN  64
+#define AXK_WIFI_MAX_CB_NUM        4
+#define AXK_WIFI_RECONNECT_DELAY_MS 5000
+
+/**
+ * @brief WiFimanager上下文结构
+ */
+typedef struct {
+    axk_wifi_state_t state;                         /**< current WiFistatus  */
+    char ssid[AXK_WIFI_SSID_MAX_LEN + 1];           /**< save SSID */
+    char password[AXK_WIFI_PASSWORD_MAX_LEN + 1];   /**< save password  */
+    bool auto_reconnect;                            /**< auto reconnect enabled */
+    bool pending_reconnect;                         /**< 待执行reconnect  */
+    uint32_t reconnect_tick;                        /**< reconnect timer */
+
+    axk_wifi_event_cb_t cbs[AXK_WIFI_MAX_CB_NUM];   /**< registercallback func 数组 */
+    void *cb_user_data[AXK_WIFI_MAX_CB_NUM];        /**< callback userdata */
+
+    SemaphoreHandle_t mutex;                        /**< mutex ，保护shared data */
+} axk_wifi_manager_ctx_t;
+
+static axk_wifi_manager_ctx_t g_wifi_ctx;
+
+/* ============== internalhelper func  ============== */
+
+/**
+ * @brief get current FreeRTOS tick数（毫s）
+ */
+static inline uint32_t axk_wifi_get_tick_ms(void)
+{
+    return xTaskGetTickCount() * portTICK_PERIOD_MS;
+}
+
+/**
+ * @brief notify allregistercallback func status 变化
+ * @param[in] state 新WiFistatus 
+ */
+static void axk_wifi_notify_callbacks(axk_wifi_state_t state)
+{
+    for (int i = 0; i < AXK_WIFI_MAX_CB_NUM; i++) {
+        if (g_wifi_ctx.cbs[i] != NULL) {
+            g_wifi_ctx.cbs[i](state, g_wifi_ctx.cb_user_data[i]);
+        }
+    }
+}
+
+/**
+ * @brief update WiFistatus ， and trigger callback 
+ * @param[in] new_state 新status 
+ */
+static void axk_wifi_set_state(axk_wifi_state_t new_state)
+{
+    if (g_wifi_ctx.state == new_state) {
+        return;
+    }
+
+    AXK_LOG_INFO("[axk_wifi_manager] status 变化: %d -> %d\r\n", g_wifi_ctx.state, new_state);
+    g_wifi_ctx.state = new_state;
+    axk_wifi_notify_callbacks(new_state);
+}
+
+/**
+ * @brief WiFi异步事件processfunc 
+ * @param[in] event 事件结构体
+ * @param[in] private_data private data
+ * @note 该func 由async事件systemcall 
+ */
+static void axk_wifi_event_handler(async_input_event_t event, void *private_data)
+{
+    (void)private_data;
+
+    if (event == NULL) {
+        return;
+    }
+
+    switch (event->code) {
+        case CODE_WIFI_ON_INIT_DONE:
+            AXK_LOG_INFO("[axk_wifi_manager] WiFi硬件initok\r\n");
+            break;
+
+        case CODE_WIFI_ON_CONNECTING:
+            AXK_LOG_INFO("[axk_wifi_manager] 正in connectWiFi...\r\n");
+            axk_wifi_set_state(AXK_WIFI_STATE_CONNECTING);
+            break;
+
+        case CODE_WIFI_ON_CONNECTED:
+            AXK_LOG_INFO("[axk_wifi_manager] connect to AP\r\n");
+            axk_wifi_set_state(AXK_WIFI_STATE_CONNECTED);
+            break;
+
+        case CODE_WIFI_ON_GOT_IP:
+            AXK_LOG_INFO("[axk_wifi_manager] get IPaddr \r\n");
+            axk_wifi_set_state(AXK_WIFI_STATE_GOT_IP);
+            break;
+
+        case CODE_WIFI_ON_DISCONNECT:
+            AXK_LOG_WARN("[axk_wifi_manager] WiFiconnectdisconnect\r\n");
+            if (g_wifi_ctx.auto_reconnect && g_wifi_ctx.ssid[0] != '\0') {
+                g_wifi_ctx.pending_reconnect = true;
+                g_wifi_ctx.reconnect_tick = axk_wifi_get_tick_ms();
+                AXK_LOG_INFO("[axk_wifi_manager] will in  %d ms 后attempt reconnect \r\n", AXK_WIFI_RECONNECT_DELAY_MS);
+            }
+            axk_wifi_set_state(AXK_WIFI_STATE_DISCONNECTED);
+            break;
+
+        case CODE_WIFI_ON_GOT_IP_TIMEOUT:
+            AXK_LOG_WARN("[axk_wifi_manager] get IPtimeout\r\n");
+            break;
+
+        case CODE_WIFI_ON_SCAN_DONE:
+            AXK_LOG_INFO("[axk_wifi_manager] WiFiscan ok\r\n");
+            break;
+
+        case CODE_WIFI_ON_PRE_GOT_IP:
+            AXK_LOG_INFO("[axk_wifi_manager] 正in get IP...\r\n");
+            break;
+
+        case CODE_WIFI_ON_LOST_IP:
+            AXK_LOG_WARN("[axk_wifi_manager] IPaddr 丢失\r\n");
+            break;
+
+        default:
+            AXK_LOG_DEBUG("[axk_wifi_manager] not processWiFi事件: code=%lu\r\n", event->code);
+            break;
+    }
+}
+
+/* ============== externalAPI实现 ============== */
+
+int axk_wifi_manager_init(void)
+{
+    memset(&g_wifi_ctx, 0, sizeof(g_wifi_ctx));
+    g_wifi_ctx.state = AXK_WIFI_STATE_DISCONNECTED;
+    g_wifi_ctx.auto_reconnect = true;
+    g_wifi_ctx.mutex = xSemaphoreCreateMutex();
+
+    if (g_wifi_ctx.mutex == NULL) {
+        AXK_LOG_ERROR("[axk_wifi_manager] createmutex FAIL\r\n");
+        return -1;
+    }
+
+    /* registerWiFi事件callback ，listen allWiFi事件 */
+    int ret = async_register_event_filter(EV_WIFI, axk_wifi_event_handler, NULL);
+    if (ret != 0) {
+        AXK_LOG_ERROR("[axk_wifi_manager] registerWiFi事件过滤器FAIL: %d\r\n", ret);
+        vSemaphoreDelete(g_wifi_ctx.mutex);
+        g_wifi_ctx.mutex = NULL;
+        return -1;
+    }
+
+    /* enabledSDK内建auto reconnect 机制 */
+    wifi_mgmr_sta_autoconnect_enable();
+
+    AXK_LOG_INFO("[axk_wifi_manager] WiFimanagerinitok\r\n");
+    return 0;
+}
+
+void axk_wifi_manager_poll(void)
+{
+    if (g_wifi_ctx.mutex == NULL) {
+        return;
+    }
+
+    if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        return;
+    }
+
+    /* processauto reconnect  */
+    if (g_wifi_ctx.pending_reconnect) {
+        uint32_t elapsed = axk_wifi_get_tick_ms() - g_wifi_ctx.reconnect_tick;
+        if (elapsed >= AXK_WIFI_RECONNECT_DELAY_MS) {
+            g_wifi_ctx.pending_reconnect = false;
+            xSemaphoreGive(g_wifi_ctx.mutex);
+
+            AXK_LOG_INFO("[axk_wifi_manager] attempt auto reconnect : SSID=%s\r\n", g_wifi_ctx.ssid);
+            int ret = axk_wifi_connect(g_wifi_ctx.ssid, g_wifi_ctx.password);
+            if (ret != 0) {
+                AXK_LOG_ERROR("[axk_wifi_manager] auto reconnect FAIL\r\n");
+            }
+            return; /* 经release mutex，直接return  */
+        }
+    }
+
+    xSemaphoreGive(g_wifi_ctx.mutex);
+}
+
+int axk_wifi_connect(const char *ssid, const char *password)
+{
+    if (ssid == NULL || ssid[0] == '\0') {
+        AXK_LOG_ERROR("[axk_wifi_manager] SSIDnot 能为empty \r\n");
+        return -1;
+    }
+
+    size_t ssid_len = strlen(ssid);
+    if (ssid_len > AXK_WIFI_SSID_MAX_LEN) {
+        AXK_LOG_ERROR("[axk_wifi_manager] SSID过长（最大%dbytes）\r\n", AXK_WIFI_SSID_MAX_LEN);
+        return -1;
+    }
+
+    const char *pwd = password ? password : "";
+    size_t pwd_len = strlen(pwd);
+    if (pwd_len > AXK_WIFI_PASSWORD_MAX_LEN) {
+        AXK_LOG_ERROR("[axk_wifi_manager] password 过长（最大%dbytes）\r\n", AXK_WIFI_PASSWORD_MAX_LEN);
+        return -1;
+    }
+
+    if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        AXK_LOG_ERROR("[axk_wifi_manager] get mutex timeout\r\n");
+        return -1;
+    }
+
+    /* save SSID & password for auto reconnect  */
+    memcpy(g_wifi_ctx.ssid, ssid, ssid_len + 1);
+    memcpy(g_wifi_ctx.password, pwd, pwd_len + 1);
+
+    /* build connectparam  */
+    wifi_mgmr_sta_connect_params_t params = { 0 };
+    memcpy(params.ssid, ssid, ssid_len);
+    params.ssid_len = (uint8_t)ssid_len;
+
+    if (pwd_len > 0) {
+        memcpy(params.key, pwd, pwd_len);
+        params.key_len = (uint8_t)pwd_len;
+    }
+
+    params.use_dhcp = 1;  /* use DHCPget IP */
+    params.scan_mode = 0; /* in all频道scan  */
+
+    xSemaphoreGive(g_wifi_ctx.mutex);
+
+    AXK_LOG_INFO("[axk_wifi_manager] attempt connectWiFi: SSID=%s\r\n", ssid);
+
+    int ret = wifi_mgmr_sta_connect(&params);
+    if (ret != 0) {
+        AXK_LOG_ERROR("[axk_wifi_manager] call wifi_mgmr_sta_connectFAIL: %d\r\n", ret);
+        return -1;
+    }
+
+    return 0;
+}
+
+int axk_wifi_disconnect(void)
+{
+    AXK_LOG_INFO("[axk_wifi_manager] disconnectWiFiconnect\r\n");
+
+    if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        return -1;
+    }
+
+    g_wifi_ctx.pending_reconnect = false;
+
+    xSemaphoreGive(g_wifi_ctx.mutex);
+
+    int ret = wifi_sta_disconnect();
+    if (ret != 0) {
+        AXK_LOG_ERROR("[axk_wifi_manager] disconnectconnectFAIL: %d\r\n", ret);
+        return -1;
+    }
+
+    return 0;
+}
+
+axk_wifi_state_t axk_wifi_get_state(void)
+{
+    axk_wifi_state_t state;
+
+    if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        return AXK_WIFI_STATE_DISCONNECTED;
+    }
+
+    state = g_wifi_ctx.state;
+    xSemaphoreGive(g_wifi_ctx.mutex);
+
+    return state;
+}
+
+bool axk_wifi_is_connected(void)
+{
+    return (axk_wifi_get_state() == AXK_WIFI_STATE_GOT_IP);
+}
+
+int axk_wifi_get_ip(char *buf, size_t buf_size)
+{
+    if (buf == NULL || buf_size < 16) {
+        return -1;
+    }
+
+    uint32_t addr = 0, mask = 0, gw = 0, dns = 0;
+    int ret = wifi_sta_ip4_addr_get(&addr, &mask, &gw, &dns);
+    if (ret != 0 || addr == 0) {
+        buf[0] = '\0';
+        return -1;
+    }
+
+    ip4_addr_t ip4;
+    ip4.addr = addr;
+    snprintf(buf, buf_size, "%s", ip4addr_ntoa(&ip4));
+
+    return 0;
+}
+
+int axk_wifi_get_rssi(int *rssi)
+{
+    if (rssi == NULL) {
+        return -1;
+    }
+
+    int ret = wifi_mgmr_sta_rssi_get(rssi);
+    if (ret != 0) {
+        return -1;
+    }
+
+    return 0;
+}
+
+int axk_wifi_get_ssid(char *buf, size_t buf_size)
+{
+    if (buf == NULL || buf_size == 0) {
+        return -1;
+    }
+
+    if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        return -1;
+    }
+
+    if (g_wifi_ctx.ssid[0] == '\0') {
+        xSemaphoreGive(g_wifi_ctx.mutex);
+        buf[0] = '\0';
+        return -1;
+    }
+
+    strncpy(buf, g_wifi_ctx.ssid, buf_size - 1);
+    buf[buf_size - 1] = '\0';
+    xSemaphoreGive(g_wifi_ctx.mutex);
+
+    return 0;
+}
+
+int axk_wifi_register_event_cb(axk_wifi_event_cb_t cb, void *user_data)
+{
+    if (cb == NULL) {
+        return -1;
+    }
+
+    if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        return -1;
+    }
+
+    for (int i = 0; i < AXK_WIFI_MAX_CB_NUM; i++) {
+        if (g_wifi_ctx.cbs[i] == NULL) {
+            g_wifi_ctx.cbs[i] = cb;
+            g_wifi_ctx.cb_user_data[i] = user_data;
+            xSemaphoreGive(g_wifi_ctx.mutex);
+            return 0;
+        }
+    }
+
+    xSemaphoreGive(g_wifi_ctx.mutex);
+    AXK_LOG_ERROR("[axk_wifi_manager] callback func 数组full \r\n");
+    return -1;
+}
+
+int axk_wifi_unregister_event_cb(axk_wifi_event_cb_t cb)
+{
+    if (cb == NULL) {
+        return -1;
+    }
+
+    if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        return -1;
+    }
+
+    for (int i = 0; i < AXK_WIFI_MAX_CB_NUM; i++) {
+        if (g_wifi_ctx.cbs[i] == cb) {
+            g_wifi_ctx.cbs[i] = NULL;
+            g_wifi_ctx.cb_user_data[i] = NULL;
+            xSemaphoreGive(g_wifi_ctx.mutex);
+            return 0;
+        }
+    }
+
+    xSemaphoreGive(g_wifi_ctx.mutex);
+    return -1;
+}
+
+void axk_wifi_set_auto_reconnect(bool enable)
+{
+    if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        return;
+    }
+
+    g_wifi_ctx.auto_reconnect = enable;
+
+    if (enable) {
+        wifi_mgmr_sta_autoconnect_enable();
+    } else {
+        wifi_mgmr_sta_autoconnect_disable();
+    }
+
+    xSemaphoreGive(g_wifi_ctx.mutex);
+
+    AXK_LOG_INFO("[axk_wifi_manager] auto reconnect %s\r\n", enable ? "enabled" : "disable ");
+}
+
+bool axk_wifi_get_auto_reconnect(void)
+{
+    bool enable;
+
+    if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        return false;
+    }
+
+    enable = g_wifi_ctx.auto_reconnect;
+    xSemaphoreGive(g_wifi_ctx.mutex);
+
+    return enable;
+}

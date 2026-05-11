@@ -44,6 +44,7 @@ static uint32_t s_btn_press_start_ms = 0;
  * 实现
  * ============================================================ */
 
+/* @brief TODO: 描述axk_gpio_control_init的功能 @return 0成功, -1失败 */
 int axk_gpio_control_init(void)
 {
 #if AXK_PLATFORM_BL618
@@ -63,6 +64,7 @@ int axk_gpio_control_init(void)
     return 0;
 }
 
+/* @brief TODO: 描述axk_gpio_control_poll的功能 @return 无返回值 */
 void axk_gpio_control_poll(void)
 {
 #if AXK_PLATFORM_BL618
