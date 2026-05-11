@@ -496,8 +496,7 @@ int axk_skill_load_from_fs(void)
 }
 
 /**
- * @brief TODO: 描述axk_skill_loader_init的功能
- *
+ * @brief 初始化技能加载器，注册所有内置技能模块
  * @return 0成功, -1失败
  */
 int axk_skill_loader_init(void)
@@ -519,11 +518,10 @@ int axk_skill_loader_init(void)
 }
 
 /**
- * @brief TODO: 描述str_contains_nocase的功能
- *
- * @param haystack TODO: 描述haystack
- * @param needle TODO: 描述needle
- * @return 0成功, -1失败
+ * @brief 不区分大小写检查字符串中是否包含子串
+ * @param[in] haystack 待搜索的字符串
+ * @param[in] needle 要查找的子字符串
+ * @return true找到, false未找到
  */
 static bool str_contains_nocase(const char *haystack, const char *needle);
 
@@ -571,12 +569,11 @@ const char *axk_skill_match(const char *text)
 }
 
 /**
- * @brief TODO: 描述axk_skill_execute的功能
- *
- * @param name TODO: 描述name
- * @param args TODO: 描述args
- * @param out_buf TODO: 描述out_buf
- * @param out_size TODO: 描述out_size
+ * @brief 执行指定名称的技能
+ * @param[in] name 技能名称
+ * @param[in] args 技能参数（自然语言文本）
+ * @param[out] out_buf 执行结果输出缓冲区
+ * @param[in] out_size 输出缓冲区大小
  * @return 0成功, -1失败
  */
 int axk_skill_execute(const char *name, const char *args, char *out_buf, size_t out_size)
@@ -632,11 +629,10 @@ int axk_skill_execute(const char *name, const char *args, char *out_buf, size_t 
 }
 
 /**
- * @brief TODO: 描述axk_skill_get_prompt的功能
- *
- * @param name TODO: 描述name
- * @param buf TODO: 描述buf
- * @param buf_size TODO: 描述buf_size
+ * @brief 获取指定技能的系统提示词文本
+ * @param[in] name 技能名称
+ * @param[out] buf 提示词输出缓冲区
+ * @param[in] buf_size 缓冲区大小
  * @return 0成功, -1失败
  */
 int axk_skill_get_prompt(const char *name, char *buf, size_t buf_size)

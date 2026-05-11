@@ -18,35 +18,31 @@ extern "C" {
 #endif
 
 /**
- * @brief TODO: 描述axk_tool_gpio_init的功能
- *
+ * @brief 初始化GPIO控制工具模块
  * @return 0成功, -1失败
  */
 int axk_tool_gpio_init(void);
 /**
- * @brief TODO: 描述axk_tool_gpio_write_execute的功能
- *
- * @param input_json TODO: 描述input_json
- * @param output TODO: 描述output
- * @param output_size TODO: 描述output_size
+ * @brief 执行GPIO写操作，设置指定引脚电平
+ * @param[in] input_json JSON: {"pin":N, "value":0|1}
+ * @param[out] output 执行结果字符串
+ * @param[in] output_size 输出缓冲区大小
  * @return 0成功, -1失败
  */
 int axk_tool_gpio_write_execute(const char *input_json, char *output, size_t output_size);
 /**
- * @brief TODO: 描述axk_tool_gpio_read_execute的功能
- *
- * @param input_json TODO: 描述input_json
- * @param output TODO: 描述output
- * @param output_size TODO: 描述output_size
+ * @brief 执行GPIO读操作，读取指定引脚电平
+ * @param[in] input_json JSON: {"pin":N}
+ * @param[out] output 执行结果字符串
+ * @param[in] output_size 输出缓冲区大小
  * @return 0成功, -1失败
  */
 int axk_tool_gpio_read_execute(const char *input_json, char *output, size_t output_size);
 /**
- * @brief TODO: 描述axk_tool_gpio_read_all_execute的功能
- *
- * @param input_json TODO: 描述input_json
- * @param output TODO: 描述output
- * @param output_size TODO: 描述output_size
+ * @brief 读取所有合法GPIO引脚的当前电平
+ * @param[in] input_json JSON: {} (预留)
+ * @param[out] output 按行列出各GPIO状态
+ * @param[in] output_size 输出缓冲区大小
  * @return 0成功, -1失败
  */
 int axk_tool_gpio_read_all_execute(const char *input_json, char *output, size_t output_size);

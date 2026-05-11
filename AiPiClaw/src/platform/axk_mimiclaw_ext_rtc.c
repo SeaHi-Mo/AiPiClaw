@@ -33,12 +33,11 @@ static bool s_ds3231_present;
 /* ── internalhelper func  ───────────────────────────────────── */
 
 /**
- * @brief TODO: 描述day_of_year的功能
- *
- * @param year TODO: 描述year
- * @param month TODO: 描述month
- * @param day TODO: 描述day
- * @return 0成功, -1失败
+ * @brief 计算给定日期是该年的第几天
+ * @param[in] year 年份
+ * @param[in] month 月份(1-12)
+ * @param[in] day 日期(1-31)
+ * @return 天数(1-366), 失败返回-1
  */
 static int day_of_year(int year, int month, int day)
 {
@@ -54,10 +53,9 @@ static int day_of_year(int year, int month, int day)
 }
 
 /**
- * @brief TODO: 描述bcd_to_bin的功能
- *
- * @param bcd TODO: 描述bcd
- * @return 0成功, -1失败
+ * @brief BCD编码转二进制数值（如0x59→59）
+ * @param[in] bcd BCD编码值
+ * @return 二进制数值
  */
 static uint8_t bcd_to_bin(uint8_t bcd)
 {
@@ -65,10 +63,9 @@ static uint8_t bcd_to_bin(uint8_t bcd)
 }
 
 /**
- * @brief TODO: 描述bin_to_bcd的功能
- *
- * @param val TODO: 描述val
- * @return 0成功, -1失败
+ * @brief 二进制数值转BCD编码（如59→0x59）
+ * @param[in] val 二进制数值(0-99)
+ * @return BCD编码值
  */
 static uint8_t bin_to_bcd(uint8_t val)
 {
@@ -76,11 +73,10 @@ static uint8_t bin_to_bcd(uint8_t val)
 }
 
 /**
- * @brief TODO: 描述ds3231_read_regs的功能
- *
- * @param reg TODO: 描述reg
- * @param data TODO: 描述data
- * @param len TODO: 描述len
+ * @brief 从DS3231 RTC芯片读取连续寄存器
+ * @param[in] reg 起始寄存器地址
+ * @param[out] data 读取数据缓冲区
+ * @param[in] len 读取字节数
  * @return 0成功, -1失败
  */
 static bool ds3231_read_regs(uint8_t reg, uint8_t *data, uint16_t len)
@@ -102,11 +98,10 @@ static bool ds3231_read_regs(uint8_t reg, uint8_t *data, uint16_t len)
 }
 
 /**
- * @brief TODO: 描述ds3231_write_regs的功能
- *
- * @param reg TODO: 描述reg
- * @param data TODO: 描述data
- * @param len TODO: 描述len
+ * @brief 向DS3231 RTC芯片写入连续寄存器
+ * @param[in] reg 起始寄存器地址
+ * @param[in] data 待写入数据缓冲区
+ * @param[in] len 写入字节数
  * @return 0成功, -1失败
  */
 static bool ds3231_write_regs(uint8_t reg, const uint8_t *data, uint16_t len)
@@ -130,9 +125,8 @@ static bool ds3231_write_regs(uint8_t reg, const uint8_t *data, uint16_t len)
 }
 
 /**
- * @brief TODO: 描述ensure_ds3231_ready的功能
- *
- * @return 0成功, -1失败
+ * @brief 检查DS3231 RTC芯片是否就绪，必要时等待振荡器稳定
+ * @return true就绪, false超时或无效
  */
 static bool ensure_ds3231_ready(void)
 {
@@ -293,8 +287,7 @@ __attribute__((weak)) bool axk_mimiclaw_ext_rtc_write_utc(const struct bflb_tm *
 /* ── 简化版helper func （桩实现） ──────────────────────── */
 
 /**
- * @brief TODO: 描述axk_ext_rtc_init的功能
- *
+ * @brief 初始化外部RTC模块（DS3231 I2C）
  * @return 0成功, -1失败
  */
 int axk_ext_rtc_init(void)
@@ -304,14 +297,13 @@ int axk_ext_rtc_init(void)
 }
 
 /**
- * @brief TODO: 描述axk_ext_rtc_set_time的功能
- *
- * @param year TODO: 描述year
- * @param month TODO: 描述month
- * @param date TODO: 描述date
- * @param hour TODO: 描述hour
- * @param min TODO: 描述min
- * @param sec TODO: 描述sec
+ * @brief 设置外部RTC时间
+ * @param[in] year 年份(2000-2099)
+ * @param[in] month 月份(1-12)
+ * @param[in] date 日期(1-31)
+ * @param[in] hour 小时(0-23)
+ * @param[in] min 分钟(0-59)
+ * @param[in] sec 秒(0-59)
  * @return 无返回值
  */
 void axk_ext_rtc_set_time(uint8_t year, uint8_t month, uint8_t date,
@@ -328,14 +320,13 @@ void axk_ext_rtc_set_time(uint8_t year, uint8_t month, uint8_t date,
 }
 
 /**
- * @brief TODO: 描述axk_ext_rtc_get_time的功能
- *
- * @param year TODO: 描述year
- * @param month TODO: 描述month
- * @param date TODO: 描述date
- * @param hour TODO: 描述hour
- * @param min TODO: 描述min
- * @param sec TODO: 描述sec
+ * @brief 读取外部RTC时间
+ * @param[out] year 年份
+ * @param[out] month 月份
+ * @param[out] date 日期
+ * @param[out] hour 小时
+ * @param[out] min 分钟
+ * @param[out] sec 秒
  * @return 无返回值
  */
 void axk_ext_rtc_get_time(uint8_t *year, uint8_t *month, uint8_t *date,
@@ -353,9 +344,8 @@ void axk_ext_rtc_get_time(uint8_t *year, uint8_t *month, uint8_t *date,
 }
 
 /**
- * @brief TODO: 描述axk_ext_rtc_read_temperature的功能
- *
- * @return 0成功, -1失败
+ * @brief 读取DS3231内置温度传感器（单位为0.01°C）
+ * @return 温度值(×100)，负数表示零下
  */
 int16_t axk_ext_rtc_read_temperature(void)
 {

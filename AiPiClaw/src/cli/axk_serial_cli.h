@@ -17,14 +17,12 @@ extern "C" {
 #endif
 
 /**
- * @brief TODO: 描述axk_serial_cli_init的功能
- *
+ * @brief 初始化串口命令行模块，注册所有Shell命令并设置提示符
  * @return 0成功, -1失败
  */
 int axk_serial_cli_init(void);
 /**
- * @brief TODO: 描述axk_serial_cli_poll的功能
- *
+ * @brief 轮询UART RX，处理串口输入（应在主循环中定期调用）
  * @return 无返回值
  */
 void axk_serial_cli_poll(void);

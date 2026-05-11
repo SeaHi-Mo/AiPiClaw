@@ -69,11 +69,10 @@ SHELL_CMD_EXPORT_ALIAS(cmd_mimi, mimi, mimi <msg> - send message to AI Agent);
 /* ── Shell cmd: status ──────────────────────────── */
 
 /**
- * @brief TODO: 描述cmd_status的功能
- *
- * @param argc TODO: 描述argc
- * @param argv TODO: 描述argv
- * @return 0成功, -1失败
+ * @brief 显示系统状态（芯片/SDK版本/运行时间/堆内存）
+ * @param[in] argc 参数个数
+ * @param[in] argv 参数数组
+ * @return 0成功
  */
 static int cmd_status(int argc, char **argv)
 {
@@ -98,11 +97,10 @@ SHELL_CMD_EXPORT_ALIAS(cmd_status, status, status - show system status);
 /* ── Shell cmd: sys ─────────────────────────────── */
 
 /**
- * @brief TODO: 描述cmd_sys的功能
- *
- * @param argc TODO: 描述argc
- * @param argv TODO: 描述argv
- * @return 0成功, -1失败
+ * @brief 系统控制命令（reset重启/info信息/heap内存统计）
+ * @param[in] argc 参数个数
+ * @param[in] argv 参数数组
+ * @return 0成功
  */
 static int cmd_sys(int argc, char **argv)
 {
@@ -130,11 +128,10 @@ SHELL_CMD_EXPORT_ALIAS(cmd_sys, sys, sys <reset|info|heap> - system control);
 /* ── Shell cmd: gpio ────────────────────────────── */
 
 /**
- * @brief TODO: 描述cmd_gpio的功能
- *
- * @param argc TODO: 描述argc
- * @param argv TODO: 描述argv
- * @return 0成功, -1失败
+ * @brief GPIO操作命令：gpio <pin> get - 读取引脚状态；gpio <pin> set <0|1> - 设置引脚电平
+ * @param[in] argc 参数个数
+ * @param[in] argv 参数数组
+ * @return 0成功
  */
 static int cmd_gpio(int argc, char **argv)
 {
@@ -174,11 +171,10 @@ SHELL_CMD_EXPORT_ALIAS(cmd_gpio, gpio, gpio <pin> <get|set 0|1> - GPIO control);
 /* ── Shell cmd: list ────────────────────────────── */
 
 /**
- * @brief TODO: 描述cmd_list的功能
- *
- * @param argc TODO: 描述argc
- * @param argv TODO: 描述argv
- * @return 0成功, -1失败
+ * @brief 列出所有已注册的Shell命令
+ * @param[in] argc 参数个数
+ * @param[in] argv 参数数组
+ * @return 0成功
  */
 static int cmd_list(int argc, char **argv)
 {
@@ -199,8 +195,7 @@ SHELL_CMD_EXPORT_ALIAS(cmd_list, list, list - list all commands);
 /* ── public  API ────────────────────────────────────── */
 
 /**
- * @brief TODO: 描述axk_serial_cli_init的功能
- *
+ * @brief 初始化串口命令行模块，注册Shell命令并设置自定义提示符
  * @return 0成功, -1失败
  */
 int axk_serial_cli_init(void)
@@ -217,8 +212,7 @@ int axk_serial_cli_init(void)
 }
 
 /**
- * @brief TODO: 描述axk_serial_cli_poll的功能
- *
+ * @brief 轮询UART RX，检查并处理串口输入
  * @return 无返回值
  */
 void axk_serial_cli_poll(void)
