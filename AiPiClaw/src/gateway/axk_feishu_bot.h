@@ -44,6 +44,10 @@ int axk_feishu_send_message(const char *chat_id, const char *text);
  */
 int axk_feishu_set_credentials(const char *app_id, const char *app_secret);
 
+/**
+ * @brief 启动飞书 Webhook 接收服务
+ * @return 0成功，负数错误码
+ */
 int axk_feishu_bot_start_webhook(void);
 
 #ifdef __cplusplus

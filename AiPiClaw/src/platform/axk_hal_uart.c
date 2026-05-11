@@ -20,8 +20,13 @@
     #include "bflb_uart.h"
     #include "bflb_core.h"
 
-    static struct bflb_device_s* axk_uart_devs[3] = {NULL, NULL, NULL}; /**< BL618 UARTdevice handle  */
+    static struct bflb_device_s* axk_uart_devs[3] = {NULL, NULL, NULL}; /**< BL618 UART设备句柄数组 */
 
+    /**
+     * @brief 获取UART设备句柄（单例懒加载）
+     * @param[in] port UART端口号（0/1/2）
+     * @return UART设备指针，端口无效返回NULL
+     */
     static struct bflb_device_s* axk_uart_get_dev(uint32_t port)
     {
         if (port > 2) return NULL;
@@ -41,6 +46,10 @@
  * 公共实现
  * ============================================================ */
 
+/**
+ * @brief 初始化UART硬件抽象层
+ * @return 0 成功
+ */
 int axk_hal_uart_init(void)
 {
     AXK_LOG_INFO("[axk_hal_uart] initUART HAL\r\n");
@@ -50,6 +59,12 @@ int axk_hal_uart_init(void)
     return 0;
 }
 
+/**
+ * @brief 配置UART端口参数（波特率、流控等）
+ * @param[in] port UART端口号（0/1/2）
+ * @param[in] cfg UART配置结构体指针
+ * @return 0 成功，-1 参数无效
+ */
 int axk_hal_uart_config(uint32_t port, const axk_uart_cfg_t* cfg)
 {
     if (cfg == NULL || port > 2) {
@@ -92,6 +107,12 @@ int axk_hal_uart_config(uint32_t port, const axk_uart_cfg_t* cfg)
     return 0;
 }
 
+/**
+ * @brief UART发送单字节
+ * @param[in] port UART端口号（0/1/2）
+ * @param[in] ch 待发送的字节
+ * @return 0 成功，-1 端口无效
+ */
 int axk_hal_uart_putchar(uint32_t port, uint8_t ch)
 {
     if (port > 2) return -1;
@@ -106,6 +127,13 @@ int axk_hal_uart_putchar(uint32_t port, uint8_t ch)
     return 0;
 }
 
+/**
+ * @brief UART接收单字节（带超时）
+ * @param[in] port UART端口号（0/1/2）
+ * @param[out] ch 接收到的字节
+ * @param[in] timeout_ms 超时时间（毫秒）
+ * @return 0 成功，-1 无数据或端口无效
+ */
 int axk_hal_uart_getchar(uint32_t port, uint8_t* ch, uint32_t timeout_ms)
 {
     if (port > 2 || ch == NULL) return -1;
@@ -135,6 +163,13 @@ int axk_hal_uart_getchar(uint32_t port, uint8_t* ch, uint32_t timeout_ms)
 #endif
 }
 
+/**
+ * @brief UART发送多字节数据
+ * @param[in] port UART端口号（0/1/2）
+ * @param[in] data 待发送的数据缓冲区
+ * @param[in] len 数据长度
+ * @return 实际发送的字节数，0 失败
+ */
 int axk_hal_uart_write(uint32_t port, const uint8_t* data, uint32_t len)
 {
     if (port > 2 || data == NULL || len == 0) return 0;
@@ -155,12 +190,12 @@ int axk_hal_uart_write(uint32_t port, const uint8_t* data, uint32_t len)
 }
 
 /**
- * @brief recvdata
- * @param[in] port port 号
- * @param[out] buf buffer ptr 
- * @param[in] len 最大length 
- * @param[in] timeout_ms timeouttime 
- * @return 实际recvbytes数
+ * @brief UART接收多字节数据（带超时）
+ * @param[in] port UART端口号（0/1/2）
+ * @param[out] buf 接收缓冲区
+ * @param[in] len 最大接收长度
+ * @param[in] timeout_ms 超时时间（毫秒）
+ * @return 实际接收的字节数
  */
 int axk_hal_uart_read(uint32_t port, uint8_t* buf, uint32_t len, uint32_t timeout_ms)
 {
@@ -177,7 +212,7 @@ int axk_hal_uart_read(uint32_t port, uint8_t* buf, uint32_t len, uint32_t timeou
 
     for (i = 0; i < len; i++) {
         int c;
-        /* 非阻塞poll ，check timeout */
+        /* 非阻塞轮询，检查超时 */
         while ((c = bflb_uart_getchar(uart_dev)) < 0) {
             if ((axk_hal_system_get_time_ms() - start_ms) >= timeout_ms) {
                 return (int)i;
@@ -194,9 +229,9 @@ int axk_hal_uart_read(uint32_t port, uint8_t* buf, uint32_t len, uint32_t timeou
 }
 
 /**
- * @brief 清empty recvbuffer 
- * @param[in] port port 号
- * @return OKreturn 0
+ * @brief 清空UART接收缓冲区
+ * @param[in] port UART端口号（0/1/2）
+ * @return 0 成功，-1 端口无效
  */
 int axk_hal_uart_flush_rx(uint32_t port)
 {
@@ -204,9 +239,9 @@ int axk_hal_uart_flush_rx(uint32_t port)
 #if AXK_PLATFORM_BL618
     struct bflb_device_s* uart_dev = axk_uart_get_dev(port);
     if (uart_dev) {
-        /* read and drop all可用bytes直 to FIFO为empty  */
+        /* 读取并丢弃所有可用字节，直至FIFO为空 */
         while (bflb_uart_getchar(uart_dev) >= 0) {
-            /* 什么也not 做 */
+            /* 什么都不做 */
         }
     }
 #elif AXK_PLATFORM_ESP32
@@ -215,6 +250,12 @@ int axk_hal_uart_flush_rx(uint32_t port)
     return 0;
 }
 
+/**
+ * @brief UART格式化输出（类似printf）
+ * @param[in] port UART端口号（0/1/2）
+ * @param[in] fmt 格式化字符串
+ * @return 实际输出的字符数，负数失败
+ */
 int axk_hal_uart_printf(uint32_t port, const char* fmt, ...)
 {
     char buf[256];
@@ -229,15 +270,15 @@ int axk_hal_uart_printf(uint32_t port, const char* fmt, ...)
     return plen;
 }
 
-/* ── DMA recv框架（硬件not 接，编译via 即可） ────── */
+/* ── DMA接收框架（硬件未接入，编译即可） ────── */
 
 #if AXK_PLATFORM_BL618
 #include "bflb_dma.h"
 
 #define AXK_UART_DMA_BUF_SIZE  1024
 
-#if 0  /* 硬件not 接，buffer 暂not alloc  */
-static uint8_t s_dma_rx_buf[3][AXK_UART_DMA_BUF_SIZE];  /**< per UART一DMA缓冲 */
+#if 0  /* 硬件未接入，缓冲暂不分配 */
+static uint8_t s_dma_rx_buf[3][AXK_UART_DMA_BUF_SIZE];  /**< 每路UART一个DMA缓冲 */
 #endif
 #if 0
 static void (*s_dma_rx_cb[3])(const uint8_t *, uint32_t, void *) = {NULL};
@@ -245,14 +286,14 @@ static void *s_dma_rx_user[3] = {NULL};
 #endif
 
 /**
- * @brief start UART DMA recv（框架，硬件ready 后enable ）
- * @param[in] port UARTport 号 (0/1/2)
- * @param[in] cb recvcallback 
- * @param[in] user_data userdata
- * @return OKreturn 0
- * @note TODO: 硬件connect后取消 #if 0 保护
+ * @brief 启动UART DMA接收（框架，硬件就绪后启用）
+ * @param[in] port UART端口号（0/1/2）
+ * @param[in] cb 接收回调函数
+ * @param[in] user_data 用户数据
+ * @return 0 成功
+ * @note TODO: 硬件接入后取消 #if 0 保护
  */
-#if 0  /* 硬件not 接，编译框架via  */
+#if 0  /* 硬件未接入，编译框架用 */
 int axk_hal_uart_dma_recv_start(uint32_t port, axk_uart_rx_cb_t cb, void *user_data)
 {
     struct bflb_device_s *dma_dev;
@@ -281,7 +322,7 @@ int axk_hal_uart_dma_recv_start(uint32_t port, axk_uart_rx_cb_t cb, void *user_d
 }
 
 /**
- * @brief stop  UART DMA recv
+ * @brief 停止UART DMA接收
  */
 int axk_hal_uart_dma_recv_stop(uint32_t port)
 {
@@ -289,14 +330,26 @@ int axk_hal_uart_dma_recv_stop(uint32_t port)
     s_dma_rx_cb[port] = NULL;
     return 0;
 }
-#endif /* 硬件not 接 */
+#endif /* 硬件未接入 */
 
 #else
+/**
+ * @brief 启动UART DMA接收（非BL618平台桩函数）
+ * @param[in] port UART端口号
+ * @param[in] cb 接收回调函数
+ * @param[in] user_data 用户数据
+ * @return -1 不支持
+ */
 int axk_hal_uart_dma_recv_start(uint32_t port, void *cb, void *user_data)
 {
     (void)port; (void)cb; (void)user_data;
     return -1;
 }
+/**
+ * @brief 停止UART DMA接收（非BL618平台桩函数）
+ * @param[in] port UART端口号
+ * @return -1 不支持
+ */
 int axk_hal_uart_dma_recv_stop(uint32_t port)
 {
     (void)port;
