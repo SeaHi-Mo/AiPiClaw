@@ -24,6 +24,10 @@ static axk_ws_text_handler_t s_text_handler;
 
 /* ── callback func  ───────────────────────────────────────── */
 
+/**
+ * @brief WebSocket连接成功回调
+ * @param socket WebSocket套接字
+ */
 static void on_socket_connected(rws_socket socket)
 {
     (void)socket;
@@ -31,6 +35,10 @@ static void on_socket_connected(rws_socket socket)
     LOG_I("websocket connected\r\n");
 }
 
+/**
+ * @brief WebSocket断开连接回调
+ * @param socket WebSocket套接字
+ */
 static void on_socket_disconnected(rws_socket socket)
 {
     rws_error error = rws_socket_get_error(socket);
@@ -45,6 +53,13 @@ static void on_socket_disconnected(rws_socket socket)
     }
 }
 
+/**
+ * @brief WebSocket接收文本消息回调
+ * @param socket WebSocket套接字
+ * @param text 接收到的文本数据
+ * @param length 文本长度
+ * @param is_finished 是否为最后一帧
+ */
 static void on_socket_received_text(rws_socket socket, const char *text,
                                      const unsigned int length, bool is_finished)
 {

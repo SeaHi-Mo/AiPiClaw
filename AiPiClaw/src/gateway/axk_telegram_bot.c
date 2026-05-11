@@ -43,10 +43,10 @@ static const char *TAG = "telegram";
 
 typedef struct {
     char *data;
-    size_t len;
-    size_t cap;
-    int status_code;
-    bool oom;
+    size_t len /*< TODO: 描述len */;
+    size_t cap /*< TODO: 描述cap */;
+    int status_code /*< TODO: 描述status_code */;
+    bool oom /*< TODO: 描述oom */;
 } tg_http_resp_t;
 
 static TaskHandle_t s_poll_task;
@@ -56,8 +56,10 @@ static int64_t s_update_offset;
 static int64_t s_last_saved_offset = -1;
 static uint32_t s_last_offset_save_ms;
 
+/** @brief 调用Telegram Bot API @param[in] method API方法名 @param[in] post_data POST请求体（NULL则GET） @param[out] out_body 响应体（调用者需free） @param[out] out_status HTTP状态码 @return 0成功，-1失败 */
 static int tg_api_call(const char *method, const char *post_data, char **out_body, int *out_status);
 
+/** @brief 安全字符串拷贝（带截断保护） @param[out] dst 目标缓冲区 @param[in] dst_size 目标缓冲区大小 @param[in] src 源字符串 */
 static void safe_copy(char *dst, size_t dst_size, const char *src)
 {
     size_t n;
@@ -76,6 +78,7 @@ static void safe_copy(char *dst, size_t dst_size, const char *src)
     dst[n] = '\0';
 }
 
+/** @brief 判断字符串是否为纯整数（含负号） @param[in] s 待检查字符串 @return true是整数，false不是 */
 static bool tg_is_integer_string(const char *s)
 {
     size_t i = 0;
@@ -99,6 +102,7 @@ static bool tg_is_integer_string(const char *s)
     return true;
 }
 
+/** @brief 去除字符串首尾空白字符（原地修改） @param[in,out] s 待处理的字符串 */
 static void tg_trim_spaces(char *s)
 {
     char *start = s;
@@ -122,6 +126,7 @@ static void tg_trim_spaces(char *s)
     *end = '\0';
 }
 
+/** @brief 规范化Telegram聊天ID（支持@username、纯数字、科学记数法） @param[in] in 原始聊天ID @param[out] out 规范化输出缓冲区 @param[in] out_size 输出缓冲区大小 @return true成功，false失败 */
 static bool tg_normalize_chat_id(const char *in, char *out, size_t out_size)
 {
     char tmp[48];
@@ -166,6 +171,7 @@ static bool tg_normalize_chat_id(const char *in, char *out, size_t out_size)
     return true;
 }
 
+/** @brief 解析字符串为64位有符号整数 @param[in] s 待解析字符串 @param[out] out 解析结果 @return true成功，false失败 */
 static bool tg_parse_i64(const char *s, long long *out)
 {
     char *end = NULL;
@@ -185,6 +191,7 @@ static bool tg_parse_i64(const char *s, long long *out)
     return true;
 }
 
+/** @brief 调试用：调用getChat API获取聊天信息 @param[in] chat_id 聊天ID @param[in] numeric_chat_id 是否以数字方式传递chat_id */
 static void tg_debug_get_chat_once(const char *chat_id, bool numeric_chat_id)
 {
     char payload[96];
@@ -219,6 +226,7 @@ static void tg_debug_get_chat_once(const char *chat_id, bool numeric_chat_id)
     free(resp);
 }
 
+/** @brief 调试用：分别以字符串和数字方式获取聊天信息 @param[in] chat_id 聊天ID @param[in] numeric_chat_id 是否同时尝试数字方式 */
 static void tg_debug_get_chat(const char *chat_id, bool numeric_chat_id)
 {
     tg_debug_get_chat_once(chat_id, false);
@@ -227,6 +235,7 @@ static void tg_debug_get_chat(const char *chat_id, bool numeric_chat_id)
     }
 }
 
+/** @brief 追加响应数据到Telegram HTTP响应缓冲区 @param[in] rb 响应缓冲区指针 @param[in] data 要追加的数据 @param[in] len 数据长度 @return 0成功，-1内存不足 */
 static int tg_resp_append(tg_http_resp_t *rb, const uint8_t *data, size_t len)
 {
     if (!rb || !data || len == 0) {
@@ -250,6 +259,7 @@ static int tg_resp_append(tg_http_resp_t *rb, const uint8_t *data, size_t len)
     return 0;
 }
 
+/** @brief Telegram HTTP响应回调，逐片接收响应体并追加到缓冲区 @param[in] rsp HTTP响应结构 @param[in] final_data 是否最后一片数据 @param[in] user_data 用户数据指针（tg_http_resp_t） */
 static void tg_http_response_cb(struct http_response *rsp, enum http_final_call final_data, void *user_data)
 {
     tg_http_resp_t *rb = (tg_http_resp_t *)user_data;
@@ -268,6 +278,7 @@ static void tg_http_response_cb(struct http_response *rsp, enum http_final_call 
     }
 }
 
+/** @brief 调用Telegram Bot API（带重试） @param[in] method API方法名（如getUpdates、sendMessage） @param[in] post_data POST请求JSON体（NULL则GET） @param[out] out_body 响应JSON体（调用者需free） @param[out] out_status HTTP状态码 @return 0成功，-1失败，-2缺少token */
 static int tg_api_call(const char *method, const char *post_data, char **out_body, int *out_status)
 {
     char url[384];
@@ -349,6 +360,7 @@ static int tg_api_call(const char *method, const char *post_data, char **out_bod
     return -1;
 }
 
+/** @brief 检查Telegram API响应中ok字段是否为true @param[in] body API响应JSON字符串 @return true表示ok，false表示失败 */
 static bool tg_response_is_ok(const char *body)
 {
     bool ok = false;
@@ -370,6 +382,7 @@ static bool tg_response_is_ok(const char *body)
     return ok;
 }
 
+/** @brief 从JSON中解析Telegram聊天ID @param[in] chat_id cJSON聊天ID节点 @param[out] out 输出缓冲区 @param[in] out_size 输出缓冲区大小 @return true成功，false失败 */
 static bool tg_parse_chat_id(const cJSON *chat_id, char *out, size_t out_size)
 {
     char tmp[48];
@@ -402,6 +415,7 @@ static bool tg_parse_chat_id(const cJSON *chat_id, char *out, size_t out_size)
     return false;
 }
 
+/** @brief 格式化聊天ID用于调试日志输出 @param[in] item cJSON聊天ID节点 @param[out] buf 输出缓冲区 @param[in] buf_size 缓冲区大小 */
 static void tg_format_chat_id_debug(const cJSON *item, char *buf, size_t buf_size)
 {
     if (!buf || buf_size == 0) {
@@ -427,6 +441,7 @@ static void tg_format_chat_id_debug(const cJSON *item, char *buf, size_t buf_siz
     snprintf(buf, buf_size, "type:%d", item->type);
 }
 
+/** @brief 将update偏移量持久化到NVS（满足间隔条件时） @param[in] force 强制保存（忽略间隔条件） */
 static void tg_save_offset_if_needed(bool force)
 {
     bool need_save = force;
@@ -457,6 +472,7 @@ static void tg_save_offset_if_needed(bool force)
     }
 }
 
+/** @brief 解析Telegram getUpdates响应JSON，提取消息并推入消息总线 @param[in] json_str getUpdates的响应JSON字符串 */
 static void tg_process_updates(const char *json_str)
 {
     cJSON *root;
@@ -609,6 +625,7 @@ static void tg_process_updates(const char *json_str)
     cJSON_Delete(root);
 }
 
+/** @brief Telegram长轮询任务：循环调用getUpdates获取新消息 @param[in] arg 任务参数（未使用） */
 static void telegram_poll_task(void *arg)
 {
     (void)arg;
@@ -668,6 +685,7 @@ static void telegram_poll_task(void *arg)
     }
 }
 
+/** @brief 初始化Telegram Bot模块，从NVS加载token和offset @return 0成功 */
 int axk_telegram_bot_init(void)
 {
     char token_buf[TG_TOKEN_MAX_LEN] = { 0 };
@@ -696,6 +714,7 @@ int axk_telegram_bot_init(void)
     return 0;
 }
 
+/** @brief 启动Telegram长轮询任务 @return 0成功，-1任务创建失败 */
 int axk_telegram_bot_start(void)
 {
     if (s_poll_started) {
@@ -712,6 +731,7 @@ int axk_telegram_bot_start(void)
     return 0;
 }
 
+/** @brief 发送文本消息到Telegram聊天（自动分段长消息） @param[in] chat_id 聊天ID @param[in] text 消息文本内容 @return 0成功，-1失败，-2缺少token */
 int axk_telegram_send_message(const char *chat_id, const char *text)
 {
     char normalized_chat_id[32];
@@ -843,6 +863,7 @@ int axk_telegram_send_message(const char *chat_id, const char *text)
     return all_ok ? 0 : -1;
 }
 
+/** @brief 设置并持久化Telegram Bot Token到NVS @param[in] token Bot Token字符串 @return 0成功，-1失败（参数无效或写入NVS失败） */
 int axk_telegram_set_token(const char *token)
 {
     size_t len;
@@ -865,6 +886,7 @@ int axk_telegram_set_token(const char *token)
     return 0;
 }
 
+/** @brief 测试用：调用getMe API验证Bot Token是否有效 @return 0成功，-1请求失败，-2缺少token */
 int telegram_bot_test_get_me(void)
 {
     char *body = NULL;

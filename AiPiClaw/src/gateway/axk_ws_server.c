@@ -35,7 +35,7 @@
 
 typedef struct {
     struct netconn *conn;
-    bool handshaked;
+    bool handshaked /*< TODO: 描述handshaked */;
 } ws_client_t;
 
 static const char *TAG = "ws_srv";
@@ -47,7 +47,11 @@ static ws_client_t s_clients[MIMI_WS_MAX_CLIENTS];
 static SemaphoreHandle_t s_ws_mutex = NULL;
 
 /**
- * @brief compute  Sec-WebSocket-Accept
+ * @brief 计算WebSocket握手所需的Sec-WebSocket-Accept值
+ * @param key 客户端发送的Sec-WebSocket-Key
+ * @param out_accept 输出缓冲区，存放计算后的Accept值
+ * @param out_len 输出缓冲区大小
+ * @return 0成功，-1失败
  */
 static int ws_compute_accept(const char *key, char *out_accept, size_t out_len)
 {
@@ -75,7 +79,9 @@ static int ws_compute_accept(const char *key, char *out_accept, size_t out_len)
 }
 
 /**
- * @brief process WebSocket 握手
+ * @brief 处理WebSocket握手，解析HTTP升级请求并发送101响应
+ * @param client 客户端netconn连接
+ * @return true握手成功，false握手失败或为普通HTTP请求
  */
 static bool ws_do_handshake(struct netconn *client)
 {
@@ -157,7 +163,10 @@ static bool ws_do_handshake(struct netconn *client)
 }
 
 /**
- * @brief send WebSocket 文本帧
+ * @brief 发送WebSocket文本帧到指定客户端
+ * @param client 目标客户端netconn连接
+ * @param text 待发送的文本字符串
+ * @return 0成功，-1失败
  */
 static int ws_send_text(struct netconn *client, const char *text)
 {
@@ -191,7 +200,8 @@ static int ws_send_text(struct netconn *client, const char *text)
 }
 
 /**
- * @brief will 客户端register to 全局list 
+ * @brief 将客户端注册到全局客户端列表中
+ * @param client 已完成握手的客户端netconn连接
  */
 static void ws_client_register(struct netconn *client)
 {
@@ -213,7 +223,8 @@ static void ws_client_register(struct netconn *client)
 }
 
 /**
- * @brief from 全局list unreg 客户端
+ * @brief 从全局客户端列表中注销客户端
+ * @param client 要注销的客户端netconn连接
  */
 static void ws_client_unregister(struct netconn *client)
 {
@@ -235,7 +246,8 @@ static void ws_client_unregister(struct netconn *client)
 }
 
 /**
- * @brief process客户端connect
+ * @brief 处理单个WebSocket客户端连接的全生命周期（握手→收发消息→断开）
+ * @param client 客户端netconn连接
  */
 static void ws_handle_client(struct netconn *client)
 {
@@ -341,7 +353,8 @@ static void ws_handle_client(struct netconn *client)
 }
 
 /**
- * @brief WebSocket service器task
+ * @brief WebSocket服务器主任务，监听端口并接受客户端连接
+ * @param param 任务参数（未使用）
  */
 static void ws_server_task(void *param)
 {
@@ -377,6 +390,10 @@ static void ws_server_task(void *param)
     vTaskDelete(NULL);
 }
 
+/**
+ * @brief 初始化WebSocket服务器模块，创建互斥锁并重置客户端列表
+ * @return 0成功，负数错误码
+ */
 int axk_ws_server_init(void)
 {
     s_ws_running = false;
@@ -391,6 +408,11 @@ int axk_ws_server_init(void)
     return 0;
 }
 
+/**
+ * @brief 启动WebSocket服务器监听
+ * @param port 监听端口号，为0时使用默认端口
+ * @return 0成功，-1失败（任务创建失败）
+ */
 int axk_ws_server_start(uint16_t port)
 {
     if (s_ws_running) {
@@ -408,7 +430,9 @@ int axk_ws_server_start(uint16_t port)
 }
 
 /**
- * @brief  to current connect WebSocket 客户端send文本msg
+ * @brief 向所有已连接的WebSocket客户端广播文本消息
+ * @param text 待广播的文本字符串
+ * @return 至少发送给一个客户端返回0，无客户端或失败返回-1
  */
 int axk_ws_server_send(const char *text)
 {
