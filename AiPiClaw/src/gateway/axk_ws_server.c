@@ -329,6 +329,14 @@ static void ws_handle_client(struct netconn *client)
                 if (opcode == 0x01 || opcode == 0x00) {
                     /* 文本帧 or 连续帧 */
                     printf("[WS] recv: %s\r\n", msg);
+
+                    /* 心跳过滤: __ping__/__pong__ 不回显到聊天 */
+                    if (strcmp(msg, "__ping__") == 0 || strcmp(msg, "__pong__") == 0) {
+                        free(msg);
+                        netbuf_delete(buf);
+                        continue;  /* 静默跳过，不推入站 */
+                    }
+
                     mimi_msg_t m = {0};
                     strncpy(m.channel, MIMI_CHAN_WEBSOCKET, sizeof(m.channel) - 1);
                     m.content = msg;
