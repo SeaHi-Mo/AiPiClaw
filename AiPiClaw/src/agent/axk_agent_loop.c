@@ -34,6 +34,34 @@ static const char *TAG __attribute__((unused)) = "agent";
 static TaskHandle_t s_agent_task = NULL;
 
 /**
+ * @brief 从文本中移除 &lt;think&gt;...&lt;/think&gt; 思考标签，原地修改字符串
+ * @param[in,out] text 待处理的字符串（会被原地修改，仅移除标签内容）
+ * @return 处理后的字符串指针（同 text 入参）
+ */
+static char *strip_think_tags(char *text)
+{
+    char *open, *close;
+
+    if (!text) return text;
+
+    open = strstr(text, "<think>");
+    while (open != NULL) {
+        close = strstr(open, "</think>");
+        if (close == NULL) {
+            /* 有开头无结尾，抹掉从 open 到末尾 */
+            *open = '\0';
+            break;
+        }
+        close += 8; /* skip "</think>" */
+        /* 将 close 之后的内容移到 open 位置 */
+        memmove(open, close, strlen(close) + 1);
+        open = strstr(text, "<think>");
+    }
+
+    return text;
+}
+
+/**
  * @brief 不区分大小写检查haystack中是否包含needle子字符串
  *
  * @param haystack 待搜索的字符串
@@ -449,6 +477,7 @@ static void agent_loop_task(void *arg)
 
             if (!resp.tool_use) {
                 if (resp.text && resp.text_len > 0) {
+                    strip_think_tags(resp.text);
                     final_text = strdup(resp.text);
                 }
                 axk_llm_response_free(&resp);
