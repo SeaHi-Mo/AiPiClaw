@@ -18,6 +18,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+
 /**
  * @brief 将 on/off/toggle 字符串转换为电平值和翻转标志
  * @param[in] state 状态字符串 ("on" / "off" / "toggle")
@@ -112,47 +113,58 @@ int axk_tool_gpio_write_named_execute(const char *input_json, char *output, size
     state = item->valuestring;
 
     cJSON_Delete(root);
-
+#ifdef GPIO_NAMED_DEBUG
     printf("[named_dbg] write pin_name='%s' state='%s'\r\n", pin_name ? pin_name : "NULL", state ? state : "NULL");
     fflush(stdout);
+#endif /* GPIO_NAMED_DEBUG */
 
     /* 解析别名 */
     if (axk_gpio_alias_resolve(pin_name, &alias) != 0) {
+#ifdef GPIO_NAMED_DEBUG
         printf("[named_dbg] resolve FAIL: '%s'\r\n", pin_name);
         fflush(stdout);
+#endif /* GPIO_NAMED_DEBUG */
         snprintf(output, output_size, "Error: unknown pin name '%s'. Use gpio_alias to list available aliases.", pin_name);
         return -1;
     }
-
+#ifdef GPIO_NAMED_DEBUG
     printf("[named_dbg] resolve OK: pin=%d active=%d flags=0x%x desc='%s'\r\n",
            alias.pin, alias.active_level, alias.flags, alias.description);
     fflush(stdout);
+#endif /* GPIO_NAMED_DEBUG */
 
     /* 检查写权限 */
     if (!(alias.flags & AXK_GPIO_ALIAS_FLAG_WRITE)) {
+#ifdef GPIO_NAMED_DEBUG
         printf("[named_dbg] WRITE DENIED: no write flag\r\n");
         fflush(stdout);
+#endif /* GPIO_NAMED_DEBUG */
         return -1;
     }
 
     /* 检查安全策略 */
     if (axk_gpio_policy_check(alias.pin, "set_level") != 0) {
+#ifdef GPIO_NAMED_DEBUG
         printf("[named_dbg] POLICY DENIED: pin=%d action=set_level\r\n", alias.pin);
         fflush(stdout);
+#endif /* GPIO_NAMED_DEBUG */
         snprintf(output, output_size, "Error: GPIO%d (%s) not allowed by security policy", alias.pin, alias.description);
         return -1;
     }
 
     /* 解析状态 */
     if (parse_state(state, &level, &do_toggle) != 0) {
+#ifdef GPIO_NAMED_DEBUG
         printf("[named_dbg] parse_state FAIL: '%s'\r\n", state);
         fflush(stdout);
+#endif /* GPIO_NAMED_DEBUG */
         snprintf(output, output_size, "Error: unknown state '%s'. Use on/off/toggle.", state);
         return -1;
     }
-
+#ifdef GPIO_NAMED_DEBUG
     printf("[named_dbg] parsed: state='%s' -> level_init=%d do_toggle=%d\r\n", state, level, do_toggle);
     fflush(stdout);
+#endif /* GPIO_NAMED_DEBUG */
 
     /* 执行操作 */
     if (do_toggle) {
@@ -160,8 +172,10 @@ int axk_tool_gpio_write_named_execute(const char *input_json, char *output, size
         axk_gpio_cfg_t in_cfg = { .mode = AXK_GPIO_MODE_IN, .pull = AXK_GPIO_PULL_NONE, .drive = AXK_GPIO_DRIVE_WEAK };
         axk_hal_gpio_config(alias.pin, &in_cfg);
         int current = axk_hal_gpio_get_level(alias.pin);
+#ifdef GPIO_NAMED_DEBUG
         printf("[named_dbg] toggle: current_raw=%d active=%d\r\n", current, alias.active_level);
         fflush(stdout);
+#endif /* GPIO_NAMED_DEBUG */
         level = (current == alias.active_level) ? 0 : alias.active_level;
         /* 再配置为输出 */
         axk_gpio_cfg_t out_cfg = { .mode = AXK_GPIO_MODE_OUT, .pull = AXK_GPIO_PULL_NONE, .drive = AXK_GPIO_DRIVE_STRONG };
@@ -172,9 +186,10 @@ int axk_tool_gpio_write_named_execute(const char *input_json, char *output, size
         axk_gpio_cfg_t out_cfg = { .mode = AXK_GPIO_MODE_OUT, .pull = AXK_GPIO_PULL_NONE, .drive = AXK_GPIO_DRIVE_STRONG };
         axk_hal_gpio_config(alias.pin, &out_cfg);
     }
-
+#ifdef GPIO_NAMED_DEBUG
     printf("[named_dbg] calling set_level(pin=%d, level=%d)\r\n", alias.pin, level);
     fflush(stdout);
+#endif /* GPIO_NAMED_DEBUG */
 
     axk_hal_gpio_set_level(alias.pin, (uint32_t)level);
 
@@ -190,8 +205,10 @@ int axk_tool_gpio_write_named_execute(const char *input_json, char *output, size
     /* verify */
     {
         int check = axk_hal_gpio_get_level(alias.pin);
+#ifdef GPIO_NAMED_DEBUG
         printf("[named_dbg] after set_level: get_level=%d (expected %d)\r\n", check, level);
         fflush(stdout);
+#endif /* GPIO_NAMED_DEBUG */
     }
 
     {
