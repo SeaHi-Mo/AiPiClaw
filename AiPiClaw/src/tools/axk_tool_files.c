@@ -64,10 +64,10 @@ __attribute__((weak)) void board_sdh_gpio_init(void);
 __attribute__((weak)) void fatfs_sdh_driver_register(void);
 
 /**
- * @brief TODO: 描述ensure_lfs_ready的功能
- *
- * @return 0成功, -1失败
- */
+ * @brief 确保LittleFS文件系统就绪，依次尝试挂载media/DATA/PSM分区
+*
+* @return 0成功, -1失败
+*/
 static int ensure_lfs_ready(void)
 {
     size_t i;
@@ -90,7 +90,7 @@ static int ensure_lfs_ready(void)
 }
 
 /**
- * @brief TODO: 描述axk_tool_files_init的功能
+ * @brief 初始化文件工具模块，确保LittleFS文件系统就绪
  *
  * @return 0成功, -1失败
  */
@@ -108,10 +108,10 @@ struct lfs *axk_tool_files_get_lfs(void)
 }
 
 /**
- * @brief TODO: 描述is_sd_path的功能
+ * @brief 判断给定路径是否为SD卡路径（以/sd开头）
  *
- * @param path TODO: 描述path
- * @return 0成功, -1失败
+ * @param path 待检查的路径字符串
+ * @return true表示是SD路径，false表示不是
  */
 static bool is_sd_path(const char *path)
 {
@@ -121,10 +121,10 @@ static bool is_sd_path(const char *path)
 }
 
 /**
- * @brief TODO: 描述is_spiffs_path的功能
+ * @brief 判断给定路径是否为SPIFFS路径（以配置的SPIFFS基础路径开头）
  *
- * @param path TODO: 描述path
- * @return 0成功, -1失败
+ * @param path 待检查的路径字符串
+ * @return true表示是SPIFFS路径，false表示不是
  */
 static bool is_spiffs_path(const char *path)
 {
@@ -143,10 +143,10 @@ static bool is_spiffs_path(const char *path)
 }
 
 /**
- * @brief TODO: 描述detect_backend的功能
+ * @brief 根据路径检测应使用的文件系统后端，路径含".."或无效前缀则返回无效
  *
- * @param path TODO: 描述path
- * @return 0成功, -1失败
+ * @param path 待检测的路径字符串
+ * @return 后端类型：TOOL_FS_BACKEND_LFS/FATFS/INVALID
  */
 static tool_fs_backend_t detect_backend(const char *path)
 {
@@ -166,7 +166,7 @@ static tool_fs_backend_t detect_backend(const char *path)
 }
 
 /**
- * @brief TODO: 描述ensure_fatfs_ready的功能
+ * @brief 确保FATFS（SD卡）文件系统就绪，初始化SD硬件驱动并挂载
  *
  * @return 0成功, -1失败
  */
