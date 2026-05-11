@@ -30,7 +30,7 @@
      *
  * @param[in] pin GPIO引脚号
  */
-    static void axk_gpio_fix_oe(uint8_t pin)
+    void axk_gpio_fix_oe(uint8_t pin)
     {
         volatile uint32_t *cfg = (volatile uint32_t *)
             (0x200008C4 + ((uint32_t)(pin >> 1) << 2));

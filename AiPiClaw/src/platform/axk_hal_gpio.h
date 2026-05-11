@@ -164,6 +164,10 @@ int axk_hal_gpio_set_pull(uint32_t pin, uint32_t pull);
  */
 int axk_hal_gpio_get_pull(uint32_t pin);
 
+/** @brief 修复BL618 GPIO OE寄存器Bug，手动设置OE位到GLB GPIO CFG寄存器
+ *  @param[in] pin GPIO引脚号 */
+void axk_gpio_fix_oe(uint8_t pin);
+
 #ifdef __cplusplus
 }
 #endif

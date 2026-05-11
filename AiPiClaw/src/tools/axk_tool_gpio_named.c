@@ -193,16 +193,10 @@ int axk_tool_gpio_write_named_execute(const char *input_json, char *output, size
 
     axk_hal_gpio_set_level(alias.pin, (uint32_t)level);
 
-    /* BL618 GPIO OE寄存器Bug修复: bflb_gpio_init()误将OE写入I2S_CFG0,
-     * 需手动将OE位写入GLB GPIO CFG寄存器(0x200008C4+(pin>>1)*4)。 */
-    {
-        volatile uint32_t *cfg = (volatile uint32_t *)
-            (0x200008C4 + ((uint32_t)(alias.pin >> 1) << 2));
-        uint32_t bit = 6 + ((alias.pin & 1) << 4);  /* 偶数pin=bit6，奇数pin=bit22 */
-        *cfg |= (1U << bit);
-    }
+    /* BL618 GPIO OE寄存器Bug修复: 手动设置OE位到GLB GPIO CFG寄存器 */
+    axk_gpio_fix_oe(alias.pin);
 
-    /* verify */
+    /* 写后验证 */
     {
         int check = axk_hal_gpio_get_level(alias.pin);
 #ifdef GPIO_NAMED_DEBUG
