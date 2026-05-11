@@ -18,19 +18,27 @@
 #if AXK_PLATFORM_BL618
     #include "bflb_gpio.h"
     #include "bflb_core.h"
-    static struct bflb_device_s* axk_gpio_dev = NULL;  /**< BL618 GPIOdevice handle  */
+    static struct bflb_device_s* axk_gpio_dev = NULL;  /**< BL618 GPIO设备句柄 */
 
-    /* BL618 HARDWARE BUG: bflb_gpio_init() writes OE to I2S_CFG0 instead of
-     * GPIO CFG register. Must manually set OE bit in GLB GPIO CFG register
-     * (0x200008C4 + (pin>>1)*4, bit 6+(pin&1)*16) after each init. */
+    /**
+     * @brief 修复 BL618 GPIO OE寄存器写入Bug
+     * @note bflb_gpio_init() 将 OE 位错误写入 I2S_CFG0 寄存器，
+     *       需手动将 OE 位写入 GLB GPIO CFG 寄存器
+     *       (0x200008C4 + (pin>>1)*4, bit 6+(pin&1)*16)
+     * @param[in] pin GPIO引脚号
+     */
     static void axk_gpio_fix_oe(uint8_t pin)
     {
         volatile uint32_t *cfg = (volatile uint32_t *)
             (0x200008C4 + ((uint32_t)(pin >> 1) << 2));
-        uint32_t bit = 6 + ((pin & 1) << 4);  /* 6 for even, 22 for odd */
+        uint32_t bit = 6 + ((pin & 1) << 4);  /* 偶数pin=bit6，奇数pin=bit22 */
         *cfg |= (1U << bit);
     }
 
+    /**
+     * @brief 获取GPIO设备句柄（单例懒加载）
+     * @return bflb_device_s* GPIO设备指针，仅首次调用时获取
+     */
     static inline struct bflb_device_s* axk_gpio_get_dev(void)
     {
         if (axk_gpio_dev == NULL) {
@@ -47,11 +55,16 @@
  * 平台无关公共实现
  * ============================================================ */
 
+/**
+ * @brief 初始化GPIO硬件抽象层
+ * @note 初始化GPIO设备句柄，并配置RGB LED引脚(12/14/15)为推挽输出
+ * @return 0 成功，非零 失败
+ */
 int axk_hal_gpio_init(void)
 {
     AXK_LOG_INFO("[axk_hal_gpio] initGPIO HAL\r\n");
 #if AXK_PLATFORM_BL618
-    axk_gpio_get_dev(); /* initdevice handle  */
+    axk_gpio_get_dev(); /* 初始化GPIO设备句柄 */
 
     /* Init RGB LED pins (active-high: 1=ON, 0=OFF).
      * GPIO12=Red, GPIO14=Green, GPIO15=Blue. OUTPUT|FLOAT|DRV_3. */
@@ -70,10 +83,10 @@ int axk_hal_gpio_init(void)
 }
 
 /**
- * @brief set GPIOpin 方 to 
- * @param[in] pin pin 号
- * @param[in] mode 方 to mode  (AXK_GPIO_MODE_IN / AXK_GPIO_MODE_OUT / ...)
- * @return OKreturn 0
+ * @brief 设置GPIO引脚方向
+ * @param[in] pin GPIO引脚号
+ * @param[in] mode 引脚模式（AXK_GPIO_MODE_IN / OUT / OD / AF）
+ * @return 0 成功
  */
 int axk_hal_gpio_set_direction(uint32_t pin, uint32_t mode)
 {
@@ -103,6 +116,12 @@ int axk_hal_gpio_set_direction(uint32_t pin, uint32_t mode)
     return 0;
 }
 
+/**
+ * @brief 配置GPIO引脚（模式、上下拉、驱动能力）
+ * @param[in] pin GPIO引脚号
+ * @param[in] cfg 配置结构体指针，含 mode/pull/drive 字段
+ * @return 0 成功，-1 配置参数为空
+ */
 int axk_hal_gpio_config(uint32_t pin, const axk_gpio_cfg_t* cfg)
 {
     if (cfg == NULL) {
@@ -156,6 +175,12 @@ int axk_hal_gpio_config(uint32_t pin, const axk_gpio_cfg_t* cfg)
     return 0;
 }
 
+/**
+ * @brief 设置GPIO引脚输出电平
+ * @param[in] pin GPIO引脚号
+ * @param[in] level 电平值（0=低电平，1=高电平）
+ * @return 0 成功
+ */
 int axk_hal_gpio_set_level(uint32_t pin, uint32_t level)
 {
 #if AXK_PLATFORM_BL618
@@ -170,6 +195,11 @@ int axk_hal_gpio_set_level(uint32_t pin, uint32_t level)
     return 0;
 }
 
+/**
+ * @brief 读取GPIO引脚输入电平
+ * @param[in] pin GPIO引脚号
+ * @return 1 高电平，0 低电平，-1 失败
+ */
 int axk_hal_gpio_get_level(uint32_t pin)
 {
 #if AXK_PLATFORM_BL618
@@ -181,6 +211,11 @@ int axk_hal_gpio_get_level(uint32_t pin)
 #endif
 }
 
+/**
+ * @brief 翻转GPIO引脚输出电平
+ * @param[in] pin GPIO引脚号
+ * @return 0 成功
+ */
 int axk_hal_gpio_toggle(uint32_t pin)
 {
 #if AXK_PLATFORM_BL618
@@ -197,15 +232,20 @@ int axk_hal_gpio_toggle(uint32_t pin)
 }
 
 /* ============================================================
- * 断mgr - 平台特定实现
+ * 中断管理 - 平台特定实现
  * ============================================================ */
 
 #if AXK_PLATFORM_BL618
-    static axk_gpio_isr_cb_t s_gpio_isr_cbs[32] = {NULL};  /**< per pin callback  */
-    static void* s_gpio_isr_args[32] = {NULL};             /**< per pin param  */
-    static uint64_t s_gpio_last_int_time[32] = {0};        /**< 去抖动time 戳 */
-    #define AXK_GPIO_DEBOUNCE_MS  50  /**< 去抖动窗口(ms) */
+    static axk_gpio_isr_cb_t s_gpio_isr_cbs[32] = {NULL};  /**< 各引脚中断回调函数指针 */
+    static void* s_gpio_isr_args[32] = {NULL};             /**< 各引脚中断回调用户参数 */
+    static uint64_t s_gpio_last_int_time[32] = {0};        /**< 各引脚最后中断时间戳（去抖动用） */
+    #define AXK_GPIO_DEBOUNCE_MS  50  /**< 中断去抖动窗口(毫秒) */
 
+    /**
+     * @brief GPIO中断统一回调函数
+     * @note 含50ms硬件去抖动，过滤重复触发后调用已注册的回调
+     * @param[in] pin 触发中断的引脚号
+     */
     static void axk_gpio_isr_callback(uint8_t pin)
     {
         uint64_t now;
@@ -231,6 +271,14 @@ int axk_hal_gpio_toggle(uint32_t pin)
     }
 #endif
 
+/**
+ * @brief 设置GPIO引脚中断回调
+ * @param[in] pin GPIO引脚号
+ * @param[in] trigger 触发方式（POSEDGE/NEGEDGE/ANYEDGE/LOW_LEVEL/HIGH_LEVEL）
+ * @param[in] cb 中断回调函数
+ * @param[in] arg 回调用户参数
+ * @return 0 成功，-1 设备无效或引脚号超出范围
+ */
 int axk_hal_gpio_set_interrupt(uint32_t pin, uint32_t trigger, axk_gpio_isr_cb_t cb, void* arg)
 {
 #if AXK_PLATFORM_BL618
@@ -254,7 +302,7 @@ int axk_hal_gpio_set_interrupt(uint32_t pin, uint32_t trigger, axk_gpio_isr_cb_t
     s_gpio_isr_cbs[pin] = cb;
     s_gpio_isr_args[pin] = arg;
 
-    bflb_gpio_int_mask(dev, (uint8_t)pin, true); /* 先disable ，configok后再enabled */
+    bflb_gpio_int_mask(dev, (uint8_t)pin, true); /* 先禁用中断，配置完成后重新使能 */
     bflb_gpio_irq_attach((uint8_t)pin, axk_gpio_isr_callback);
     bflb_gpio_int_init(dev, (uint8_t)pin, bflb_trig);
     return 0;
@@ -279,6 +327,11 @@ int axk_hal_gpio_set_interrupt(uint32_t pin, uint32_t trigger, axk_gpio_isr_cb_t
 #endif
 }
 
+/**
+ * @brief 使能GPIO引脚中断
+ * @param[in] pin GPIO引脚号
+ * @return 0 成功，-1 失败
+ */
 int axk_hal_gpio_intr_enable(uint32_t pin)
 {
 #if AXK_PLATFORM_BL618
@@ -294,6 +347,11 @@ int axk_hal_gpio_intr_enable(uint32_t pin)
     return -1;
 }
 
+/**
+ * @brief 禁能GPIO引脚中断
+ * @param[in] pin GPIO引脚号
+ * @return 0 成功，-1 失败
+ */
 int axk_hal_gpio_intr_disable(uint32_t pin)
 {
 #if AXK_PLATFORM_BL618
@@ -309,8 +367,12 @@ int axk_hal_gpio_intr_disable(uint32_t pin)
     return -1;
 }
 
-/* ── 上下拉config ────────────────────────────────── */
-
+/**
+ * @brief 设置GPIO引脚上下拉电阻
+ * @param[in] pin GPIO引脚号
+ * @param[in] pull 上下拉模式（AXK_GPIO_PULL_UP / DOWN / NONE）
+ * @return 0 成功，-1 失败
+ */
 int axk_hal_gpio_set_pull(uint32_t pin, uint32_t pull)
 {
 #if AXK_PLATFORM_BL618
@@ -343,6 +405,12 @@ int axk_hal_gpio_set_pull(uint32_t pin, uint32_t pull)
 #endif
 }
 
+/**
+ * @brief 获取GPIO引脚上下拉配置
+ * @note BL618 SDK 无直接查询API，仅返回 AXK_GPIO_PULL_NONE
+ * @param[in] pin GPIO引脚号
+ * @return 上下拉类型，-1 失败
+ */
 int axk_hal_gpio_get_pull(uint32_t pin)
 {
 #if AXK_PLATFORM_BL618
