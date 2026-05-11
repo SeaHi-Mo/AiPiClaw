@@ -10,6 +10,7 @@
 #include "axk_tool_gpio.h"
 #include "axk_platform.h"
 #include "axk_hal_gpio.h"
+#include "axk_gpio_policy.h"
 #include "cJSON.h"
 
 #include <stdio.h>
@@ -135,6 +136,12 @@ int axk_tool_gpio_write_execute(const char *input_json, char *output, size_t out
     cfg.mode = (uint32_t)mode;
     cfg.pull = AXK_GPIO_PULL_NONE;
     axk_hal_gpio_config(pin, &cfg);
+
+    /* 安全策略检查 */
+    if (axk_gpio_policy_check((uint8_t)pin, "set_level") != 0) {
+        snprintf(output, output_size, "Error: GPIO%d not allowed by security policy", pin);
+        return -1;
+    }
 
     axk_hal_gpio_set_level((uint32_t)pin, (uint32_t)value);
 
