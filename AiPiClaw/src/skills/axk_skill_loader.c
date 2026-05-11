@@ -526,11 +526,10 @@ int axk_skill_loader_init(void)
 static bool str_contains_nocase(const char *haystack, const char *needle);
 
 /**
- * @brief TODO: 描述str_contains_nocase的功能
- *
- * @param haystack TODO: 描述haystack
- * @param needle TODO: 描述needle
- * @return 0成功, -1失败
+ * @brief 不区分大小写检查字符串中是否包含子串（实现）
+ * @param[in] haystack 待搜索的字符串
+ * @param[in] needle 要查找的子字符串
+ * @return true找到, false未找到
  */
 static bool str_contains_nocase(const char *haystack, const char *needle)
 {
