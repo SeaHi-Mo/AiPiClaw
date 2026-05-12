@@ -20,6 +20,7 @@
 #include "axk_hal_uart.h"
 #include "axk_hal_flash.h"
 #include "axk_hal_timer.h"
+#include "axk_hal_wifi.h"
 #include "axk_mimiclaw.h"
 #include "axk_message_bus.h"
 #include "axk_telegram_bot.h"
@@ -50,9 +51,7 @@
 #include "wifi_mgmr_ext.h"
 #include "rfparam_adapter.h"
 
-/* forward decl: wifi_mgmr_init: explicit decl for SDK compat */
-int wifi_mgmr_init(wifi_conf_t *conf);
-
+/* ============================================================ */
 static wifi_conf_t s_wifi_conf = {
     .country_code = "CN",
 };

@@ -19,7 +19,7 @@ extern "C" {
 /* ============================================================
  * key config
  * ============================================================ */
-#define AXK_FACTORY_RESET_BTN_PIN        14      /**< IO14: key (GPIO8被PSRAM占用) */
+#define AXK_FACTORY_RESET_BTN_PIN        8       /**< GPIO8: 恢复出厂按键 (上电仅判断BOOT模式，运行时可作普通IO) */
 #define AXK_FACTORY_RESET_HOLD_MS        3000    /**< 长按阈value : 3s */
 
 /* ============================================================

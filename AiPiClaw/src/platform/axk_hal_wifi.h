@@ -8,6 +8,12 @@
 #ifndef __AXK_HAL_WIFI_H
 #define __AXK_HAL_WIFI_H
 #include "axk_platform.h"
+
+#if AXK_PLATFORM_BL618
+#include "wifi_mgmr_ext.h"
+int wifi_mgmr_init(wifi_conf_t *conf);  /**< WiFi管理器初始化（SDK兼容声明） */
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

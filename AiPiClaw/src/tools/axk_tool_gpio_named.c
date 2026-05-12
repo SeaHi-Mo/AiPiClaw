@@ -112,7 +112,6 @@ int axk_tool_gpio_write_named_execute(const char *input_json, char *output, size
     }
     state = item->valuestring;
 
-    cJSON_Delete(root);
     AXK_LOG_DEBUG("[named_dbg] write pin_name='%s' state='%s'\r\n", pin_name ? pin_name : "NULL", state ? state : "NULL");
 
     /* 解析别名 */
@@ -180,6 +179,7 @@ int axk_tool_gpio_write_named_execute(const char *input_json, char *output, size
     }
 
     AXK_LOG_INFO("[tool_gpio_named] %s -> GPIO%d=%d\r\n", pin_name, alias.pin, level);
+    cJSON_Delete(root);
     return 0;
 }
 
@@ -214,7 +214,6 @@ int axk_tool_gpio_read_named_execute(const char *input_json, char *output, size_
         return -1;
     }
     pin_name = item->valuestring;
-    cJSON_Delete(root);
 
     /* 解析别名 */
     if (axk_gpio_alias_resolve(pin_name, &alias) != 0) {
@@ -240,5 +239,6 @@ int axk_tool_gpio_read_named_execute(const char *input_json, char *output, size_
                  state_buf, state_buf);
     }
 
+    cJSON_Delete(root);
     return 0;
 }
