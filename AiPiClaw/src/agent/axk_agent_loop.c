@@ -569,6 +569,9 @@ static void agent_loop_task(void *arg)
 
             out.content = final_text;
             out.priority = MIMI_PRIO_NORMAL;  /**< AIresponsemsg */
+            size_t out_len = out.content ? strlen(out.content) : 0;
+            AXK_LOG_INFO("[agent_dbg] push_outbound len=%u channel=%s\r\n",
+                         (unsigned int)out_len, out.channel);
             printf("[agent_dbg] push_outbound channel=%s chat_id=%s content=%.80s\r\n",
                    out.channel, out.chat_id, out.content ? out.content : "(null)");
             fflush(stdout);

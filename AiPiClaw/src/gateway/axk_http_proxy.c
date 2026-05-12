@@ -123,7 +123,7 @@ int axk_http_request(const char *url, const char *method,
     req.url = url;
     req.protocol = "HTTP/1.1";
     req.response = http_proxy_response_cb;
-    req.buffer_size = 2048;
+    req.buffer_size = 8192;  /* 原2048, LLM长回复可达2800+ */
 
     if (payload) {
         req.payload = payload;
