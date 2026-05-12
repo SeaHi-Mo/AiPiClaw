@@ -675,6 +675,11 @@ int axk_ws_server_send(const char *text)
         if (s_clients[i].conn != NULL && s_clients[i].handshaked) {
             if (ws_send_text(s_clients[i].conn, text) == 0) {
                 sent++;
+            } else {
+                /* netconn_write ERR_VAL → TCP PCB已死, 移出池避免阻塞pending */
+                s_clients[i].conn = NULL;
+                s_clients[i].handshaked = false;
+                printf("[WS] client[%d] TCP dead, removed from pool\r\n", i);
             }
         }
     }
