@@ -218,14 +218,17 @@ static int ws_send_text(struct netconn *client, const char *text)
 
     err_t err = netconn_write(client, hdr, hdr_len, NETCONN_COPY);
     if (err != ERR_OK) {
+        printf("[WS] send_text netconn_write(header) FAIL err=%d\r\n", (int)err);
         if (write_mutex) xSemaphoreGive(write_mutex);
         return -1;
     }
     err = netconn_write(client, text, len, NETCONN_COPY);
     if (err != ERR_OK) {
+        printf("[WS] send_text netconn_write(payload) FAIL len=%u err=%d\r\n", (unsigned int)len, (int)err);
         if (write_mutex) xSemaphoreGive(write_mutex);
         return -1;
     }
+    printf("[WS] send_text OK len=%u\r\n", (unsigned int)len);
     if (write_mutex) xSemaphoreGive(write_mutex);
     return 0;
 }
@@ -313,16 +316,46 @@ static void ws_pending_flush(struct netconn *client)
     if (xSemaphoreTake(s_pending_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
         return;
     }
+    int kept = 0;
+    printf("[WS] pending_flush start: count=%d\r\n", s_pending_count);
     for (i = 0; i < s_pending_count; i++) {
         int idx = (s_pending_head + i) % WS_PENDING_MAX;
         if (s_pending[idx]) {
-            ws_send_text(client, s_pending[idx]);
-            free(s_pending[idx]);
-            s_pending[idx] = NULL;
+            int ret = ws_send_text(client, s_pending[idx]);
+            printf("[WS] pending_flush[%d] ws_send_text ret=%d len=%u\r\n",
+                   i, ret, (unsigned int)strlen(s_pending[idx]));
+            if (ret == 0) {
+                free(s_pending[idx]);
+                s_pending[idx] = NULL;
+            } else {
+                kept++;
+                printf("[WS] pending_flush[%d] send FAIL, retain\r\n", i);
+            }
+            /* 浏览器连续消息互杀typewriter: 间隔20ms让TCP分包 */
+            vTaskDelay(pdMS_TO_TICKS(20));
         }
     }
-    s_pending_head = 0;
-    s_pending_count = 0;
+    printf("[WS] pending_flush end: freed %d, retained %d\r\n",
+           s_pending_count - kept, kept);
+    /* 收缩pending队列：将未成功消息移到头部 */
+    if (kept > 0) {
+        int write_idx = 0;
+        for (i = 0; i < s_pending_count; i++) {
+            int idx = (s_pending_head + i) % WS_PENDING_MAX;
+            if (s_pending[idx]) {
+                s_pending[write_idx] = s_pending[idx];
+                if (write_idx != idx) {
+                    s_pending[idx] = NULL;
+                }
+                write_idx++;
+            }
+        }
+        s_pending_head = 0;
+        s_pending_count = kept;
+    } else {
+        s_pending_head = 0;
+        s_pending_count = 0;
+    }
     xSemaphoreGive(s_pending_mutex);
 }
 
