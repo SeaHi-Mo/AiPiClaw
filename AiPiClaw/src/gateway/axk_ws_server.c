@@ -216,19 +216,22 @@ static int ws_send_text(struct netconn *client, const char *text)
         return -1;
     }
 
-    err_t err = netconn_write(client, hdr, hdr_len, NETCONN_COPY);
-    if (err != ERR_OK) {
-        printf("[WS] send_text netconn_write(header) FAIL err=%d\r\n", (int)err);
+    /* 单次 netconn_write: malloc 合并帧头+载荷，防止多任务交叉写入碎帧 */
+    uint8_t *frame = (uint8_t *)malloc(hdr_len + len);
+    if (!frame) {
         if (write_mutex) xSemaphoreGive(write_mutex);
         return -1;
     }
-    err = netconn_write(client, text, len, NETCONN_COPY);
+    memcpy(frame, hdr, hdr_len);
+    memcpy(frame + hdr_len, text, len);
+    err_t err = netconn_write(client, frame, hdr_len + len, NETCONN_COPY);
+    free(frame);
     if (err != ERR_OK) {
-        printf("[WS] send_text netconn_write(payload) FAIL len=%u err=%d\r\n", (unsigned int)len, (int)err);
+        printf("[WS] send_text netconn_write FAIL len=%u err=%d\r\n", (unsigned int)(hdr_len + len), (int)err);
         if (write_mutex) xSemaphoreGive(write_mutex);
         return -1;
     }
-    printf("[WS] send_text OK len=%u\r\n", (unsigned int)len);
+    printf("[WS] send_text OK len=%u\r\n", (unsigned int)(hdr_len + len));
     if (write_mutex) xSemaphoreGive(write_mutex);
     return 0;
 }
