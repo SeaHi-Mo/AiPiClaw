@@ -332,11 +332,18 @@ static void ws_handle_client(struct netconn *client)
     netconn_set_recvtimeout(client, 100);
     netconn_set_sendtimeout(client, 500);
 
+    TickType_t last_ping = xTaskGetTickCount();
+
     while (s_ws_running) {
         struct netbuf *buf = NULL;
         err_t err = netconn_recv(client, &buf);
         if (err == ERR_TIMEOUT) {
-            continue;  /* 正常超时，检查 s_ws_running */
+            /* 每15s主动发ping保活，防止LLM工具链耗时期间浏览器断连 */
+            if ((xTaskGetTickCount() - last_ping) >= pdMS_TO_TICKS(15000)) {
+                ws_send_text(client, "__ping__");
+                last_ping = xTaskGetTickCount();
+            }
+            continue;
         }
         if (err != ERR_OK || !buf) {
             break;
