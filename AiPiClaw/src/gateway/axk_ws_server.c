@@ -36,6 +36,7 @@
 typedef struct {
     struct netconn *conn;
     bool handshaked; /**< WebSocket握手是否已完成 */
+    SemaphoreHandle_t write_mutex; /**< 串行化对该客户端的 netconn_write */
 } ws_client_t;
 
 static const char *TAG = "ws_srv";
@@ -174,7 +175,7 @@ static bool ws_do_handshake(struct netconn *client)
 }
 
 /**
- * @brief 发送WebSocket文本帧到指定客户端
+ * @brief 发送WebSocket文本帧到指定客户端（写入时持write_mutex避免多任务并发损坏帧）
  *
  * @param client 目标客户端netconn连接
  * @param text 待发送的文本字符串
@@ -182,6 +183,20 @@ static bool ws_do_handshake(struct netconn *client)
  */
 static int ws_send_text(struct netconn *client, const char *text)
 {
+    SemaphoreHandle_t write_mutex = NULL;
+    {
+        int i;
+        for (i = 0; i < MIMI_WS_MAX_CLIENTS; i++) {
+            if (s_clients[i].conn == client && s_clients[i].write_mutex) {
+                write_mutex = s_clients[i].write_mutex;
+                break;
+            }
+        }
+    }
+    if (write_mutex) {
+        xSemaphoreTake(write_mutex, portMAX_DELAY);
+    }
+
     size_t len = strlen(text);
     uint8_t hdr[4];
     size_t hdr_len = 0;
@@ -197,17 +212,21 @@ static int ws_send_text(struct netconn *client, const char *text)
         hdr_len = 4;
     } else {
         /* not support 超长帧 */
+        if (write_mutex) xSemaphoreGive(write_mutex);
         return -1;
     }
 
     err_t err = netconn_write(client, hdr, hdr_len, NETCONN_COPY);
     if (err != ERR_OK) {
+        if (write_mutex) xSemaphoreGive(write_mutex);
         return -1;
     }
     err = netconn_write(client, text, len, NETCONN_COPY);
     if (err != ERR_OK) {
+        if (write_mutex) xSemaphoreGive(write_mutex);
         return -1;
     }
+    if (write_mutex) xSemaphoreGive(write_mutex);
     return 0;
 }
 
@@ -330,7 +349,7 @@ static void ws_handle_client(struct netconn *client)
 
     /* 设置 recv/send 超时防止永久阻塞 */
     netconn_set_recvtimeout(client, 100);
-    netconn_set_sendtimeout(client, 500);
+    netconn_set_sendtimeout(client, 3000);  /* 原500ms, lwIP堆紧张时HTTPS占用久 */
 
     TickType_t last_ping = xTaskGetTickCount();
 
@@ -408,7 +427,9 @@ static void ws_handle_client(struct netconn *client)
 
                     /* 心跳: __ping__ 回复 __pong__ 保持连接 */
                     if (strcmp(msg, "__ping__") == 0) {
-                        ws_send_text(client, "__pong__");
+                        if (ws_send_text(client, "__pong__") != 0) {
+                            AXK_LOG_WARN("[%s] send __pong__ FAILED (lwIP heap?)\r\n", TAG);
+                        }
                         free(msg);
                         netbuf_delete(buf);
                         continue;
@@ -543,6 +564,12 @@ int axk_ws_server_init(void)
     }
     s_ws_mutex = xSemaphoreCreateMutex();
     s_pending_mutex = xSemaphoreCreateMutex();
+    {
+        int i;
+        for (i = 0; i < MIMI_WS_MAX_CLIENTS; i++) {
+            s_clients[i].write_mutex = xSemaphoreCreateMutex();
+        }
+    }
     memset(s_pending, 0, sizeof(s_pending));
     s_pending_head = 0;
     s_pending_count = 0;
