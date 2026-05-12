@@ -402,13 +402,11 @@ int axk_hal_gpio_set_pull(uint32_t pin, uint32_t pull)
 #if AXK_PLATFORM_BL618
     struct bflb_device_s *dev = axk_gpio_get_dev();
     uint32_t cfgset;
-    int current;
 
     if (!dev) return -1;
 
-    current = bflb_gpio_read(dev, (uint8_t)pin);
+    /* 只修改上下拉配置，不改变引脚方向（移除之前根据电平重配方向的逻辑） */
     cfgset = GPIO_FUNC_GPIO;
-    cfgset |= current ? GPIO_OUTPUT : GPIO_INPUT;
 
     if (pull == AXK_GPIO_PULL_UP) {
         cfgset |= GPIO_PULLUP;
@@ -419,9 +417,6 @@ int axk_hal_gpio_set_pull(uint32_t pin, uint32_t pull)
     }
 
     bflb_gpio_init(dev, (uint8_t)pin, cfgset);
-    if (current) {
-        axk_gpio_fix_oe((uint8_t)pin);
-    }
     return 0;
 #else
     (void)pin; (void)pull;
