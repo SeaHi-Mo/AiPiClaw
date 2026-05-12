@@ -132,16 +132,16 @@ int axk_tool_gpio_write_execute(const char *input_json, char *output, size_t out
         return ret;
     }
 
-    cfg.pin = (uint32_t)pin;
-    cfg.mode = (uint32_t)mode;
-    cfg.pull = AXK_GPIO_PULL_NONE;
-    axk_hal_gpio_config(pin, &cfg);
-
-    /* 安全策略检查 */
+    /* 先检查安全策略，通过后再配置GPIO */
     if (axk_gpio_policy_check((uint8_t)pin, "set_level") != 0) {
         snprintf(output, output_size, "Error: GPIO%d not allowed by security policy", pin);
         return -1;
     }
+
+    cfg.pin = (uint32_t)pin;
+    cfg.mode = (uint32_t)mode;
+    cfg.pull = AXK_GPIO_PULL_NONE;
+    axk_hal_gpio_config(pin, &cfg);
 
     axk_hal_gpio_set_level((uint32_t)pin, (uint32_t)value);
 
@@ -169,6 +169,12 @@ int axk_tool_gpio_read_execute(const char *input_json, char *output, size_t outp
     if (ret != 0) {
         snprintf(output, output_size, "Error: invalid input. Expected {\"pin\":N}");
         return ret;
+    }
+
+    /* 先检查安全策略 */
+    if (axk_gpio_policy_check((uint8_t)pin, "get_level") != 0) {
+        snprintf(output, output_size, "Error: GPIO%d not allowed by security policy", pin);
+        return -1;
     }
 
     cfg.pin = (uint32_t)pin;
