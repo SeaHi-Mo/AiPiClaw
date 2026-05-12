@@ -110,6 +110,16 @@ static bool provider_is_minimax(void)
 }
 
 /**
+ * @brief 判断当前LLM提供商是否为MiniMax Anthropic兼容接口
+ *
+ * @return true表示是MiniMax Anthropic，false表示不是
+ */
+static bool provider_is_minimax_anthropic(void)
+{
+    return strcmp(s_provider, "minimaxi") == 0;
+}
+
+/**
  * @brief 判断当前LLM提供商是否使用OpenAI兼容的API格式
  *
  * @return true表示使用OpenAI格式，false表示使用Anthropic格式
@@ -134,6 +144,9 @@ static const char *llm_api_url(void)
     }
     if (provider_is_minimax()) {
         return MIMI_MINIMAX_API_URL;
+    }
+    if (provider_is_minimax_anthropic()) {
+        return MIMI_MINIMAX_ANTHROPIC_API_URL;
     }
     return MIMI_LLM_API_URL;
 }
@@ -165,6 +178,14 @@ static bool normalize_model_for_provider(void)
         if (strncmp(s_model, "claude", 6) == 0 ||
             strncmp(s_model, "gpt-", 4) == 0 ||
             strncmp(s_model, "deepseek-", 9) == 0 ||
+            s_model[0] == '\0') {
+            safe_copy(s_model, sizeof(s_model), MINIMAX_FALLBACK_MODEL);
+            return true;
+        }
+    } else if (provider_is_minimax_anthropic()) {
+        if (strncmp(s_model, "gpt-", 4) == 0 ||
+            strncmp(s_model, "deepseek-", 9) == 0 ||
+            strncmp(s_model, "MiniMax-", 8) == 0 ||
             s_model[0] == '\0') {
             safe_copy(s_model, sizeof(s_model), MINIMAX_FALLBACK_MODEL);
             return true;
