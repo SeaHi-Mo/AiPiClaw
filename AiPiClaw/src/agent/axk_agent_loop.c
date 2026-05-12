@@ -569,9 +569,6 @@ static void agent_loop_task(void *arg)
 
             out.content = final_text;
             out.priority = MIMI_PRIO_NORMAL;  /**< AIresponsemsg */
-            printf("[agent_dbg] push_outbound channel=%s chat_id=%s content=%.80s\r\n",
-                   out.channel, out.chat_id, out.content ? out.content : "(null)");
-            fflush(stdout);
             if (!out.content) {
                 AXK_LOG_WARN("agent", "drop outbound: no memory");
             } else if (axk_message_bus_push_outbound(&out) != 0) {
