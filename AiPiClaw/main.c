@@ -422,7 +422,7 @@ static void cmd_llm_key(int argc, char **argv)
         printf("usage: : llm_key <api_key>\r\n");
         printf("示eg.: llm_key sk-ant-api03-xxxxx\r\n");
         printf("\r\n");
-        printf("note: : key length 建议not 超过64chars \r\n");
+        printf("note: : key length 支持最长320chars \r\n");
         return;
     }
 
