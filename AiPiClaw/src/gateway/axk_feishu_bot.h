@@ -53,6 +53,16 @@ int axk_feishu_set_credentials(const char *app_id, const char *app_secret);
  *
  * @return 0成功，负数错误码
  */
+/**
+ * @brief 停止飞书Bot服务
+ */
+void axk_feishu_bot_stop(void);
+
+/**
+ * @brief 停止飞书Webhook接收服务
+ */
+void axk_feishu_bot_stop_webhook(void);
+
 int axk_feishu_bot_start_webhook(void);
 
 #ifdef __cplusplus

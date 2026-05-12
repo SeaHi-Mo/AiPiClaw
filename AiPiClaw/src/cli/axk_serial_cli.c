@@ -26,8 +26,6 @@
 #define AXK_CLI_MAX_INPUT_LEN  512
 #define AXK_CLI_PROMPT         "mimi> "
 
-static SemaphoreHandle_t s_cli_mutex = NULL;
-
 /* ── Shell cmd: mimi ───────────────────────────── */
 
 /**
@@ -200,12 +198,6 @@ SHELL_CMD_EXPORT_ALIAS(cmd_list, list, list - list all commands);
  */
 int axk_serial_cli_init(void)
 {
-    s_cli_mutex = xSemaphoreCreateMutex();
-    if (!s_cli_mutex) {
-        AXK_LOG_ERROR("[axk_serial_cli] Failed to create mutex\r\n");
-        return -1;
-    }
-
     AXK_LOG_INFO("[axk_serial_cli] CLI initialized, 5 diagnostic commands registered\r\n");
     printf("\r\n%s", AXK_CLI_PROMPT);
     return 0;

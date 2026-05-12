@@ -53,6 +53,7 @@ typedef struct {
 
 static TaskHandle_t s_poll_task;
 static bool s_poll_started;
+static bool s_tg_running;
 static char s_bot_token[TG_TOKEN_MAX_LEN] = MIMI_SECRET_TG_TOKEN;
 static int64_t s_update_offset;
 static int64_t s_last_saved_offset = -1;
@@ -750,7 +751,7 @@ static void telegram_poll_task(void *arg)
     (void)arg;
     AXK_LOG_INFO("info", "Telegram polling task started");
 
-    while (1) {
+    while (s_tg_running) {
         char payload[128];
         char fallback_payload[128];
         char *body = NULL;
@@ -812,9 +813,23 @@ static void telegram_poll_task(void *arg)
 }
 
 /**
- * @brief 初始化Telegram Bot模块，从NVS加载token和offset
+ * @brief 停止Telegram Bot轮询服务
+ */
+void axk_telegram_bot_stop(void)
+{
+    s_tg_running = false;
+    if (s_poll_task) {
+        vTaskDelay(pdMS_TO_TICKS(200));
+        s_poll_task = NULL;
+    }
+    s_poll_started = false;
+    AXK_LOG_INFO("[axk_telegram] Bot stopped\r\n");
+}
+
+/**
+ * @brief 初始化Telegram Bot模块
  *
- * @return 0成功
+ * @return 0成功，-1互斥锁创建失败
  */
 int axk_telegram_bot_init(void)
 {
@@ -870,8 +885,10 @@ int axk_telegram_bot_start(void)
         return 0;
     }
 
+    s_tg_running = true;
     if (xTaskCreate(telegram_poll_task, "tg_poll", MIMI_TG_POLL_STACK, NULL,
                     MIMI_TG_POLL_PRIO, &s_poll_task) != pdPASS) {
+        s_tg_running = false;
         s_poll_task = NULL;
         return -1;
     }

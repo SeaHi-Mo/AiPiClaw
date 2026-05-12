@@ -131,7 +131,7 @@ static bool query_is_time_sensitive(const char *query)
     static const char *time_sensitive_terms[] = {
         "today", "tonight", "now", "current", "currently", "price", "prices",
         "weather", "forecast", "breaking", "latest", "recent", "recently",
-        "news", "update", "updates", "今天", "今日", "现in ", "current ", "实时",
+        "news", "update", "updates", "今天", "今日", "现在 ", "current ", "实时",
         "最新", "近期", "最近", "新闻", "动态", "msg", "油价", "股价",
         "汇率", "天气", "行情", NULL
     };

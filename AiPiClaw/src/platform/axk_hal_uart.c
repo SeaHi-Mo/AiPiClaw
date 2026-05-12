@@ -147,11 +147,15 @@ int axk_hal_uart_getchar(uint32_t port, uint8_t* ch, uint32_t timeout_ms)
 #if AXK_PLATFORM_BL618
     struct bflb_device_s* uart_dev = axk_uart_get_dev(port);
     if (uart_dev) {
-        int c = bflb_uart_getchar(uart_dev);
-        if (c >= 0) {
-            *ch = (uint8_t)c;
-            return 0;
-        }
+        uint32_t start = axk_hal_system_get_time_ms();
+        do {
+            int c = bflb_uart_getchar(uart_dev);
+            if (c >= 0) {
+                *ch = (uint8_t)c;
+                return 0;
+            }
+            taskYIELD();  /* 避免busyloop消耗CPU */
+        } while ((axk_hal_system_get_time_ms() - start) < timeout_ms);
     }
     *ch = 0;
     return -1;

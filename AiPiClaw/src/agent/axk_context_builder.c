@@ -15,6 +15,7 @@
 #include <stdlib.h>
 
 #include "cJSON.h"
+#include "mimi_config.h"
 
 #define AXK_CTX_MAX_LEN  4096
 
@@ -73,7 +74,7 @@ char *axk_context_builder_build_request(const char *user_message,
         return NULL;
     }
 
-    cJSON_AddStringToObject(root, "model", "claude-3-5-sonnet-20241022");
+    cJSON_AddStringToObject(root, "model", MIMI_LLM_DEFAULT_MODEL);
 
     /* messages 数组 */
     messages = cJSON_CreateArray();

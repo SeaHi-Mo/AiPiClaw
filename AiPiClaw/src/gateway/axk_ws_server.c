@@ -138,6 +138,8 @@ static bool ws_do_handshake(struct netconn *client)
     }
     size_t key_len = end - p;
     if (key_len >= sizeof(ws_key)) {
+        AXK_LOG_WARN("[%s] Sec-WebSocket-Key truncated (%u -> %u)\r\n", TAG,
+                     (unsigned int)key_len, (unsigned int)(sizeof(ws_key) - 1));
         key_len = sizeof(ws_key) - 1;
     }
     memcpy(ws_key, p, key_len);
@@ -254,6 +256,9 @@ static void ws_client_unregister(struct netconn *client)
  * @brief 处理单个WebSocket客户端连接的全生命周期（握手→收发消息→断开）
  *
  * @param client 客户端netconn连接
+ *
+ * @note 所有权约定: msg 由 malloc 分配，bus push_inbound 必须拷贝内容（不持有指针）,
+ *       msg 始终在此函数内 free。bus 若存储指针而非拷贝则导致 use-after-free。
  */
 static void ws_handle_client(struct netconn *client)
 {
@@ -337,6 +342,13 @@ static void ws_handle_client(struct netconn *client)
                         continue;  /* 静默跳过，不推入站 */
                     }
 
+                    /* NOTE: msg is malloc'd above — push_inbound MUST copy content
+                     * before returning (message bus is free to consume it at any
+                     * later time via deferred processing). The bus never owns the
+                     * pointer; msg is always freed here at L357. If the bus stored
+                     * the pointer instead of copying, free(msg) would be a
+                     * use-after-free / double-free. Verify bus copies when adding
+                     * new backends. */
                     mimi_msg_t m = {0};
                     strncpy(m.channel, MIMI_CHAN_WEBSOCKET, sizeof(m.channel) - 1);
                     m.content = msg;
@@ -460,6 +472,23 @@ int axk_ws_server_start(uint16_t port)
         return -1;
     }
     return 0;
+}
+
+/**
+ * @brief 停止WebSocket服务器，关闭监听并等待任务退出
+ */
+void axk_ws_server_stop(void)
+{
+    s_ws_running = false;
+    if (s_ws_listener) {
+        netconn_close(s_ws_listener);
+    }
+    if (s_ws_task) {
+        vTaskDelay(pdMS_TO_TICKS(200));  /* 等待任务退出 */
+        s_ws_task = NULL;
+    }
+    s_ws_listener = NULL;
+    AXK_LOG_INFO("[%s] WebSocket server stopped\r\n", TAG);
 }
 
 /**

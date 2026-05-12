@@ -31,6 +31,11 @@ int axk_ws_server_init(void);
 int axk_ws_server_start(uint16_t port);
 
 /**
+ * @brief 停止WebSocket服务器
+ */
+void axk_ws_server_stop(void);
+
+/**
  * @brief  to current connect WebSocket 客户端send文本msg
  *
  * @param[in] text 要send文本

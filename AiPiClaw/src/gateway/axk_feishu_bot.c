@@ -592,6 +592,29 @@ static void fs_webhook_task(void *param)
 }
 
 /**
+ * @brief 停止飞书Webhook接收服务
+ */
+void axk_feishu_bot_stop_webhook(void)
+{
+    s_fs_webhook_running = false;
+    if (s_fs_webhook_listener) {
+        netconn_close(s_fs_webhook_listener);
+    }
+    if (s_fs_webhook_task) {
+        vTaskDelay(pdMS_TO_TICKS(200));
+        s_fs_webhook_task = NULL;
+    }
+    s_fs_webhook_listener = NULL;
+    AXK_LOG_INFO("[%s] Webhook service stopped\r\n", TAG);
+}
+
+void axk_feishu_bot_stop(void)
+{
+    axk_feishu_bot_stop_webhook();
+    AXK_LOG_INFO("[%s] Feishu bot stopped\r\n", TAG);
+}
+
+/**
  * @brief 启动飞书Webhook HTTP接收服务器（长连接轮询消息）
  *
  * @return 0成功，-1任务创建失败

@@ -429,7 +429,7 @@ int axk_skill_load_from_fs(void)
     struct lfs_info info;
     int ret;
     int loaded = 0;
-    char dir_path[64];
+    char dir_path[128];  /* 兼容深路径: 曾在64字节内截断 */
 
     snprintf(dir_path, sizeof(dir_path), "%s/skills", MIMI_SPIFFS_BASE);
 

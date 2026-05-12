@@ -300,7 +300,7 @@ int axk_cron_remove_job(const char *job_id)
     for (i = 0; i < AXK_CRON_MAX_JOBS; i++) {
         if (strcmp(s_jobs[i].id, job_id) == 0) {
             AXK_LOG_INFO("[axk_cron] delete task %s\r\n", s_jobs[i].id);
-            memset(&s_jobs[i], 0, sizeof(cron_job_t));
+            s_jobs[i].id[0] = '\0';  /* 标记为空但不清理msg buffer，避免bus中消息指针悬空 */
             s_job_count--;
             xSemaphoreGive(s_cron_mutex);
             cron_save_jobs();
@@ -435,8 +435,8 @@ static void axk_cron_task(void *param)
                     job->next_run = now + job->interval_s;
                 } else {
                     /* AT mode ：执行后标记delete  */
-                    if (job->delete_after_run) {
-                        memset(job, 0, sizeof(cron_job_t));
+                    if (job->delete_after_run && job->id[0] != '\0') {
+                        job->id[0] = '\0';  /* 仅标记为空，保持msg buffer有效 */
                         s_job_count--;
                     }
                 }

@@ -127,7 +127,7 @@ static bool text_has_current_time_anchor(const char *text)
     static const char *terms[] = {
         "today", "tonight", "now", "current", "currently", "latest",
         "recent", "recently", "breaking", "today's", "今天", "今日",
-        "现in ", "current ", "实时", "最新", "近期", "最近", NULL
+        "现在 ", "current ", "实时", "最新", "近期", "最近", NULL
     };
     int i;
 

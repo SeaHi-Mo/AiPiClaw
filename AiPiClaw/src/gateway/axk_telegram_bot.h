@@ -31,6 +31,11 @@ int axk_telegram_bot_init(void);
 int axk_telegram_bot_start(void);
 
 /**
+ * @brief 停止Telegram Bot轮询服务
+ */
+void axk_telegram_bot_stop(void);
+
+/**
  * @brief send文本msg to Telegram聊天
  *
  * @param[in] chat_id 聊天ID
