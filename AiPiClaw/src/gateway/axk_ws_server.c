@@ -684,9 +684,19 @@ int axk_ws_server_send(const char *text)
     xSemaphoreGive(s_ws_mutex);
 
     if (sent == 0) {
-        /* 无客户端在线，缓存到pending队列，客户端重连后自动flushed */
+        /* 无客户端在线，缓存到pending队列 */
         ws_pending_push(text);
         printf("[WS] no clients, cached to pending queue\r\n");
+        /* 立即检查是否有已连接的客户端（push前刚断开的场景） */
+        if (xSemaphoreTake(s_ws_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            for (i = 0; i < MIMI_WS_MAX_CLIENTS; i++) {
+                if (s_clients[i].conn != NULL && s_clients[i].handshaked) {
+                    ws_pending_flush(s_clients[i].conn);
+                    break;
+                }
+            }
+            xSemaphoreGive(s_ws_mutex);
+        }
     }
 
     return (sent > 0) ? 0 : -1;
