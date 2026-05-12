@@ -20,7 +20,6 @@
 #include "axk_hal_uart.h"
 #include "axk_hal_flash.h"
 #include "axk_hal_timer.h"
-#include "axk_hal_wifi.h"
 #include "axk_mimiclaw.h"
 #include "axk_message_bus.h"
 #include "axk_telegram_bot.h"
@@ -49,6 +48,8 @@
 #include "fhost_api.h"
 #include "macsw_plat.h"
 #include "wifi_mgmr_ext.h"
+/* C3: wifi_mgmr_init 声明 (替代 include axk_hal_wifi.h, 避免与管理器层类型冲突) */
+extern int wifi_mgmr_init(wifi_conf_t *conf);
 #include "rfparam_adapter.h"
 
 /* ============================================================ */

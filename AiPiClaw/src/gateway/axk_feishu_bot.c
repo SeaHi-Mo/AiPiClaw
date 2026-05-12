@@ -448,10 +448,15 @@ static void fs_webhook_handle_client(struct netconn *client)
         if (cl) {
             long content_len = strtol(cl + 16, NULL, 10);
             char *blank = strstr(rx_buf, "\r\n\r\n");
-            if (blank && content_len > 0 && content_len < FS_WEBHOOK_BUF_SIZE) {
-                body = blank + 4;
-                body_len = content_len;
-                body[content_len] = '\0';
+            if (blank && content_len > 0) {
+                size_t avail = FS_WEBHOOK_BUF_SIZE - (size_t)(blank + 4 - rx_buf);
+                if ((size_t)content_len < avail) {
+                    body = blank + 4;
+                    body_len = content_len;
+                    body[content_len] = '\0';
+                } else {
+                    AXK_LOG_WARN("[fs] webhook body too large: %ld > %zu bytes\r\n", content_len, avail);
+                }
             }
         } else {
             /* 无 Content-Length，\u5c1d\u8bd5\u76f4\u63a5\u89e3\u6790 body */
