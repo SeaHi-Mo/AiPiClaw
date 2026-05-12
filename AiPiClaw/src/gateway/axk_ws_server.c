@@ -392,6 +392,18 @@ static void ws_handle_client(struct netconn *client)
 }
 
 /**
+ * @brief WebSocket客户端独立任务，处理单个客户端的完整生命周期
+ *
+ * @param param 客户端netconn连接指针
+ */
+static void ws_client_task(void *param)
+{
+    struct netconn *client = (struct netconn *)param;
+    ws_handle_client(client);
+    vTaskDelete(NULL);
+}
+
+/**
  * @brief WebSocket服务器主任务，监听端口并接受客户端连接
  *
  * @param param 任务参数（未使用）
@@ -435,8 +447,13 @@ static void ws_server_task(void *param)
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
         }
-        AXK_LOG_INFO("[%s] 新客户端connect\r\n", TAG);
-        ws_handle_client(client);
+        AXK_LOG_INFO("[%s] 新客户端connect, spawn client task\r\n", TAG);
+        if (xTaskCreate(ws_client_task, "ws_cli", WS_CLIENT_STACK, client,
+                        WS_CLIENT_PRIO, NULL) != pdPASS) {
+            AXK_LOG_ERROR("[%s] 创建client task FAIL, drop connection\r\n", TAG);
+            netconn_close(client);
+            netconn_delete(client);
+        }
     }
 
     netconn_close(listener);
