@@ -446,7 +446,7 @@ static const char WEB_UI_HTML[] =
     "        if(pongTimer)clearTimeout(pongTimer);\n"
     "        pongTimer=setTimeout(function(){if(ws)ws.close();},8000);\n"
     "      }catch(e){clearInterval(sendPing);}\n"
-    "    },10000);\n"
+    "    },30000);\n"
     "  };\n"
     "\n"
     "  // @用途 WebSocket 消息接收回调\n"
