@@ -277,8 +277,17 @@ int axk_feishu_send_message(const char *chat_id, const char *text)
         return -1;
     }
 
-    /* \u6784\u5efa content JSON */
-    snprintf(content_json, sizeof(content_json), "{\"text\":\"%s\"}", text);
+    /* 使用cJSON构建content JSON（安全转义，防止注入） */
+    cJSON *content_root = cJSON_CreateObject();
+    cJSON_AddStringToObject(content_root, "text", text);
+    char *content_json_str = cJSON_PrintUnformatted(content_root);
+    cJSON_Delete(content_root);
+    if (!content_json_str) {
+        return -1;
+    }
+    strncpy(content_json, content_json_str, sizeof(content_json) - 1);
+    content_json[sizeof(content_json) - 1] = '\0';
+    free(content_json_str);
 
     snprintf(url, sizeof(url),
              "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id");
