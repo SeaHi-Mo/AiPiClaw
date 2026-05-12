@@ -24,12 +24,14 @@
 #include <stdio.h>
 
 #include "cJSON.h"
+#include "semphr.h"
 
 #define MAX_TOOLS 32
 
 static mimi_tool_t s_tools[MAX_TOOLS];
 static int s_tool_count = 0;
 static char *s_tools_json = NULL;  /* 缓存JSON数组chars 串 */
+static SemaphoreHandle_t s_reg_mutex = NULL;
 
 /**
  * @brief 注册单个工具到注册表
@@ -38,11 +40,17 @@ static char *s_tools_json = NULL;  /* 缓存JSON数组chars 串 */
  */
 static void axk_register_tool(const mimi_tool_t *tool)
 {
+    if (xSemaphoreTake(s_reg_mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        AXK_LOG_ERROR("[axk_tool_registry] reg mutex timeout\r\n");
+        return;
+    }
     if (s_tool_count >= MAX_TOOLS) {
         AXK_LOG_ERROR("[axk_tool_registry] tool registryfull \r\n");
+        xSemaphoreGive(s_reg_mutex);
         return;
     }
     s_tools[s_tool_count++] = *tool;
+    xSemaphoreGive(s_reg_mutex);
     AXK_LOG_INFO("[axk_tool_registry] registeredtool: %s\r\n", tool->name);
 }
 
@@ -54,6 +62,12 @@ static void axk_build_tools_json(void)
 {
     cJSON *arr = cJSON_CreateArray();
     int i;
+
+    if (xSemaphoreTake(s_reg_mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        AXK_LOG_ERROR("[axk_tool_registry] build_json mutex timeout\r\n");
+        cJSON_Delete(arr);
+        return;
+    }
 
     for (i = 0; i < s_tool_count; i++) {
         cJSON *tool = cJSON_CreateObject();
@@ -73,6 +87,7 @@ static void axk_build_tools_json(void)
     }
     s_tools_json = cJSON_PrintUnformatted(arr);
     cJSON_Delete(arr);
+    xSemaphoreGive(s_reg_mutex);
 
     AXK_LOG_INFO("[axk_tool_registry] toolJSONbuilt (%d tool)\r\n", s_tool_count);
 }
@@ -85,6 +100,14 @@ static void axk_build_tools_json(void)
 int axk_tool_registry_init(void)
 {
     s_tool_count = 0;
+
+    if (!s_reg_mutex) {
+        s_reg_mutex = xSemaphoreCreateMutex();
+    }
+    if (!s_reg_mutex) {
+        AXK_LOG_ERROR("[axk_tool_registry] create mutex FAIL\r\n");
+        return -1;
+    }
 
     /* register web_search tool */
     axk_tool_web_search_init();
@@ -298,7 +321,12 @@ int axk_tool_registry_init(void)
 
 const char *axk_tool_registry_get_tools_json(void)
 {
-    return s_tools_json;
+    const char *ret = NULL;
+    if (xSemaphoreTake(s_reg_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        ret = s_tools_json;
+        xSemaphoreGive(s_reg_mutex);
+    }
+    return ret;
 }
 
 /**
@@ -315,12 +343,21 @@ int axk_tool_registry_execute(const char *name, const char *input_json,
 {
     int i;
 
+    if (xSemaphoreTake(s_reg_mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        AXK_LOG_ERROR("[axk_tool_registry] exec mutex timeout\r\n");
+        snprintf(output, output_size, "Error: tool registry busy");
+        return -1;
+    }
+
     for (i = 0; i < s_tool_count; i++) {
         if (strcmp(s_tools[i].name, name) == 0) {
             AXK_LOG_INFO("[axk_tool_registry] 执行tool: %s\r\n", name);
+            /* Release mutex before executing (tool may call back into registry) */
+            xSemaphoreGive(s_reg_mutex);
             return s_tools[i].execute(input_json, output, output_size);
         }
     }
+    xSemaphoreGive(s_reg_mutex);
 
     AXK_LOG_WARN("[axk_tool_registry] not 知tool: %s\r\n", name);
     snprintf(output, output_size, "Error: unknown tool '%s'", name);

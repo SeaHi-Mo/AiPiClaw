@@ -382,8 +382,24 @@ static void ws_server_task(void *param)
         return;
     }
 
-    netconn_bind(listener, IP_ADDR_ANY, s_ws_port);
-    netconn_listen_with_backlog(listener, WS_LISTEN_BACKLOG);
+    err_t err;
+    err = netconn_bind(listener, IP_ADDR_ANY, s_ws_port);
+    if (err != ERR_OK) {
+        AXK_LOG_ERROR("[%s] netconn_bind FAIL (port %d, err=%d)\r\n", TAG, s_ws_port, err);
+        netconn_delete(listener);
+        s_ws_task = NULL;
+        vTaskDelete(NULL);
+        return;
+    }
+    err = netconn_listen_with_backlog(listener, WS_LISTEN_BACKLOG);
+    if (err != ERR_OK) {
+        AXK_LOG_ERROR("[%s] netconn_listen FAIL (err=%d)\r\n", TAG, err);
+        netconn_close(listener);
+        netconn_delete(listener);
+        s_ws_task = NULL;
+        vTaskDelete(NULL);
+        return;
+    }
     s_ws_listener = listener;
     AXK_LOG_INFO("[%s] WebSocket service器listen port  %d\r\n", TAG, s_ws_port);
 

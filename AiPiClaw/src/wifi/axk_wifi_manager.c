@@ -43,7 +43,7 @@ typedef struct {
     char password[AXK_WIFI_PASSWORD_MAX_LEN + 1];   /**< save password */
     bool auto_reconnect;                            /**< auto reconnect enabled */
     bool pending_reconnect;                         /**< 待执行reconnect */
-    uint32_t reconnect_tick;                        /**< reconnect timer */
+    TickType_t reconnect_tick;                        /**< reconnect timer (raw FreeRTOS ticks) */
 
     axk_wifi_event_cb_t cbs[AXK_WIFI_MAX_CB_NUM];   /**< registercallback func 数组 */
     void *cb_user_data[AXK_WIFI_MAX_CB_NUM];        /**< callback userdata */
@@ -56,11 +56,11 @@ static axk_wifi_manager_ctx_t g_wifi_ctx;
 /* ============== internalhelper func  ============== */
 
 /**
- * @brief get current FreeRTOS tick数（毫s）
+ * @brief get current FreeRTOS tick count (raw ticks, safe from 49.7-day overflow)
  */
-static inline uint32_t axk_wifi_get_tick_ms(void)
+static inline TickType_t axk_wifi_get_tick(void)
 {
-    return xTaskGetTickCount() * portTICK_PERIOD_MS;
+    return xTaskGetTickCount();
 }
 
 /**
@@ -132,7 +132,7 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
             AXK_LOG_WARN("[axk_wifi_manager] WiFiconnectdisconnect\r\n");
             if (g_wifi_ctx.auto_reconnect && g_wifi_ctx.ssid[0] != '\0') {
                 g_wifi_ctx.pending_reconnect = true;
-                g_wifi_ctx.reconnect_tick = axk_wifi_get_tick_ms();
+                g_wifi_ctx.reconnect_tick = axk_wifi_get_tick();
                 AXK_LOG_INFO("[axk_wifi_manager] will in  %d ms 后attempt reconnect \r\n", AXK_WIFI_RECONNECT_DELAY_MS);
             }
             axk_wifi_set_state(AXK_WIFI_STATE_DISCONNECTED);
@@ -211,8 +211,8 @@ void axk_wifi_manager_poll(void)
 
     /* processauto reconnect  */
     if (g_wifi_ctx.pending_reconnect) {
-        uint32_t elapsed = axk_wifi_get_tick_ms() - g_wifi_ctx.reconnect_tick;
-        if (elapsed >= AXK_WIFI_RECONNECT_DELAY_MS) {
+        TickType_t elapsed = axk_wifi_get_tick() - g_wifi_ctx.reconnect_tick;
+        if (elapsed >= pdMS_TO_TICKS(AXK_WIFI_RECONNECT_DELAY_MS)) {
             g_wifi_ctx.pending_reconnect = false;
             xSemaphoreGive(g_wifi_ctx.mutex);
 

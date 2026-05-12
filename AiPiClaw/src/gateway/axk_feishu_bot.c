@@ -22,6 +22,7 @@
 #include "cJSON.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "semphr.h"
 
 static const char *TAG = "feishu";
 
@@ -41,6 +42,7 @@ typedef struct {
 } fs_http_resp_t;
 
 static bool s_fs_initialized = false;
+static SemaphoreHandle_t s_fs_mutex = NULL;
 static char s_fs_app_id[FS_APP_ID_MAX_LEN] = "";
 static char s_fs_app_secret[FS_APP_SECRET_MAX_LEN] = "";
 static char s_fs_token[FS_TOKEN_MAX_LEN] = "";
@@ -175,10 +177,16 @@ static int fs_refresh_token(void)
     }
 
     /* check  token is否仍有效 */
+    if (xSemaphoreTake(s_fs_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        AXK_LOG_ERROR("[%s] get mutex timeout\r\n", TAG);
+        return -1;
+    }
     uint32_t now = axk_mimiclaw_port_uptime_ms() / 1000;
     if (s_fs_token[0] && s_fs_token_expire_at > now + FS_TOKEN_EXPIRY_MARGIN) {
+        xSemaphoreGive(s_fs_mutex);
         return 0;
     }
+    xSemaphoreGive(s_fs_mutex);
 
     /* 使用cJSON构建认证payload（安全转义app_id/app_secret，防止注入） */
     cJSON *auth_root = cJSON_CreateObject();
@@ -217,6 +225,12 @@ static int fs_refresh_token(void)
         return -1;
     }
 
+    if (xSemaphoreTake(s_fs_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        AXK_LOG_ERROR("[%s] token write get mutex timeout\r\n", TAG);
+        cJSON_Delete(root);
+        free(body);
+        return -1;
+    }
     strncpy(s_fs_token, token->valuestring, FS_TOKEN_MAX_LEN - 1);
     s_fs_token[FS_TOKEN_MAX_LEN - 1] = '\0';
 
@@ -225,6 +239,7 @@ static int fs_refresh_token(void)
     } else {
         s_fs_token_expire_at = now + 7200;
     }
+    xSemaphoreGive(s_fs_mutex);
 
     AXK_LOG_INFO("[%s] token \u5237\u65b0\u6210\u529f\uff0c\u8fc7\u671f\u65f6\u95f4: %lu\r\n", TAG, (unsigned long)s_fs_token_expire_at);
     cJSON_Delete(root);
@@ -240,6 +255,9 @@ static int fs_refresh_token(void)
 int axk_feishu_bot_init(void)
 {
     s_fs_initialized = true;
+    if (!s_fs_mutex) {
+        s_fs_mutex = xSemaphoreCreateMutex();
+    }
     /* 可从 KV 存储加载 app_id/app_secret */
     AXK_LOG_INFO("[%s] Feishu Bot 初始化完成\r\n", TAG);
     return 0;
@@ -302,6 +320,11 @@ int axk_feishu_send_message(const char *chat_id, const char *text)
              "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id");
 
     /* 使用cJSON构建payload（安全转义chat_id，防止注入） */
+    char local_token[FS_TOKEN_MAX_LEN] = "";
+    if (xSemaphoreTake(s_fs_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        memcpy(local_token, s_fs_token, sizeof(local_token));
+        xSemaphoreGive(s_fs_mutex);
+    }
     cJSON *payload_root = cJSON_CreateObject();
     cJSON_AddStringToObject(payload_root, "receive_id", chat_id);
     cJSON_AddStringToObject(payload_root, "msg_type", "text");
@@ -320,7 +343,7 @@ int axk_feishu_send_message(const char *chat_id, const char *text)
     payload[sizeof(payload) - 1] = '\0';
     free(payload_str);
 
-    err = fs_https_post(url, payload, s_fs_token, &body, &status);
+    err = fs_https_post(url, payload, local_token, &body, &status);
     if (err != 0) {
         AXK_LOG_ERROR("[%s] \u53d1\u9001\u6d88\u606f\u8bf7\u6c42\u5931\u8d25\r\n", TAG);
         return -1;
@@ -343,12 +366,16 @@ int axk_feishu_set_credentials(const char *app_id, const char *app_secret)
     if (!app_id || !app_secret) {
         return -1;
     }
+    if (xSemaphoreTake(s_fs_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        return -1;
+    }
     strncpy(s_fs_app_id, app_id, FS_APP_ID_MAX_LEN - 1);
     s_fs_app_id[FS_APP_ID_MAX_LEN - 1] = '\0';
     strncpy(s_fs_app_secret, app_secret, FS_APP_SECRET_MAX_LEN - 1);
     s_fs_app_secret[FS_APP_SECRET_MAX_LEN - 1] = '\0';
     s_fs_token[0] = '\0';
     s_fs_token_expire_at = 0;
+    xSemaphoreGive(s_fs_mutex);
     AXK_LOG_INFO("[%s] \u8bbe\u7f6e\u51ed\u8bc1: app_id=%s\r\n", TAG, s_fs_app_id);
     return 0;
 }

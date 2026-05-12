@@ -28,7 +28,7 @@ static QueueHandle_t s_inbound[MIMI_PRIO_COUNT]  = {NULL};
 static QueueHandle_t s_outbound[MIMI_PRIO_COUNT] = {NULL};
 static TaskHandle_t s_inbound_consumer = NULL;   /**< agent_loop task to notify */
 static TaskHandle_t s_outbound_consumer = NULL;  /**< main_loop task to notify */
-static bool s_initialized = false;
+static volatile bool s_initialized = false;
 
 /* ── internalhelper  ───────────────────────────────────── */
 
@@ -63,6 +63,11 @@ int axk_message_bus_init(void)
 
         if (!s_inbound[i] || !s_outbound[i]) {
             AXK_LOG_ERROR("[axk_message_bus] queuecreateFAIL (prio=%d)\r\n", i);
+            /* Clean up already-created queues before returning */
+            for (int j = 0; j <= i; j++) {
+                if (s_inbound[j])  { vQueueDelete(s_inbound[j]);  s_inbound[j]  = NULL; }
+                if (s_outbound[j]) { vQueueDelete(s_outbound[j]); s_outbound[j] = NULL; }
+            }
             return -1;
         }
     }

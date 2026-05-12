@@ -21,6 +21,7 @@
 #include "cJSON.h"
 #include "axk_platform.h"
 #include "task.h"
+#include "semphr.h"
 
 #include "mimi_config.h"
 #include "axk_mimiclaw_port.h"
@@ -56,6 +57,7 @@ static char s_bot_token[TG_TOKEN_MAX_LEN] = MIMI_SECRET_TG_TOKEN;
 static int64_t s_update_offset;
 static int64_t s_last_saved_offset = -1;
 static uint32_t s_last_offset_save_ms;
+static SemaphoreHandle_t s_tg_mutex = NULL;
 
 /**
  * @brief 调用Telegram Bot API
@@ -374,11 +376,17 @@ static int tg_api_call(const char *method, const char *post_data, char **out_bod
         *out_status = 0;
     }
 
-    if (s_bot_token[0] == '\0') {
+    /* Copy bot token to local buffer under mutex */
+    char local_token[TG_TOKEN_MAX_LEN] = "";
+    if (xSemaphoreTake(s_tg_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        memcpy(local_token, s_bot_token, sizeof(local_token));
+        xSemaphoreGive(s_tg_mutex);
+    }
+    if (local_token[0] == '\0') {
         return -2;
     }
 
-    if (snprintf(url, sizeof(url), "https://api.telegram.org/bot%s/%s", s_bot_token, method) >= (int)sizeof(url)) {
+    if (snprintf(url, sizeof(url), "https://api.telegram.org/bot%s/%s", local_token, method) >= (int)sizeof(url)) {
         return -1;
     }
 
@@ -736,7 +744,14 @@ static void telegram_poll_task(void *arg)
         char *body = NULL;
         int status = 0;
 
-        if (s_bot_token[0] == '\0') {
+        char local_token[TG_TOKEN_MAX_LEN] = "";
+        int64_t local_offset = 0;
+        if (xSemaphoreTake(s_tg_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            memcpy(local_token, s_bot_token, sizeof(local_token));
+            local_offset = s_update_offset;
+            xSemaphoreGive(s_tg_mutex);
+        }
+        if (local_token[0] == '\0') {
             static bool s_no_token_warned = false;
             if (!s_no_token_warned) {
                 AXK_LOG_WARN("warn", "No Telegram bot token configured");
@@ -748,7 +763,7 @@ static void telegram_poll_task(void *arg)
 
         snprintf(payload, sizeof(payload),
                  "{\"offset\":%lld,\"timeout\":%d}",
-                 (long long)s_update_offset, MIMI_TG_POLL_TIMEOUT_S);
+                 (long long)local_offset, MIMI_TG_POLL_TIMEOUT_S);
 
         if (tg_api_call("getUpdates", payload, &body, &status) != 0) {
             axk_mimiclaw_port_sleep_ms(TG_POLL_ERROR_BACKOFF_MS);
@@ -794,6 +809,14 @@ int axk_telegram_bot_init(void)
     char token_buf[TG_TOKEN_MAX_LEN] = { 0 };
     size_t out_len = 0;
     int64_t offset = 0;
+
+    if (!s_tg_mutex) {
+        s_tg_mutex = xSemaphoreCreateMutex();
+    }
+    if (!s_tg_mutex) {
+        AXK_LOG_ERROR("err", "Telegram mutex create failed");
+        return -1;
+    }
 
     if (axk_kv_get_blob(MIMICLAW_KV_TG_TOKEN, token_buf, sizeof(token_buf), &out_len) == 0 &&
         out_len > 1 && token_buf[0] != '\0') {
@@ -857,7 +880,12 @@ int axk_telegram_send_message(const char *chat_id, const char *text)
     if (!chat_id || chat_id[0] == '\0' || !text) {
         return -1;
     }
-    if (s_bot_token[0] == '\0') {
+    char local_token[TG_TOKEN_MAX_LEN] = "";
+    if (xSemaphoreTake(s_tg_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        memcpy(local_token, s_bot_token, sizeof(local_token));
+        xSemaphoreGive(s_tg_mutex);
+    }
+    if (local_token[0] == '\0') {
         return -2;
     }
     if (!tg_normalize_chat_id(chat_id, normalized_chat_id, sizeof(normalized_chat_id)) ||
@@ -1012,9 +1040,14 @@ int axk_telegram_set_token(const char *token)
 int telegram_bot_test_get_me(void)
 {
     char *body = NULL;
+    char local_token[TG_TOKEN_MAX_LEN] = "";
     int status = 0;
 
-    if (s_bot_token[0] == '\0') {
+    if (xSemaphoreTake(s_tg_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        memcpy(local_token, s_bot_token, sizeof(local_token));
+        xSemaphoreGive(s_tg_mutex);
+    }
+    if (local_token[0] == '\0') {
         return -2;
     }
 

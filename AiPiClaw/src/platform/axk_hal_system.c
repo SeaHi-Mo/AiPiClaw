@@ -126,22 +126,25 @@ const char *axk_hal_system_get_sdk_version(void)
     return AXK_SDK_VERSION;
 }
 
+/** @brief 保存的中断状态（用于临界区嵌套恢复） */
+static uint32_t s_saved_irq_state = 0;
+
 /**
- * @brief 进入临界区（关断）
+ * @brief 进入临界区（关中断，支持嵌套）
  */
 void axk_hal_system_enter_critical(void)
 {
 #if AXK_PLATFORM_BL618
-    __disable_irq();
+    s_saved_irq_state = csi_irq_save();
 #endif
 }
 
 /**
- * @brief 退出临界区（开断）
+ * @brief 退出临界区（恢复中断状态）
  */
 void axk_hal_system_exit_critical(void)
 {
 #if AXK_PLATFORM_BL618
-    __enable_irq();
+    csi_irq_restore(s_saved_irq_state);
 #endif
 }
