@@ -86,7 +86,7 @@
 
 #define TCP_QUEUE_OOSEQ               1
 #define MEMP_NUM_TCP_SEG              ((4 * TCP_SND_BUF) / TCP_MSS)
-#define MEMP_NUM_PBUF                 (TCP_SND_BUF / TCP_MSS)
+#define MEMP_NUM_PBUF                 16  /* 原计算值8, TCP并发时不够 */
 #define PBUF_POOL_SIZE                16  /* 原0(纯动态), 设静态池避免碎片 */
 #ifndef LWIP_DISABLE_TCP_SANITY_CHECKS
 #define LWIP_DISABLE_TCP_SANITY_CHECKS 1  /* PBUF_POOL < TCP_WND, TCP RX用动态内存不需校验 */
@@ -99,11 +99,7 @@
 #define MEM_MIN                       MEM_MIN_TCP
 #define MEM_ALIGNMENT                 4
 
-#if (defined(BL602))
-#define LWIP_HEAP_SIZE (14 * 1024)
-#else 
 #define LWIP_HEAP_SIZE (48 * 1024)  /* 原18KB, 双HTTPS耗尽 */
-#endif 
 
 #ifdef LWIP_HEAP_SIZE
 #define MEM_SIZE LWIP_HEAP_SIZE
