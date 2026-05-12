@@ -16,6 +16,9 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "FreeRTOS.h"
+#include "semphr.h"
+
 #define STORE_BUCKETS    32      /**< hash 桶count */
 #define KEY_MAX_LEN      64      /**< 键最大length */
 #define VAL_MAX_LEN      512     /**< value 最大length */
@@ -27,6 +30,7 @@ typedef struct store_entry {
 } store_entry_t;
 
 static store_entry_t *s_buckets[STORE_BUCKETS];
+static SemaphoreHandle_t s_mutex = NULL;
 static bool s_initialized = false;
 
 /* ── hash func  ──────────────────────────────────── */
@@ -56,6 +60,11 @@ static unsigned int store_hash(const char *key)
 int axk_memory_store_init(void)
 {
     if (s_initialized) return 0;
+    s_mutex = xSemaphoreCreateMutex();
+    if (!s_mutex) {
+        AXK_LOG_ERROR("[axk_memory_store] 创建互斥锁失败\r\n");
+        return -1;
+    }
     memset(s_buckets, 0, sizeof(s_buckets));
     s_initialized = true;
     AXK_LOG_INFO("[axk_memory_store] initok, %d桶\r\n", STORE_BUCKETS);
@@ -76,6 +85,8 @@ int axk_memory_store_set_string(const char *key, const char *value)
 
     if (!key || !value || !s_initialized) return -1;
 
+    if (xSemaphoreTake(s_mutex, portMAX_DELAY) != pdTRUE) return -1;
+
     bucket = store_hash(key);
 
     /* find 存in 键 */
@@ -83,6 +94,7 @@ int axk_memory_store_set_string(const char *key, const char *value)
         if (strcmp(e->key, key) == 0) {
             strncpy(e->value, value, VAL_MAX_LEN - 1);
             e->value[VAL_MAX_LEN - 1] = '\0';
+            xSemaphoreGive(s_mutex);
             return 0;
         }
     }
@@ -91,6 +103,7 @@ int axk_memory_store_set_string(const char *key, const char *value)
     e = (store_entry_t *)calloc(1, sizeof(store_entry_t));
     if (!e) {
         AXK_LOG_ERROR("[axk_memory_store] OOM\r\n");
+        xSemaphoreGive(s_mutex);
         return -1;
     }
 
@@ -98,6 +111,7 @@ int axk_memory_store_set_string(const char *key, const char *value)
     strncpy(e->value, value, VAL_MAX_LEN - 1);
     e->next = s_buckets[bucket];
     s_buckets[bucket] = e;
+    xSemaphoreGive(s_mutex);
     return 0;
 }
 
@@ -116,14 +130,18 @@ int axk_memory_store_get_string(const char *key, char *buf, size_t buf_size)
 
     if (!key || !buf || buf_size == 0 || !s_initialized) return -1;
 
+    if (xSemaphoreTake(s_mutex, portMAX_DELAY) != pdTRUE) return -1;
+
     bucket = store_hash(key);
     for (e = s_buckets[bucket]; e; e = e->next) {
         if (strcmp(e->key, key) == 0) {
             strncpy(buf, e->value, buf_size - 1);
             buf[buf_size - 1] = '\0';
+            xSemaphoreGive(s_mutex);
             return 0;
         }
     }
+    xSemaphoreGive(s_mutex);
     return -1;
 }
 
@@ -140,15 +158,19 @@ int axk_memory_store_del(const char *key)
 
     if (!key || !s_initialized) return -1;
 
+    if (xSemaphoreTake(s_mutex, portMAX_DELAY) != pdTRUE) return -1;
+
     bucket = store_hash(key);
     for (e = s_buckets[bucket]; e; prev = e, e = e->next) {
         if (strcmp(e->key, key) == 0) {
             if (prev) prev->next = e->next;
             else      s_buckets[bucket] = e->next;
             free(e);
+            xSemaphoreGive(s_mutex);
             return 0;
         }
     }
+    xSemaphoreGive(s_mutex);
     return -1;
 }
 
@@ -165,10 +187,16 @@ bool axk_memory_store_exists(const char *key)
 
     if (!key || !s_initialized) return false;
 
+    if (xSemaphoreTake(s_mutex, portMAX_DELAY) != pdTRUE) return false;
+
     bucket = store_hash(key);
     for (e = s_buckets[bucket]; e; e = e->next) {
-        if (strcmp(e->key, key) == 0) return true;
+        if (strcmp(e->key, key) == 0) {
+            xSemaphoreGive(s_mutex);
+            return true;
+        }
     }
+    xSemaphoreGive(s_mutex);
     return false;
 }
 
@@ -183,6 +211,8 @@ void axk_memory_store_clear(void)
 
     if (!s_initialized) return;
 
+    if (xSemaphoreTake(s_mutex, portMAX_DELAY) != pdTRUE) return;
+
     for (i = 0; i < STORE_BUCKETS; i++) {
         store_entry_t *e = s_buckets[i];
         while (e) {
@@ -192,5 +222,6 @@ void axk_memory_store_clear(void)
         }
         s_buckets[i] = NULL;
     }
+    xSemaphoreGive(s_mutex);
     AXK_LOG_INFO("[axk_memory_store] 清empty \r\n");
 }

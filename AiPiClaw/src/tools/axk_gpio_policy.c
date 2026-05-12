@@ -11,6 +11,8 @@
 #include "axk_gpio_policy.h"
 #include "axk_platform.h"
 #include "shell.h"
+#include "FreeRTOS.h"
+#include "semphr.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -19,6 +21,7 @@
 
 static uint8_t s_allowed_pins[AXK_GPIO_POLICY_MAX_PINS];
 static int s_allowed_count = 0;
+static SemaphoreHandle_t s_mutex = NULL;
 
 /* 允许的操作类型 */
 static const char *ALLOWED_ACTIONS[] = {
@@ -49,6 +52,12 @@ int axk_gpio_policy_init(void)
 {
     if (s_initialized) return 0;
 
+    s_mutex = xSemaphoreCreateMutex();
+    if (!s_mutex) {
+        AXK_LOG_ERROR("[gpio_policy] 创建互斥锁失败\r\n");
+        return -1;
+    }
+
     memset(s_allowed_pins, 0, sizeof(s_allowed_pins));
     s_allowed_count = 0;
     axk_register_default_pins();
@@ -67,6 +76,8 @@ int axk_gpio_policy_check(uint8_t pin, const char *action)
     if (!s_initialized) return -1;
     if (!action) return -1;
 
+    if (xSemaphoreTake(s_mutex, portMAX_DELAY) != pdTRUE) return -1;
+
     /* 检查引脚是否在白名单 */
     for (i = 0; i < (size_t)s_allowed_count; i++) {
         if (s_allowed_pins[i] == pin) {
@@ -77,8 +88,11 @@ int axk_gpio_policy_check(uint8_t pin, const char *action)
 
     if (!pin_ok) {
         AXK_LOG_WARN("[gpio_policy] 引脚 %d 不在白名单中\r\n", pin);
+        xSemaphoreGive(s_mutex);
         return -1;
     }
+
+    xSemaphoreGive(s_mutex);
 
     /* 检查操作是否允许 */
     for (i = 0; i < ACTION_COUNT; i++) {
@@ -102,10 +116,13 @@ int axk_gpio_policy_allow(uint8_t pin)
 
     if (!s_initialized) return -1;
 
+    if (xSemaphoreTake(s_mutex, portMAX_DELAY) != pdTRUE) return -1;
+
     /* 检查是否已在白名单 */
     for (i = 0; i < s_allowed_count; i++) {
         if (s_allowed_pins[i] == pin) {
             AXK_LOG_INFO("[gpio_policy] 引脚 %d 已在白名单\r\n", pin);
+            xSemaphoreGive(s_mutex);
             return 0;
         }
     }
@@ -113,10 +130,12 @@ int axk_gpio_policy_allow(uint8_t pin)
     /* 添加 */
     if (s_allowed_count >= AXK_GPIO_POLICY_MAX_PINS) {
         AXK_LOG_ERROR("[gpio_policy] 白名单已满\r\n");
+        xSemaphoreGive(s_mutex);
         return -1;
     }
 
     s_allowed_pins[s_allowed_count++] = pin;
+    xSemaphoreGive(s_mutex);
     AXK_LOG_INFO("[gpio_policy] 引脚 %d 已加入白名单\r\n", pin);
     return 0;
 }
@@ -127,27 +146,39 @@ int axk_gpio_policy_deny(uint8_t pin)
 
     if (!s_initialized) return -1;
 
+    if (xSemaphoreTake(s_mutex, portMAX_DELAY) != pdTRUE) return -1;
+
     for (i = 0; i < s_allowed_count; i++) {
         if (s_allowed_pins[i] == pin) {
             /* 将最后一个元素移到当前位置 */
             s_allowed_count--;
             s_allowed_pins[i] = s_allowed_pins[s_allowed_count];
             AXK_LOG_INFO("[gpio_policy] 引脚 %d 已移出白名单\r\n", pin);
+            xSemaphoreGive(s_mutex);
             return 0;
         }
     }
 
     AXK_LOG_WARN("[gpio_policy] 引脚 %d 不在白名单中\r\n", pin);
+    xSemaphoreGive(s_mutex);
     return -1;
 }
 
 bool axk_gpio_policy_is_allowed(uint8_t pin)
 {
     int i;
+    bool allowed = false;
+
+    if (xSemaphoreTake(s_mutex, portMAX_DELAY) != pdTRUE) return false;
+
     for (i = 0; i < s_allowed_count; i++) {
-        if (s_allowed_pins[i] == pin) return true;
+        if (s_allowed_pins[i] == pin) {
+            allowed = true;
+            break;
+        }
     }
-    return false;
+    xSemaphoreGive(s_mutex);
+    return allowed;
 }
 
 int axk_gpio_policy_list(char *buf, size_t size)
@@ -156,6 +187,8 @@ int axk_gpio_policy_list(char *buf, size_t size)
     int i;
 
     if (!buf || size == 0) return 0;
+
+    if (xSemaphoreTake(s_mutex, portMAX_DELAY) != pdTRUE) return 0;
 
     pos += snprintf(buf + pos, size - pos, "GPIO白名单 (%d个):\r\n", s_allowed_count);
 
@@ -172,6 +205,7 @@ int axk_gpio_policy_list(char *buf, size_t size)
         if (pos >= size - 1) break;
     }
 
+    xSemaphoreGive(s_mutex);
     return (int)pos;
 }
 

@@ -10,12 +10,15 @@
 #include "axk_platform.h"
 #include "axk_hal_gpio.h"
 #include "shell.h"
+#include "FreeRTOS.h"
+#include "semphr.h"
 #include <stdio.h>
 #include <string.h>
 
 /* 默认已注册别名的静态数组 */
 static axk_gpio_alias_t s_aliases[AXK_GPIO_ALIAS_MAX];
 static int s_alias_count = 0;
+static SemaphoreHandle_t s_mutex = NULL;
 static bool s_initialized = false;
 
 /**
@@ -55,6 +58,12 @@ int axk_gpio_alias_init(void)
 {
     if (s_initialized) return 0;
 
+    s_mutex = xSemaphoreCreateMutex();
+    if (!s_mutex) {
+        AXK_LOG_ERROR("[gpio_alias] 创建互斥锁失败\r\n");
+        return -1;
+    }
+
     memset(s_aliases, 0, sizeof(s_aliases));
     s_alias_count = 0;
 
@@ -70,8 +79,12 @@ int axk_gpio_alias_register(const axk_gpio_alias_t *alias)
     if (!alias || !alias->name[0]) {
         return -1;
     }
+
+    if (xSemaphoreTake(s_mutex, portMAX_DELAY) != pdTRUE) return -1;
+
     if (s_alias_count >= AXK_GPIO_ALIAS_MAX) {
         AXK_LOG_ERROR("[gpio_alias] 别名注册表已满\r\n");
+        xSemaphoreGive(s_mutex);
         return -1;
     }
 
@@ -80,6 +93,7 @@ int axk_gpio_alias_register(const axk_gpio_alias_t *alias)
     s_aliases[s_alias_count].description[AXK_GPIO_ALIAS_DESC_MAX - 1] = '\0';
     s_alias_count++;
 
+    xSemaphoreGive(s_mutex);
     AXK_LOG_DEBUG("[gpio_alias] 注册别名 '%s' -> GPIO%d\r\n", alias->name, alias->pin);
     return 0;
 }
@@ -92,19 +106,27 @@ int axk_gpio_alias_resolve(const char *name, axk_gpio_alias_t *out)
         return -1;
     }
 
+    if (xSemaphoreTake(s_mutex, portMAX_DELAY) != pdTRUE) return -1;
+
     for (i = 0; i < s_alias_count; i++) {
         if (strcmp(s_aliases[i].name, name) == 0) {
             *out = s_aliases[i];
+            xSemaphoreGive(s_mutex);
             return 0;
         }
     }
 
+    xSemaphoreGive(s_mutex);
     return -1; /* 未找到 */
 }
 
 int axk_gpio_alias_get_count(void)
 {
-    return s_alias_count;
+    int count;
+    if (xSemaphoreTake(s_mutex, portMAX_DELAY) != pdTRUE) return 0;
+    count = s_alias_count;
+    xSemaphoreGive(s_mutex);
+    return count;
 }
 
 int axk_gpio_alias_list(char *buf, size_t size)
@@ -113,6 +135,8 @@ int axk_gpio_alias_list(char *buf, size_t size)
     size_t pos = 0;
 
     if (!buf || size == 0) return 0;
+
+    if (xSemaphoreTake(s_mutex, portMAX_DELAY) != pdTRUE) return 0;
 
     pos += snprintf(buf + pos, size - pos, "GPIO别名列表 (%d个):\r\n", s_alias_count);
 
@@ -131,6 +155,7 @@ int axk_gpio_alias_list(char *buf, size_t size)
         if (pos >= size - 1) break;
     }
 
+    xSemaphoreGive(s_mutex);
     return (int)pos;
 }
 

@@ -20,6 +20,9 @@
 #include <lfs.h>
 #include <lfs_port.h>
 
+#include "FreeRTOS.h"
+#include "semphr.h"
+
 #define AXK_MAX_SKILLS        12
 #define AXK_SKILL_NAME_MAX    32
 #define AXK_SKILL_DESC_MAX    64
@@ -44,6 +47,7 @@ typedef struct {
 
 static axk_skill_t s_skills[AXK_MAX_SKILLS];
 static int s_skill_count = 0;
+static SemaphoreHandle_t s_mutex = NULL;
 
 /**
  * @brief register built-in skill
@@ -501,6 +505,12 @@ int axk_skill_load_from_fs(void)
  */
 int axk_skill_loader_init(void)
 {
+    s_mutex = xSemaphoreCreateMutex();
+    if (!s_mutex) {
+        AXK_LOG_ERROR("[axk_skill_loader] 创建互斥锁失败\r\n");
+        return -1;
+    }
+
     memset(s_skills, 0, sizeof(s_skills));
     s_skill_count = 0;
 
