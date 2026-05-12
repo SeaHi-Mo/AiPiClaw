@@ -181,20 +181,27 @@ static bool ws_do_handshake(struct netconn *client)
  * @param text 待发送的文本字符串
  * @return 0成功，-1失败
  */
+#define ERR_VAL  (-6)  /* lwIP err.h */
+
 static int ws_send_text(struct netconn *client, const char *text)
 {
     SemaphoreHandle_t write_mutex = NULL;
+    int found_idx = -1;
     {
         int i;
         for (i = 0; i < MIMI_WS_MAX_CLIENTS; i++) {
             if (s_clients[i].conn == client && s_clients[i].write_mutex) {
                 write_mutex = s_clients[i].write_mutex;
+                found_idx = i;
                 break;
             }
         }
     }
+    printf("[WS] send_text enter client=%p write_mutex=%p idx=%d\r\n",
+           (void *)client, (void *)write_mutex, found_idx);
     if (write_mutex) {
         xSemaphoreTake(write_mutex, portMAX_DELAY);
+        printf("[WS] send_text took write_mutex\r\n");
     }
 
     size_t len = strlen(text);
@@ -224,15 +231,24 @@ static int ws_send_text(struct netconn *client, const char *text)
     }
     memcpy(frame, hdr, hdr_len);
     memcpy(frame + hdr_len, text, len);
-    err_t err = netconn_write(client, frame, hdr_len + len, NETCONN_COPY);
+    printf("[WS] send_text call netconn_write_partly client=%p frame=%p len=%u\r\n",
+           (void *)client, (void *)frame, (unsigned int)(hdr_len + len));
+    size_t written = 0;
+    err_t err = netconn_write_partly(client, frame, hdr_len + len, NETCONN_COPY, &written);
+    printf("[WS] send_text netconn_write_partly ret=%d written=%u\r\n", (int)err, (unsigned int)written);
     free(frame);
     if (err != ERR_OK) {
-        printf("[WS] send_text netconn_write FAIL len=%u err=%d\r\n", (unsigned int)(hdr_len + len), (int)err);
+        if (err == ERR_VAL) {
+            printf("[WS] send_text ERR_VAL: client=%p TCP pcb dead (peer RST)\r\n", (void *)client);
+        } else {
+            printf("[WS] send_text netconn_write FAIL err=%d\r\n", (int)err);
+        }
         if (write_mutex) xSemaphoreGive(write_mutex);
         return -1;
     }
     printf("[WS] send_text OK len=%u\r\n", (unsigned int)(hdr_len + len));
     if (write_mutex) xSemaphoreGive(write_mutex);
+    printf("[WS] send_text exit success client=%p\r\n", (void *)client);
     return 0;
 }
 
@@ -677,9 +693,10 @@ int axk_ws_server_send(const char *text)
                 sent++;
             } else {
                 /* netconn_write ERR_VAL → TCP PCB已死, 移出池避免阻塞pending */
+                printf("[WS] send client[%d] FAIL -> cleaning up\r\n", i);
                 s_clients[i].conn = NULL;
                 s_clients[i].handshaked = false;
-                printf("[WS] client[%d] TCP dead, removed from pool\r\n", i);
+                printf("[WS] client[%d] removed from pool\r\n", i);
             }
         }
     }
