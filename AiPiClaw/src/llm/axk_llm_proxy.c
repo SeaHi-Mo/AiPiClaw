@@ -183,9 +183,9 @@ static bool normalize_model_for_provider(void)
             return true;
         }
     } else if (provider_is_minimax_anthropic()) {
-        if (strncmp(s_model, "gpt-", 4) == 0 ||
+        if (strncmp(s_model, "claude", 6) == 0 ||
+            strncmp(s_model, "gpt-", 4) == 0 ||
             strncmp(s_model, "deepseek-", 9) == 0 ||
-            strncmp(s_model, "MiniMax-", 8) == 0 ||
             s_model[0] == '\0') {
             safe_copy(s_model, sizeof(s_model), MINIMAX_FALLBACK_MODEL);
             return true;
