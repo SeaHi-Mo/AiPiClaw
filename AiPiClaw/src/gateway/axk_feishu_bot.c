@@ -180,9 +180,18 @@ static int fs_refresh_token(void)
         return 0;
     }
 
-    snprintf(payload, sizeof(payload),
-             "{\"app_id\":\"%s\",\"app_secret\":\"%s\"}",
-             s_fs_app_id, s_fs_app_secret);
+    /* 使用cJSON构建认证payload（安全转义app_id/app_secret，防止注入） */
+    cJSON *auth_root = cJSON_CreateObject();
+    cJSON_AddStringToObject(auth_root, "app_id", s_fs_app_id);
+    cJSON_AddStringToObject(auth_root, "app_secret", s_fs_app_secret);
+    char *auth_str = cJSON_PrintUnformatted(auth_root);
+    cJSON_Delete(auth_root);
+    if (!auth_str) {
+        return -1;
+    }
+    strncpy(payload, auth_str, sizeof(payload) - 1);
+    payload[sizeof(payload) - 1] = '\0';
+    free(auth_str);
 
     err = fs_https_post(url, payload, NULL, &body, &status);
     if (err != 0 || !body) {
@@ -292,9 +301,24 @@ int axk_feishu_send_message(const char *chat_id, const char *text)
     snprintf(url, sizeof(url),
              "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id");
 
-    snprintf(payload, sizeof(payload),
-             "{\"receive_id\":\"%s\",\"msg_type\":\"text\",\"content\":%s}",
-             chat_id, content_json);
+    /* 使用cJSON构建payload（安全转义chat_id，防止注入） */
+    cJSON *payload_root = cJSON_CreateObject();
+    cJSON_AddStringToObject(payload_root, "receive_id", chat_id);
+    cJSON_AddStringToObject(payload_root, "msg_type", "text");
+    cJSON *content_obj = cJSON_Parse(content_json);
+    if (content_obj) {
+        cJSON_AddItemToObject(payload_root, "content", content_obj);
+    } else {
+        cJSON_AddStringToObject(payload_root, "content", content_json);
+    }
+    char *payload_str = cJSON_PrintUnformatted(payload_root);
+    cJSON_Delete(payload_root);
+    if (!payload_str) {
+        return -1;
+    }
+    strncpy(payload, payload_str, sizeof(payload) - 1);
+    payload[sizeof(payload) - 1] = '\0';
+    free(payload_str);
 
     err = fs_https_post(url, payload, s_fs_token, &body, &status);
     if (err != 0) {
