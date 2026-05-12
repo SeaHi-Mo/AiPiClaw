@@ -584,9 +584,16 @@ static void tg_process_updates(const char *json_str)
     cJSON *update;
     bool offset_moved = false;
     bool stop_polling_batch = false;
+    int64_t local_offset = 0;
 
     if (!json_str || json_str[0] == '\0') {
         return;
+    }
+
+    /* 快照 s_update_offset 到本地变量 */
+    if (xSemaphoreTake(s_tg_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        local_offset = s_update_offset;
+        xSemaphoreGive(s_tg_mutex);
     }
 
     root = cJSON_Parse(json_str);
@@ -627,7 +634,7 @@ static void tg_process_updates(const char *json_str)
 
         if (cJSON_IsNumber(update_id)) {
             uid = (int64_t)update_id->valuedouble;
-            if (uid < s_update_offset) {
+            if (uid < local_offset) {
                 continue;
             }
             next_offset = uid + 1;
@@ -636,8 +643,8 @@ static void tg_process_updates(const char *json_str)
 
         message = cJSON_GetObjectItem(update, "message");
         if (!message) {
-            if (advance_offset && next_offset > s_update_offset) {
-                s_update_offset = next_offset;
+            if (advance_offset && next_offset > local_offset) {
+                local_offset = next_offset;
                 offset_moved = true;
             }
             continue;
@@ -645,8 +652,8 @@ static void tg_process_updates(const char *json_str)
 
         text = cJSON_GetObjectItem(message, "text");
         if (!cJSON_IsString(text) || !text->valuestring) {
-            if (advance_offset && next_offset > s_update_offset) {
-                s_update_offset = next_offset;
+            if (advance_offset && next_offset > local_offset) {
+                local_offset = next_offset;
                 offset_moved = true;
             }
             continue;
@@ -654,8 +661,8 @@ static void tg_process_updates(const char *json_str)
 
         chat = cJSON_GetObjectItem(message, "chat");
         if (!chat) {
-            if (advance_offset && next_offset > s_update_offset) {
-                s_update_offset = next_offset;
+            if (advance_offset && next_offset > local_offset) {
+                local_offset = next_offset;
                 offset_moved = true;
             }
             continue;
@@ -684,8 +691,8 @@ static void tg_process_updates(const char *json_str)
         } else if (has_from_id) {
             reply_id = from_id_str;
         } else {
-            if (advance_offset && next_offset > s_update_offset) {
-                s_update_offset = next_offset;
+            if (advance_offset && next_offset > local_offset) {
+                local_offset = next_offset;
                 offset_moved = true;
             }
             continue;
@@ -711,18 +718,23 @@ static void tg_process_updates(const char *json_str)
                  chat_type ? chat_type : "(none)",
                  (unsigned int)strlen(msg.content));
 
-        if (advance_offset && next_offset > s_update_offset) {
-            s_update_offset = next_offset;
+        if (advance_offset && next_offset > local_offset) {
+            local_offset = next_offset;
             offset_moved = true;
         }
     }
 
     if (stop_polling_batch) {
         AXK_LOG_WARN("warn", "stop processing current updates batch, keep offset=%lld for retry",
-                 (long long)s_update_offset);
+                 (long long)local_offset);
     }
 
     if (offset_moved) {
+        /* write back local_offset to shared state under mutex */
+        if (xSemaphoreTake(s_tg_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            s_update_offset = local_offset;
+            xSemaphoreGive(s_tg_mutex);
+        }
         tg_save_offset_if_needed(false);
     }
     cJSON_Delete(root);
@@ -782,7 +794,7 @@ static void telegram_poll_task(void *arg)
 
         snprintf(fallback_payload, sizeof(fallback_payload),
                  "{\"offset\":%lld,\"timeout\":%d}",
-                 (long long)s_update_offset, TG_POLL_FALLBACK_TIMEOUT_S);
+                 (long long)local_offset, TG_POLL_FALLBACK_TIMEOUT_S);
 
         if (tg_api_call("getUpdates", fallback_payload, &body, &status) == 0 &&
             status == 200 && body && body[0] != '\0') {
@@ -818,6 +830,11 @@ int axk_telegram_bot_init(void)
         return -1;
     }
 
+    if (xSemaphoreTake(s_tg_mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        AXK_LOG_ERROR("err", "Telegram mutex timeout in init");
+        return -1;
+    }
+
     if (axk_kv_get_blob(MIMICLAW_KV_TG_TOKEN, token_buf, sizeof(token_buf), &out_len) == 0 &&
         out_len > 1 && token_buf[0] != '\0') {
         safe_copy(s_bot_token, sizeof(s_bot_token), token_buf);
@@ -830,6 +847,8 @@ int axk_telegram_bot_init(void)
         s_last_offset_save_ms = axk_mimiclaw_port_uptime_ms();
         AXK_LOG_INFO("info", "loaded telegram offset=%lld", (long long)offset);
     }
+
+    xSemaphoreGive(s_tg_mutex);
 
     if (s_bot_token[0] != '\0') {
         AXK_LOG_INFO("info", "Telegram bot token loaded (len=%u)", (unsigned int)strlen(s_bot_token));
@@ -1018,16 +1037,24 @@ int axk_telegram_set_token(const char *token)
         return -1;
     }
 
+    if (xSemaphoreTake(s_tg_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        AXK_LOG_ERROR("err", "Telegram mutex timeout in set_token");
+        return -1;
+    }
+
     len = strlen(token);
     if (len >= sizeof(s_bot_token)) {
+        xSemaphoreGive(s_tg_mutex);
         return -1;
     }
 
     if (axk_kv_set_blob(MIMICLAW_KV_TG_TOKEN, token, len + 1) != 0) {
+        xSemaphoreGive(s_tg_mutex);
         return -1;
     }
 
     safe_copy(s_bot_token, sizeof(s_bot_token), token);
+    xSemaphoreGive(s_tg_mutex);
     AXK_LOG_INFO("info", "Telegram bot token saved");
     return 0;
 }

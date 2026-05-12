@@ -294,15 +294,28 @@ int axk_feishu_send_message(const char *chat_id, const char *text)
     char *body = NULL;
     int status = 0;
     int err;
+    char token_buf[FS_TOKEN_MAX_LEN] = "";
 
     if (!s_fs_initialized || !chat_id || !text) {
         return -1;
     }
 
-    err = fs_refresh_token();
-    if (err != 0) {
+    /* 取互斥锁保护 token 刷新和读取 */
+    if (s_fs_mutex && xSemaphoreTake(s_fs_mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        AXK_LOG_ERROR("[%s] 获取互斥锁超时\r\n", TAG);
         return -1;
     }
+
+    err = fs_refresh_token();
+    if (err != 0) {
+        if (s_fs_mutex) xSemaphoreGive(s_fs_mutex);
+        return -1;
+    }
+
+    /* 在锁保护下拷贝 token 到本地缓冲区 */
+    strncpy(token_buf, s_fs_token, sizeof(token_buf) - 1);
+    token_buf[sizeof(token_buf) - 1] = '\0';
+    if (s_fs_mutex) xSemaphoreGive(s_fs_mutex);
 
     /* 使用cJSON构建content JSON（安全转义，防止注入） */
     cJSON *content_root = cJSON_CreateObject();
@@ -320,11 +333,6 @@ int axk_feishu_send_message(const char *chat_id, const char *text)
              "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id");
 
     /* 使用cJSON构建payload（安全转义chat_id，防止注入） */
-    char local_token[FS_TOKEN_MAX_LEN] = "";
-    if (xSemaphoreTake(s_fs_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        memcpy(local_token, s_fs_token, sizeof(local_token));
-        xSemaphoreGive(s_fs_mutex);
-    }
     cJSON *payload_root = cJSON_CreateObject();
     cJSON_AddStringToObject(payload_root, "receive_id", chat_id);
     cJSON_AddStringToObject(payload_root, "msg_type", "text");
@@ -343,7 +351,7 @@ int axk_feishu_send_message(const char *chat_id, const char *text)
     payload[sizeof(payload) - 1] = '\0';
     free(payload_str);
 
-    err = fs_https_post(url, payload, local_token, &body, &status);
+    err = fs_https_post(url, payload, token_buf, &body, &status);
     if (err != 0) {
         AXK_LOG_ERROR("[%s] \u53d1\u9001\u6d88\u606f\u8bf7\u6c42\u5931\u8d25\r\n", TAG);
         return -1;

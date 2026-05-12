@@ -24,6 +24,7 @@
 #include <stdio.h>
 
 #include "cJSON.h"
+#include "FreeRTOS.h"
 #include "semphr.h"
 
 #define MAX_TOOLS 32
