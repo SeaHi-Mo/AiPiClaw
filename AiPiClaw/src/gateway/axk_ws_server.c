@@ -335,11 +335,17 @@ static void ws_handle_client(struct netconn *client)
                     /* 文本帧 or 连续帧 */
                     printf("[WS] recv: %s\r\n", msg);
 
-                    /* 心跳过滤: __ping__/__pong__ 不回显到聊天 */
-                    if (strcmp(msg, "__ping__") == 0 || strcmp(msg, "__pong__") == 0) {
+                    /* 心跳: __ping__ 回复 __pong__ 保持连接 */
+                    if (strcmp(msg, "__ping__") == 0) {
+                        ws_send_text(client, "__pong__");
                         free(msg);
                         netbuf_delete(buf);
-                        continue;  /* 静默跳过，不推入站 */
+                        continue;
+                    }
+                    if (strcmp(msg, "__pong__") == 0) {
+                        free(msg);
+                        netbuf_delete(buf);
+                        continue;
                     }
 
                     /* NOTE: msg is malloc'd above — push_inbound MUST copy content
