@@ -25,7 +25,7 @@
 #include "web_ui.h"
 
 #define WS_MAGIC_STRING     "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-#define WS_MAX_PAYLOAD      2048
+#define WS_MAX_PAYLOAD      4096  /* 原2048，LLM长回复可达2800+ */
 #define WS_LISTEN_BACKLOG   4
 #define WS_CLIENT_STACK     8192
 #define WS_CLIENT_PRIO      (configMAX_PRIORITIES - 3)
@@ -271,9 +271,16 @@ static void ws_handle_client(struct netconn *client)
     printf("[WS] handshake OK, client registered\r\n");
     ws_client_register(client);
 
+    /* 设置 recv/send 超时防止永久阻塞 */
+    netconn_set_recvtimeout(client, 100);
+    netconn_set_sendtimeout(client, 500);
+
     while (s_ws_running) {
         struct netbuf *buf = NULL;
         err_t err = netconn_recv(client, &buf);
+        if (err == ERR_TIMEOUT) {
+            continue;  /* 正常超时，检查 s_ws_running */
+        }
         if (err != ERR_OK || !buf) {
             break;
         }
