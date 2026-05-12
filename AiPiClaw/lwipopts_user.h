@@ -66,7 +66,7 @@
 
 #define PBUF_LINK_ENCAPSULATION_HLEN  388
 
-#define MEMP_NUM_NETBUF               32
+#define MEMP_NUM_NETBUF               64  /* 原32, WS+2×HTTPS并发 */
 #define MEMP_NUM_NETCONN              16
 #define MEMP_NUM_UDP_PCB              16
 
@@ -82,12 +82,15 @@
 #else 
 #define TCP_WND                       (2 * MAC_RXQ_DEPTH * TCP_MSS)
 #endif
-#define TCP_SND_BUF                   (4 * TCP_MSS)
+#define TCP_SND_BUF                   (8 * TCP_MSS)  /* 原4×MSS, HTTPS+WS并发 */
 
 #define TCP_QUEUE_OOSEQ               1
 #define MEMP_NUM_TCP_SEG              ((4 * TCP_SND_BUF) / TCP_MSS)
 #define MEMP_NUM_PBUF                 (TCP_SND_BUF / TCP_MSS)
-#define PBUF_POOL_SIZE                0
+#define PBUF_POOL_SIZE                16  /* 原0(纯动态), 设静态池避免碎片 */
+#ifndef LWIP_DISABLE_TCP_SANITY_CHECKS
+#define LWIP_DISABLE_TCP_SANITY_CHECKS 1  /* PBUF_POOL < TCP_WND, TCP RX用动态内存不需校验 */
+#endif
 #define LWIP_WND_SCALE                1
 #define TCP_RCV_SCALE                 2
 #define TCP_SNDLOWAT                  LWIP_MIN(LWIP_MAX(((TCP_SND_BUF) / 4), (2 * TCP_MSS) + 1), (TCP_SND_BUF)-1)
@@ -99,7 +102,7 @@
 #if (defined(BL602))
 #define LWIP_HEAP_SIZE (14 * 1024)
 #else 
-#define LWIP_HEAP_SIZE (18 * 1024)
+#define LWIP_HEAP_SIZE (48 * 1024)  /* 原18KB, 双HTTPS耗尽 */
 #endif 
 
 #ifdef LWIP_HEAP_SIZE
