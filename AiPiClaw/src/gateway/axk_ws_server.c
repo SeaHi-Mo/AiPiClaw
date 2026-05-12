@@ -46,6 +46,13 @@ static uint16_t s_ws_port = 0;
 static ws_client_t s_clients[MIMI_WS_MAX_CLIENTS];
 static SemaphoreHandle_t s_ws_mutex = NULL;
 
+/* pending 消息队列：LLM回复到达时无WS客户端时缓存 */
+#define WS_PENDING_MAX  8
+static char *s_pending[WS_PENDING_MAX];
+static int s_pending_head = 0;
+static int s_pending_count = 0;
+static SemaphoreHandle_t s_pending_mutex = NULL;
+
 /**
  * @brief 计算WebSocket握手所需的Sec-WebSocket-Accept值
  *
@@ -253,6 +260,54 @@ static void ws_client_unregister(struct netconn *client)
 }
 
 /**
+ * @brief 将消息缓存到pending队列（无客户端可用时保存）
+ * @param text 消息文本（内部strdup）
+ */
+static void ws_pending_push(const char *text)
+{
+    if (!text || !s_pending_mutex) {
+        return;
+    }
+    if (xSemaphoreTake(s_pending_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        return;
+    }
+    if (s_pending_count < WS_PENDING_MAX) {
+        int idx = (s_pending_head + s_pending_count) % WS_PENDING_MAX;
+        s_pending[idx] = strdup(text);
+        if (s_pending[idx]) {
+            s_pending_count++;
+        }
+    }
+    xSemaphoreGive(s_pending_mutex);
+}
+
+/**
+ * @brief 将pending队列中所有消息发送给指定客户端
+ * @param client 刚完成握手的客户端netconn
+ */
+static void ws_pending_flush(struct netconn *client)
+{
+    int i;
+    if (!s_pending_mutex) {
+        return;
+    }
+    if (xSemaphoreTake(s_pending_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        return;
+    }
+    for (i = 0; i < s_pending_count; i++) {
+        int idx = (s_pending_head + i) % WS_PENDING_MAX;
+        if (s_pending[idx]) {
+            ws_send_text(client, s_pending[idx]);
+            free(s_pending[idx]);
+            s_pending[idx] = NULL;
+        }
+    }
+    s_pending_head = 0;
+    s_pending_count = 0;
+    xSemaphoreGive(s_pending_mutex);
+}
+
+/**
  * @brief 处理单个WebSocket客户端连接的全生命周期（握手→收发消息→断开）
  *
  * @param client 客户端netconn连接
@@ -270,6 +325,8 @@ static void ws_handle_client(struct netconn *client)
     AXK_LOG_INFO("[%s] WebSocket 握手OK\r\n", TAG);
     printf("[WS] handshake OK, client registered\r\n");
     ws_client_register(client);
+    /* 新客户端连入，flush pending队列 */
+    ws_pending_flush(client);
 
     /* 设置 recv/send 超时防止永久阻塞 */
     netconn_set_recvtimeout(client, 100);
@@ -478,6 +535,10 @@ int axk_ws_server_init(void)
         vSemaphoreDelete(s_ws_mutex);
     }
     s_ws_mutex = xSemaphoreCreateMutex();
+    s_pending_mutex = xSemaphoreCreateMutex();
+    memset(s_pending, 0, sizeof(s_pending));
+    s_pending_head = 0;
+    s_pending_count = 0;
     AXK_LOG_INFO("[%s] WebSocket service器init\r\n", TAG);
     return 0;
 }
@@ -551,5 +612,12 @@ int axk_ws_server_send(const char *text)
     printf("[WS] send to %d clients (msg len=%u)\r\n", sent, (unsigned int)strlen(text));
 
     xSemaphoreGive(s_ws_mutex);
+
+    if (sent == 0) {
+        /* 无客户端在线，缓存到pending队列，客户端重连后自动flushed */
+        ws_pending_push(text);
+        printf("[WS] no clients, cached to pending queue\r\n");
+    }
+
     return (sent > 0) ? 0 : -1;
 }
