@@ -397,7 +397,17 @@ static cJSON *convert_messages_openai(const char *system_prompt, cJSON *messages
     if (system_prompt && system_prompt[0]) {
         cJSON *sys = cJSON_CreateObject();
         cJSON_AddStringToObject(sys, "role", "system");
-        cJSON_AddStringToObject(sys, "content", system_prompt);
+        if (provider_is_minimax()) {
+            /* MiniMax supports content as array of content parts */
+            cJSON *content_arr = cJSON_CreateArray();
+            cJSON *text_part = cJSON_CreateObject();
+            cJSON_AddStringToObject(text_part, "type", "text");
+            cJSON_AddStringToObject(text_part, "text", system_prompt);
+            cJSON_AddItemToArray(content_arr, text_part);
+            cJSON_AddItemToObject(sys, "content", content_arr);
+        } else {
+            cJSON_AddStringToObject(sys, "content", system_prompt);
+        }
         cJSON_AddItemToArray(out, sys);
     }
 
@@ -636,7 +646,15 @@ int axk_llm_chat_tools(const char *system_prompt,
         }
     } else {
         cJSON *msg_copy = cJSON_Duplicate(messages, 1);
-        cJSON_AddStringToObject(body, "system", system_prompt ? system_prompt : "");
+        /* system: content blocks 数组格式 (MiniMax Anthropic 文档支持 string|object[]) */
+        if (system_prompt && system_prompt[0]) {
+            cJSON *sys_arr = cJSON_CreateArray();
+            cJSON *sys_block = cJSON_CreateObject();
+            cJSON_AddStringToObject(sys_block, "type", "text");
+            cJSON_AddStringToObject(sys_block, "text", system_prompt);
+            cJSON_AddItemToArray(sys_arr, sys_block);
+            cJSON_AddItemToObject(body, "system", sys_arr);
+        }
         cJSON_AddItemToObject(body, "messages", msg_copy ? msg_copy : cJSON_CreateArray());
         if (tools_json) {
             cJSON *tools = cJSON_Parse(tools_json);
