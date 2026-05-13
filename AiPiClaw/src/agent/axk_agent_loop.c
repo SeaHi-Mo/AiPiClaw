@@ -31,7 +31,7 @@
 static const char *TAG __attribute__((unused)) = "agent";
 
 #define TOOL_OUTPUT_SIZE  (8 * 1024)
-#define SYSTEM_PROMPT_SIZE 1024
+#define SYSTEM_PROMPT_SIZE 3072
 
 static TaskHandle_t s_agent_task = NULL;
 
