@@ -374,11 +374,9 @@ static void build_system_prompt(char *buf, size_t size, const char *session_id)
              "- If the user asks about today/latest and gives no year, prefer current-date information over historical years.\n"
              "When finished, answer clearly and concisely.\n"
              "%s\n"
-             "%s\n"
              "%s",
              date_line,
-             ctx_block[0] ? ctx_block : "",
-             "Do NOT repeat old Q&A as prefix. Only respond to the user's latest message.");
+             ctx_block[0] ? ctx_block : "");
 }
 
 static cJSON *build_assistant_content(const llm_response_t *resp, char **tool_inputs)
