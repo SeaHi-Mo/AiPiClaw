@@ -295,17 +295,8 @@ cJSON *axk_session_load_messages(const char *session_id)
 
     s_sessions[idx].last_active = xTaskGetTickCount();
 
-    /* v2: 从 summary 序列化回 messages 数组（作为首条 user 消息注入） */
+    /* v2: 上下文摘要由 build_system_prompt() 通过 system prompt 注入，messages 只放真实对话交换 */
     messages = cJSON_CreateArray();
-    if (axk_context_summary_is_valid(&s_sessions[idx].summary)) {
-        char ctx_buf[1536];
-        axk_context_summary_format_for_prompt(&s_sessions[idx].summary,
-                                              ctx_buf, sizeof(ctx_buf));
-        cJSON *preamble = cJSON_CreateObject();
-        cJSON_AddStringToObject(preamble, "role", "user");
-        cJSON_AddStringToObject(preamble, "content", ctx_buf);
-        cJSON_AddItemToArray(messages, preamble);
-    }
 
     xSemaphoreGive(s_session_mutex);
     return messages;

@@ -49,6 +49,7 @@ sdk_library_add_sources(src/heartbeat/axk_heartbeat.c)
 sdk_add_include_directories(src/memory)
 sdk_library_add_sources(src/memory/axk_memory_store.c)
 sdk_library_add_sources(src/memory/axk_session_mgr.c)
+sdk_library_add_sources(src/memory/axk_context_summary.c)
 sdk_library_add_sources(src/memory/axk_storage.c)
 
 # WiFi管理模块
