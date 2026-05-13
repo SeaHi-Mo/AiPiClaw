@@ -23,6 +23,7 @@
 
 #include "cJSON.h"
 #include "axk_platform.h"
+#include "axk_session_mgr.h"
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -447,6 +448,17 @@ static void agent_loop_task(void *arg)
 
     while (1) {
         axk_serial_cli_poll();  /* 轮询 UART RX，检查是否有串口输入 */
+
+        /* 每 30 分钟清理一次过期会话 */
+        {
+            static uint32_t s_last_cleanup = 0;
+            uint32_t now = xTaskGetTickCount();
+            if ((now - s_last_cleanup) > pdMS_TO_TICKS(30 * 60 * 1000)) {
+                axk_session_cleanup_stale(pdMS_TO_TICKS(30 * 60 * 1000));
+                s_last_cleanup = now;
+            }
+        }
+
         mimi_msg_t msg;
         cJSON *messages = NULL;
         cJSON *user_msg = NULL;
@@ -487,7 +499,14 @@ static void agent_loop_task(void *arg)
             }
         }
 
-        messages = cJSON_CreateArray();
+        /* ── 构建 session_id ── */
+        char session_id[AXK_SESSION_ID_LEN];
+        snprintf(session_id, sizeof(session_id), "%s:%s", msg.channel, msg.chat_id);
+
+        /* ── 从 session_mgr 恢复历史 messages ── */
+        messages = axk_session_load_messages(session_id);
+
+        /* ── 追加当前用户消息 ── */
         user_msg = cJSON_CreateObject();
         cJSON_AddStringToObject(user_msg, "role", "user");
         cJSON_AddStringToObject(user_msg, "content", msg.content ? msg.content : "");
@@ -540,6 +559,15 @@ static void agent_loop_task(void *arg)
             iteration++;
         }
 
+        /* ── 截断消息历史到 MIMI_SESSION_MAX_MSGS 条 ── */
+        while (cJSON_GetArraySize(messages) > MIMI_SESSION_MAX_MSGS) {
+            cJSON_DeleteItemFromArray(messages, 0);
+        }
+
+        /* ── 保存回 session_mgr ── */
+        axk_session_save_messages(session_id, messages);
+
+        /* ── 释放 messages ── */
         cJSON_Delete(messages);
 
         {
