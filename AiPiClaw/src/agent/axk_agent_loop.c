@@ -464,6 +464,7 @@ static void agent_loop_task(void *arg)
         cJSON *user_msg = NULL;
         char *final_text = NULL;
         int iteration = 0;
+        bool is_error = false;
         int err = axk_message_bus_pop_inbound(&msg, UINT32_MAX);
         if (err != 0) {
             if (err == -2) {
@@ -523,8 +524,10 @@ static void agent_loop_task(void *arg)
                 if (!final_text) {
                     if (err == -2) {
                         final_text = strdup("LLM调用失败: 未配置API密钥。请通过串口CLI设置 llm_key <your_key>");
+                        is_error = true;
                     } else {
                         final_text = strdup("LLM调用失败，请检查网络连接或稍后重试。");
+                        is_error = true;
                     }
                 }
                 break;
@@ -582,6 +585,7 @@ static void agent_loop_task(void *arg)
                     final_text = strdup(tool_output);
                 } else {
                     final_text = strdup("Sorry, no response.");
+                    is_error = true;
                 }
             } else {
                 trim_whitespace(final_text);
@@ -591,12 +595,14 @@ static void agent_loop_task(void *arg)
                         final_text = strdup(tool_output);
                     } else {
                         final_text = strdup("Sorry, no response.");
+                        is_error = true;
                     }
                 }
             }
 
             out.content = final_text;
             out.priority = MIMI_PRIO_NORMAL;  /**< AIresponsemsg */
+            out.is_error = is_error;
             size_t out_len = out.content ? strlen(out.content) : 0;
             AXK_LOG_INFO("[agent_dbg] push_outbound len=%u channel=%s\r\n",
                          (unsigned int)out_len, out.channel);

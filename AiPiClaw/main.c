@@ -38,6 +38,9 @@
 #include "axk_cron_service.h"
 #include "axk_tool_files.h"
 
+/* JSON library for WS protocol encoding */
+#include "cJSON.h"
+
 /* BL618 SDK headers */
 #include "board.h"
 #include "bflb_uart.h"
@@ -155,8 +158,14 @@ static void axk_mimiclaw_task(void *param)
                 } else if (strcmp(out_msg.channel, MIMI_CHAN_FEISHU) == 0) {
                     axk_feishu_send_message(out_msg.chat_id, out_msg.content ? out_msg.content : "");
                 } else if (strcmp(out_msg.channel, MIMI_CHAN_WEBSOCKET) == 0) {
+                    cJSON *json = cJSON_CreateObject();
+                    cJSON_AddStringToObject(json, "text", out_msg.content ? out_msg.content : "");
+                    cJSON_AddBoolToObject(json, "is_error", out_msg.is_error);
+                    char *json_str = cJSON_PrintUnformatted(json);
                     printf("[MAIN] WS outbound: %.60s\r\n", out_msg.content ? out_msg.content : "(null)");
-                    axk_ws_server_send(out_msg.content ? out_msg.content : "");
+                    axk_ws_server_send(json_str ? json_str : "");
+                    if (json_str) cJSON_free(json_str);
+                    cJSON_Delete(json);
                 } else {
                     AXK_LOG_WARN("[axk_mimiclaw] unknown channel: %s\r\n", out_msg.channel);
                 }

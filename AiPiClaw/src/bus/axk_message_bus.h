@@ -48,6 +48,7 @@ typedef struct {
     char            chat_id[96];  /**< 聊天ID: Telegram chat_id、Feishu open_id、WS client id */
     char           *content;      /**< 堆alloc msg文本（call 者负责release ） */
     mimi_priority_t priority;     /**< msgpriority */
+    bool            is_error;     /**< 是否为错误消息（LLM调用失败/Sorry回退=true，正常回复=false） */
 } mimi_msg_t;
 
 /* ── API ────────────────────────────────────────── */
