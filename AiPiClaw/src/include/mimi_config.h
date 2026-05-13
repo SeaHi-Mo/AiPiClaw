@@ -116,7 +116,7 @@
 #define MIMI_SOUL_FILE               MIMI_SPIFFS_CONFIG_DIR "/SOUL.md"
 #define MIMI_USER_FILE               MIMI_SPIFFS_CONFIG_DIR "/USER.md"
 #define MIMI_CONTEXT_BUF_SIZE        (16 * 1024)
-#define MIMI_SESSION_MAX_MSGS        20
+#define MIMI_SESSION_MAX_MSGS        6
 
 /* Cron / Heartbeat */
 #define MIMI_CRON_FILE               MIMI_SPIFFS_BASE "/cron.json"
