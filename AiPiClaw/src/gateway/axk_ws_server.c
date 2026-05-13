@@ -501,6 +501,7 @@ static void ws_handle_client(struct netconn *client)
                      * new backends. */
                     mimi_msg_t m = {0};
                     strncpy(m.channel, MIMI_CHAN_WEBSOCKET, sizeof(m.channel) - 1);
+                    strncpy(m.chat_id, "ws_client", sizeof(m.chat_id) - 1);
                     m.content = msg;
                     m.priority = MIMI_PRIO_NORMAL;
                     printf("[WS] pushing to inbound...\r\n");

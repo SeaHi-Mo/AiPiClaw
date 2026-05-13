@@ -305,6 +305,29 @@ cJSON *axk_session_load_messages(const char *session_id)
     }
 
     idx = session_find(session_id);
+    if (idx < 0) {
+        /* 内存未命中 → 尝试从 easyflash 恢复 */
+        char kv_key[AXK_SESSION_ID_LEN + 8];
+        snprintf(kv_key, sizeof(kv_key), "%s%s", SESSION_KV_PREFIX, session_id);
+        size_t len;
+        char buf[MIMI_CONTEXT_BUF_SIZE];
+        if (ef_get_env_blob(kv_key, buf, sizeof(buf), &len) > 0) {
+            /* 分配新槽位并恢复数据 */
+            idx = session_alloc(session_id);
+            if (idx >= 0) {
+                if (!s_sessions[idx].context) {
+                    s_sessions[idx].context = (char *)calloc(1, MIMI_CONTEXT_BUF_SIZE);
+                }
+                if (s_sessions[idx].context) {
+                    size_t copy_len = len < MIMI_CONTEXT_BUF_SIZE ? len : MIMI_CONTEXT_BUF_SIZE - 1;
+                    memcpy(s_sessions[idx].context, buf, copy_len);
+                    s_sessions[idx].context[copy_len] = '\0';
+                    s_sessions[idx].context_len = copy_len;
+                    s_sessions[idx].last_active = xTaskGetTickCount();
+                }
+            }
+        }
+    }
     if (idx < 0 || !s_sessions[idx].context || s_sessions[idx].context_len == 0) {
         xSemaphoreGive(s_session_mutex);
         return cJSON_CreateArray();
