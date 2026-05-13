@@ -12,8 +12,10 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #include "cJSON.h"
+#include "axk_context_summary.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -74,6 +76,26 @@ int axk_session_save_messages(const char *session_id, cJSON *messages);
  * @param idle_ticks  FreeRTOS tick 值，last_active 早于此值的会话被清理
  */
 void axk_session_cleanup_stale(uint32_t idle_ticks);
+
+/* ── 上下文摘要 API (v2: 蒸馏模式) ──────────────────── */
+
+/**
+ * @brief 将 messages 蒸馏为摘要并保存到 session_mgr
+ *
+ * @param session_id  会话标识符
+ * @param messages    cJSON Array（Anthropic content blocks 格式的 messages 数组）
+ * @return 0 成功，-1 失败
+ */
+int axk_session_save_summary(const char *session_id, cJSON *messages);
+
+/**
+ * @brief 从 session_mgr 加载结构化摘要
+ *
+ * @param session_id  会话标识符
+ * @param summary     输出缓冲区 (调用者分配，栈上即可)
+ * @return 0 成功，-1 失败 (失败时 summary 保持初始状态)
+ */
+int axk_session_load_summary(const char *session_id, axk_context_summary_t *summary);
 
 
 #ifdef __cplusplus

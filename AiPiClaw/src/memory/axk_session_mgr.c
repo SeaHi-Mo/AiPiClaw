@@ -27,14 +27,13 @@
 #define SESSION_KV_PREFIX     "sess_"  /**< easyflash key前缀 */
 
 /**
- * 会话条目
+ * 会话条目 (v2: 用固定大小 summary 替代堆分配的 context)
  */
 typedef struct {
     bool     in_use;
     char     id[AXK_SESSION_ID_LEN];
-    char     *context;             /**< PSRAM 动态分配，大小 MIMI_CONTEXT_BUF_SIZE */
-    size_t   context_len;          /**< 实际使用长度 */
-    uint32_t last_active;          /**< 最后活跃time (tick) */
+    axk_context_summary_t summary;   /**< 结构化摘要 (栈内 2717 字节，替代原 16KB heap context) */
+    uint32_t last_active;            /**< 最后活跃time (tick) */
 } session_entry_t;
 
 static session_entry_t s_sessions[AXK_MAX_SESSIONS];
@@ -54,14 +53,22 @@ static void session_save_to_flash(int idx)
 
     if (idx < 0 || idx >= AXK_MAX_SESSIONS) return;
     if (!s_sessions[idx].in_use) return;
-    if (!s_sessions[idx].context) return;
 
     snprintf(kv_key, sizeof(kv_key), "%s%s", SESSION_KV_PREFIX, s_sessions[idx].id);
 
-    if (ef_set_env_blob(kv_key, s_sessions[idx].context,
-                        s_sessions[idx].context_len + 1) == EF_NO_ERR) {
+    /* 序列化 summary 为 JSON 并写入 easyflash */
+    cJSON *json = axk_context_summary_to_json(&s_sessions[idx].summary);
+    if (!json) return;
+
+    char *json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    if (!json_str) return;
+
+    size_t len = strlen(json_str);
+    if (ef_set_env_blob(kv_key, json_str, len + 1) == EF_NO_ERR) {
         ef_save_env();
     }
+    free(json_str);
 }
 
 /**
@@ -107,7 +114,6 @@ static int session_alloc(const char *session_id)
     /* 先找empty 闲槽位 */
     for (i = 0; i < AXK_MAX_SESSIONS; i++) {
         if (!s_sessions[i].in_use) {
-            free(s_sessions[i].context);
             memset(&s_sessions[i], 0, sizeof(s_sessions[i]));
             strncpy(s_sessions[i].id, session_id, AXK_SESSION_ID_LEN - 1);
             s_sessions[i].in_use = true;
@@ -124,7 +130,6 @@ static int session_alloc(const char *session_id)
         }
     }
     if (oldest_idx >= 0) {
-        free(s_sessions[oldest_idx].context);
         memset(&s_sessions[oldest_idx], 0, sizeof(s_sessions[oldest_idx]));
         strncpy(s_sessions[oldest_idx].id, session_id, AXK_SESSION_ID_LEN - 1);
         s_sessions[oldest_idx].in_use = true;
@@ -169,7 +174,6 @@ int axk_session_mgr_init(void)
 int axk_session_update_context(const char *session_id, const char *context)
 {
     int idx;
-    bool loaded_from_flash = false;
 
     if (!session_id || !context || !s_initialized) return -1;
 
@@ -179,30 +183,6 @@ int axk_session_update_context(const char *session_id, const char *context)
 
     idx = session_find(session_id);
     if (idx < 0) {
-        /* attempt from  easyflash load */
-        char kv_key[AXK_SESSION_ID_LEN + 8];
-        snprintf(kv_key, sizeof(kv_key), "%s%s", SESSION_KV_PREFIX, session_id);
-        size_t len;
-        char buf[AXK_SESSION_CTX_LEN];
-        if (ef_get_env_blob(kv_key, buf, sizeof(buf), &len) > 0) {
-            /* 找 to persistdata, create内存条目 */
-            idx = session_alloc(session_id);
-            if (idx >= 0) {
-                if (!s_sessions[idx].context) {
-                    s_sessions[idx].context = (char *)calloc(1, MIMI_CONTEXT_BUF_SIZE);
-                }
-                if (s_sessions[idx].context) {
-                    size_t copy_len = len < MIMI_CONTEXT_BUF_SIZE ? len : MIMI_CONTEXT_BUF_SIZE - 1;
-                    memcpy(s_sessions[idx].context, buf, copy_len);
-                    s_sessions[idx].context[copy_len] = '\0';
-                    s_sessions[idx].context_len = copy_len;
-                }
-                loaded_from_flash = true;
-            }
-        }
-    }
-
-    if (idx < 0) {
         idx = session_alloc(session_id);
     }
 
@@ -211,24 +191,9 @@ int axk_session_update_context(const char *session_id, const char *context)
         return -1;
     }
 
-    /* update 上下文 */
-    if (!loaded_from_flash ||
-        strcmp(s_sessions[idx].context ? s_sessions[idx].context : "", context) != 0) {
-        if (!s_sessions[idx].context) {
-            s_sessions[idx].context = (char *)calloc(1, MIMI_CONTEXT_BUF_SIZE);
-            if (!s_sessions[idx].context) {
-                xSemaphoreGive(s_session_mutex);
-                return -1;
-            }
-        }
-        size_t c_len = strlen(context);
-        if (c_len >= MIMI_CONTEXT_BUF_SIZE) c_len = MIMI_CONTEXT_BUF_SIZE - 1;
-        memcpy(s_sessions[idx].context, context, c_len);
-        s_sessions[idx].context[c_len] = '\0';
-        s_sessions[idx].context_len = c_len;
-        s_sessions[idx].last_active = xTaskGetTickCount();
-        session_save_to_flash(idx);
-    }
+    /* v2: summary 模式下 update_context 仅更新元数据 (context 文本不再直存) */
+    s_sessions[idx].last_active = xTaskGetTickCount();
+    session_save_to_flash(idx);
 
     xSemaphoreGive(s_session_mutex);
     return 0;
@@ -252,32 +217,15 @@ int axk_session_get_context(const char *session_id, char *buf, size_t buf_size)
         return -1;
     }
 
-    /* 先in 内存find  */
+    /* v2: 从 summary 提取上下文文本 */
     for (i = 0; i < AXK_MAX_SESSIONS; i++) {
         if (s_sessions[i].in_use &&
             strcmp(s_sessions[i].id, session_id) == 0) {
-            if (s_sessions[i].context && s_sessions[i].context_len > 0) {
-                size_t copy_len = s_sessions[i].context_len < buf_size - 1
-                                  ? s_sessions[i].context_len : buf_size - 1;
-                memcpy(buf, s_sessions[i].context, copy_len);
-                buf[copy_len] = '\0';
-            } else {
-                buf[0] = '\0';
-            }
+            axk_context_summary_format_for_prompt(&s_sessions[i].summary, buf, buf_size);
             s_sessions[i].last_active = xTaskGetTickCount();
             xSemaphoreGive(s_session_mutex);
             return 0;
         }
-    }
-
-    /* 内存not 找 to ，attempt from  easyflash load */
-    char kv_key[AXK_SESSION_ID_LEN + 8];
-    snprintf(kv_key, sizeof(kv_key), "%s%s", SESSION_KV_PREFIX, session_id);
-    size_t len;
-    if (ef_get_env_blob(kv_key, buf, buf_size, &len) > 0) {
-        buf[buf_size - 1] = '\0';
-        xSemaphoreGive(s_session_mutex);
-        return 0;
     }
 
     xSemaphoreGive(s_session_mutex);
@@ -312,35 +260,53 @@ cJSON *axk_session_load_messages(const char *session_id)
         size_t len;
         char buf[MIMI_CONTEXT_BUF_SIZE];
         if (ef_get_env_blob(kv_key, buf, sizeof(buf), &len) > 0) {
-            /* 分配新槽位并恢复数据 */
-            idx = session_alloc(session_id);
-            if (idx >= 0) {
-                if (!s_sessions[idx].context) {
-                    s_sessions[idx].context = (char *)calloc(1, MIMI_CONTEXT_BUF_SIZE);
+            /* 尝试反序列化摘要 JSON */
+            cJSON *json = cJSON_Parse(buf);
+            if (json && cJSON_IsObject(json)) {
+                idx = session_alloc(session_id);
+                if (idx >= 0) {
+                    if (axk_context_summary_from_json(json, &s_sessions[idx].summary)) {
+                        s_sessions[idx].last_active = xTaskGetTickCount();
+                    }
                 }
-                if (s_sessions[idx].context) {
-                    size_t copy_len = len < MIMI_CONTEXT_BUF_SIZE ? len : MIMI_CONTEXT_BUF_SIZE - 1;
-                    memcpy(s_sessions[idx].context, buf, copy_len);
-                    s_sessions[idx].context[copy_len] = '\0';
-                    s_sessions[idx].context_len = copy_len;
-                    s_sessions[idx].last_active = xTaskGetTickCount();
+                cJSON_Delete(json);
+            } else if (json) {
+                cJSON_Delete(json);
+                /* 旧版 messages JSON 格式 — 尝试解析为 messages 数组并蒸馏 */
+                json = cJSON_Parse(buf);
+                if (json && cJSON_IsArray(json)) {
+                    idx = session_alloc(session_id);
+                    if (idx >= 0) {
+                        axk_context_summarize(json, &s_sessions[idx].summary);
+                        s_sessions[idx].last_active = xTaskGetTickCount();
+                    }
+                    cJSON_Delete(json);
+                } else if (json) {
+                    cJSON_Delete(json);
                 }
             }
         }
     }
-    if (idx < 0 || !s_sessions[idx].context || s_sessions[idx].context_len == 0) {
-        xSemaphoreGive(s_session_mutex);
-        return cJSON_CreateArray();
-    }
 
-    messages = cJSON_Parse(s_sessions[idx].context);
-    if (!messages || !cJSON_IsArray(messages)) {
-        if (messages) cJSON_Delete(messages);
+    if (idx < 0) {
         xSemaphoreGive(s_session_mutex);
         return cJSON_CreateArray();
     }
 
     s_sessions[idx].last_active = xTaskGetTickCount();
+
+    /* v2: 从 summary 序列化回 messages 数组（作为首条 user 消息注入） */
+    messages = cJSON_CreateArray();
+    if (axk_context_summary_is_valid(&s_sessions[idx].summary)) {
+        char ctx_buf[1536];
+        axk_context_summary_format_for_prompt(&s_sessions[idx].summary,
+                                              ctx_buf, sizeof(ctx_buf));
+        cJSON *preamble = cJSON_CreateObject();
+        cJSON_AddStringToObject(preamble, "role", "user");
+        cJSON_AddStringToObject(preamble, "content", ctx_buf);
+        cJSON_AddItemToArray(messages, preamble);
+    }
+
     xSemaphoreGive(s_session_mutex);
     return messages;
 }
@@ -355,31 +321,10 @@ cJSON *axk_session_load_messages(const char *session_id)
 int axk_session_save_messages(const char *session_id, cJSON *messages)
 {
     int idx;
-    char *json_str;
-    size_t json_len;
 
     if (!session_id || !messages) return -1;
 
-    json_str = cJSON_PrintUnformatted(messages);
-    if (!json_str) return -1;
-
-    json_len = strlen(json_str);
-
-    /* 超过缓冲区上限时截断（丢弃最旧的消息） */
-    if (json_len >= MIMI_CONTEXT_BUF_SIZE) {
-        /* 从 messages 数组中删除最旧的消息直到序列化后不超限 */
-        while (cJSON_GetArraySize(messages) > 2) {  /* 至少保留 2 条 */
-            cJSON_DeleteItemFromArray(messages, 0);
-            free(json_str);
-            json_str = cJSON_PrintUnformatted(messages);
-            if (!json_str) return -1;
-            json_len = strlen(json_str);
-            if (json_len < MIMI_CONTEXT_BUF_SIZE) break;
-        }
-    }
-
     if (xSemaphoreTake(s_session_mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
-        free(json_str);
         return -1;
     }
 
@@ -390,28 +335,13 @@ int axk_session_save_messages(const char *session_id, cJSON *messages)
     }
 
     if (idx < 0) {
-        free(json_str);
         xSemaphoreGive(s_session_mutex);
         return -1;
     }
 
-    /* 分配或扩展 PSRAM buffer */
-    if (!s_sessions[idx].context) {
-        s_sessions[idx].context = (char *)calloc(1, MIMI_CONTEXT_BUF_SIZE);
-        if (!s_sessions[idx].context) {
-            free(json_str);
-            xSemaphoreGive(s_session_mutex);
-            return -1;
-        }
-    }
-
-    memcpy(s_sessions[idx].context, json_str, json_len + 1);  /* +1 for '\0' */
-    s_sessions[idx].context_len = json_len;
+    /* v2: 蒸馏 messages 为摘要并持久化 */
+    axk_context_summarize(messages, &s_sessions[idx].summary);
     s_sessions[idx].last_active = xTaskGetTickCount();
-
-    free(json_str);
-
-    /* easyflash 持久化 */
     session_save_to_flash(idx);
 
     xSemaphoreGive(s_session_mutex);
@@ -436,13 +366,73 @@ void axk_session_cleanup_stale(uint32_t idle_ticks)
         session_entry_t *entry = &s_sessions[i];
         if (!entry->in_use) continue;
         if ((now - entry->last_active) > idle_ticks) {
-            free(entry->context);
-            entry->context = NULL;
-            entry->context_len = 0;
             entry->id[0] = '\0';
             entry->in_use = false;
         }
     }
 
     xSemaphoreGive(s_session_mutex);
+}
+
+/* ── 上下文摘要 API (v2) ──────────────────────────────── */
+
+/**
+ * @brief 将 messages 蒸馏为摘要并保存到 session_mgr
+ */
+int axk_session_save_summary(const char *session_id, cJSON *messages)
+{
+    if (!session_id || !messages) return -1;
+
+    /* 直接复用 save_messages (内部已调用 axk_context_summarize) */
+    return axk_session_save_messages(session_id, messages);
+}
+
+/**
+ * @brief 从 session_mgr 加载结构化摘要
+ */
+int axk_session_load_summary(const char *session_id, axk_context_summary_t *summary)
+{
+    int idx;
+
+    if (!session_id || !summary || !s_initialized) return -1;
+    axk_context_summary_init(summary);
+
+    if (xSemaphoreTake(s_session_mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        return -1;
+    }
+
+    idx = session_find(session_id);
+    if (idx < 0) {
+        /* 尝试从 easyflash 加载 */
+        char kv_key[AXK_SESSION_ID_LEN + 8];
+        snprintf(kv_key, sizeof(kv_key), "%s%s", SESSION_KV_PREFIX, session_id);
+        size_t len;
+        char buf[MIMI_CONTEXT_BUF_SIZE];
+        if (ef_get_env_blob(kv_key, buf, sizeof(buf), &len) > 0) {
+            cJSON *json = cJSON_Parse(buf);
+            if (json && cJSON_IsObject(json)) {
+                idx = session_alloc(session_id);
+                if (idx >= 0) {
+                    if (axk_context_summary_from_json(json, &s_sessions[idx].summary)) {
+                        s_sessions[idx].last_active = xTaskGetTickCount();
+                    }
+                }
+                cJSON_Delete(json);
+                if (idx >= 0) {
+                    memcpy(summary, &s_sessions[idx].summary, sizeof(*summary));
+                    xSemaphoreGive(s_session_mutex);
+                    return 0;
+                }
+            } else if (json) {
+                cJSON_Delete(json);
+            }
+        }
+        xSemaphoreGive(s_session_mutex);
+        return -1;
+    }
+
+    s_sessions[idx].last_active = xTaskGetTickCount();
+    memcpy(summary, &s_sessions[idx].summary, sizeof(*summary));
+    xSemaphoreGive(s_session_mutex);
+    return 0;
 }
