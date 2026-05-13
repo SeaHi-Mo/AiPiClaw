@@ -24,6 +24,7 @@
 #include "cJSON.h"
 #include "axk_platform.h"
 #include "axk_session_mgr.h"
+#include "axk_context_summary.h"
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -330,26 +331,37 @@ static void free_tool_inputs(const llm_response_t *resp, char **tool_inputs)
 }
 
 /**
- * @brief 构建LLM系统提示词，包含当前日期上下文和MimiClaw行为规范指令
+ * @brief 构建LLM系统提示词，包含当前日期上下文和上下文摘要
  *
- * @param buf 输出缓冲区指针
- * @param size 缓冲区最大字节数
+ * @param buf         输出缓冲区指针
+ * @param size        缓冲区最大字节数
+ * @param session_id  会话标识符 (NULL=无摘要)
  * @return 无返回值
  */
-static void build_system_prompt(char *buf, size_t size)
+static void build_system_prompt(char *buf, size_t size, const char *session_id)
 {
     uint64_t now = bflb_rtc_get_utc_timestamp();
     struct bflb_tm tm_now;
     char date_line[64] = { 0 };
+    char ctx_block[1536] = { 0 };
 
     if (now >= 1735689600) {
         bflb_rtc_get_utc_time(&tm_now);
         snprintf(date_line,
                  sizeof(date_line),
-                 "Current local date context: %04d-%02d-%02d.\n",
+                 "Current local date context: %04d-%02d-%02d.",
                  tm_now.tm_year + 1900,
                  tm_now.tm_mon + 1,
                  tm_now.tm_mday);
+    }
+
+    /* 加载上下文摘要并格式化 */
+    if (session_id) {
+        axk_context_summary_t summary;
+        axk_context_summary_init(&summary);
+        if (axk_session_load_summary(session_id, &summary) == 0) {
+            axk_context_summary_format_for_prompt(&summary, ctx_block, sizeof(ctx_block));
+        }
     }
 
     snprintf(buf, size,
@@ -361,8 +373,12 @@ static void build_system_prompt(char *buf, size_t size)
              "- Do not invent or change years unless the user explicitly specifies a year.\n"
              "- If the user asks about today/latest and gives no year, prefer current-date information over historical years.\n"
              "When finished, answer clearly and concisely.\n"
+             "%s\n"
+             "%s\n"
              "%s",
-             date_line);
+             date_line,
+             ctx_block[0] ? ctx_block : "",
+             "Do NOT repeat old Q&A as prefix. Only respond to the user's latest message.");
 }
 
 static cJSON *build_assistant_content(const llm_response_t *resp, char **tool_inputs)
@@ -517,7 +533,7 @@ static void agent_loop_task(void *arg)
             llm_response_t resp;
             char *tool_inputs[MIMI_MAX_TOOL_CALLS] = { 0 };
 
-            build_system_prompt(system_prompt, sizeof(system_prompt));
+            build_system_prompt(system_prompt, sizeof(system_prompt), session_id);
             err = axk_llm_chat_tools(system_prompt, messages, tools_json, &resp);
             if (err != 0) {
                 AXK_LOG_ERROR("agent", "llm call failed: err=%d", (int)err);

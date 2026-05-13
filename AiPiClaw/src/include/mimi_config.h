@@ -118,6 +118,9 @@
 #define MIMI_CONTEXT_BUF_SIZE        (16 * 1024)
 #define MIMI_SESSION_MAX_MSGS        6
 
+/* 上下文蒸馏开关: 1=蒸馏模式(推荐), 0=原始messages直通(回退) */
+#define MIMI_CONTEXT_SUMMARY_ENABLE  1
+
 /* Cron / Heartbeat */
 #define MIMI_CRON_FILE               MIMI_SPIFFS_BASE "/cron.json"
 #define MIMI_CRON_MAX_JOBS           16
