@@ -57,9 +57,8 @@ extern int wifi_mgmr_init(wifi_conf_t *conf);
 #include "rfparam_adapter.h"
 
 /* ============================================================ */
-static wifi_conf_t s_wifi_conf = {
-    .country_code = "CN",
-};
+static wifi_conf_t s_wifi_conf = {0};
+/* country_code 单独设置，防止 fhost_init/wifi_mgmr_init 内部 strcmp NULL */
 
 /**
  * @brief WiFifwstarttask
@@ -86,6 +85,7 @@ static void axk_wifi_firmware_task(void *param)
     AXK_LOG_INFO("[axk_wifi_fw] fhost_init OK\r\n");
 
     /* initWiFimanager */
+    s_wifi_conf.country_code = "CN";
     ret = wifi_mgmr_init(&s_wifi_conf);
     if (ret != 0) {
         AXK_LOG_ERROR("[axk_wifi_fw] wifi_mgmr_init FAIL: %d\r\n", ret);
