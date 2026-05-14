@@ -10,6 +10,9 @@ sdk_add_compile_definitions(-DCONFIG_CLI_CMD_ENABLE)
 sdk_add_compile_definitions(-DWEBSOCKET_SSL_CHECK_HOSTNAME)
 sdk_add_compile_definitions(-DSHELL_CMD_SIZE=512)
 
+# v78: 禁用 WSC/WPS 避免 wsc_registrar 溢出，STA-only 无需 AP/WPS 代码
+sdk_add_compile_options(-UCONFIG_WPS2 -UCONFIG_WPS_PIN -UUSE_WPS_TASK)
+
 # 包含路径配置
 sdk_add_include_directories(src/include)
 sdk_add_include_directories(src/platform)
