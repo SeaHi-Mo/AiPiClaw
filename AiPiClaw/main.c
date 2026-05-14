@@ -57,8 +57,9 @@ extern int wifi_mgmr_init(wifi_conf_t *conf);
 #include "rfparam_adapter.h"
 
 /* ============================================================ */
-/* C4: memset(0) 全量零初始化，比 ={0} 更可靠地清零 padding 字节，
- *     防止 fhost_init/wifi_mgmr_init 内部 strcmp/country 映射访问 NULL */
+/* C4: 静态 BSS 变量, 运行时 memset(0) 全量清零 padding 字节,
+ *     防止 fhost_init/wifi_mgmr_init 内部 strcmp/country 映射访问 NULL
+ *     注意: memset 必须在 fhost_init() 之前执行 (见 C5) */
 static wifi_conf_t s_wifi_conf;
 
 /**
@@ -76,6 +77,12 @@ static void axk_wifi_firmware_task(void *param)
     wifi_task_create();
     AXK_LOG_INFO("[axk_wifi_fw] WiFitaskcreated\r\n");
 
+    /* C5: s_wifi_conf 必须在 fhost_init 前初始化 — fhost 内部 country 映射
+     *     遍历可能访问 wifiMgmr BSS 中的 country_code 字段, 若为垃圾值则
+     *     strcmp(NULL) → mepc=a0061d2c mtval=0 crash */
+    memset(&s_wifi_conf, 0, sizeof(s_wifi_conf));
+    memcpy(s_wifi_conf.country_code, "CN", sizeof(s_wifi_conf.country_code));
+
     /* initfhost */
     int ret = fhost_init();
     if (ret != 0) {
@@ -85,9 +92,7 @@ static void axk_wifi_firmware_task(void *param)
     }
     AXK_LOG_INFO("[axk_wifi_fw] fhost_init OK\r\n");
 
-    /* initWiFimanager: memset(0) 全量清零再设 country_code */
-    memset(&s_wifi_conf, 0, sizeof(s_wifi_conf));
-    memcpy(s_wifi_conf.country_code, "CN", sizeof(s_wifi_conf.country_code));
+    /* initWiFimanager */
     ret = wifi_mgmr_init(&s_wifi_conf);
     if (ret != 0) {
         AXK_LOG_ERROR("[axk_wifi_fw] wifi_mgmr_init FAIL: %d\r\n", ret);
