@@ -62,7 +62,11 @@ int axk_hal_wifi_connect(const char* ssid, const char* password)
     AXK_LOG_INFO("[axk_hal_wifi] connectSSID: %s\r\n", ssid);
 
 #if AXK_PLATFORM_BL618
-    struct wifi_mgmr_sta_connect_params params = {0};
+    /* static 生命周期：SDK wifi_mgmr_sta_connect() 内部仅存指针，
+     * DHCP 异步任务执行时栈变量已出栈 → 读取垃圾数据 → crash。
+     * memset 清零确保每次新连前无旧数据残留。 */
+    static struct wifi_mgmr_sta_connect_params params;
+    memset(&params, 0, sizeof(params));
     strncpy((char*)params.ssid, ssid, sizeof(params.ssid) - 1);
     if (password) {
         strncpy((char*)params.key, password, sizeof(params.key) - 1);
