@@ -138,6 +138,8 @@ int axk_ota_start(const char *url)
     if (xSemaphoreTake(s_ota_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
         s_ota_in_progress = false;
         xSemaphoreGive(s_ota_mutex);
+    } else {
+        s_ota_in_progress = false;
     }
 
     if (ret != 0) {

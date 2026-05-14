@@ -56,7 +56,10 @@ static axk_wifi_manager_ctx_t g_wifi_ctx;
 /* ============== internalhelper func  ============== */
 
 /**
- * @brief get current FreeRTOS tick count (raw ticks, safe from 49.7-day overflow)
+ * @brief get current FreeRTOS tick count
+ * @note All time comparisons MUST use subtraction pattern (now - stored_tick)
+ *       which is safe with unsigned wraparound. Direct >/< comparison with
+ *       absolute stored tick values will break after 49.7 days.
  */
 static inline TickType_t axk_wifi_get_tick(void)
 {
