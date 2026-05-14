@@ -300,7 +300,7 @@ int axk_cron_remove_job(const char *job_id)
     for (i = 0; i < AXK_CRON_MAX_JOBS; i++) {
         if (strcmp(s_jobs[i].id, job_id) == 0) {
             AXK_LOG_INFO("[axk_cron] delete task %s\r\n", s_jobs[i].id);
-            s_jobs[i].id[0] = '\0';  /* 标记为空但不清理msg buffer，避免bus中消息指针悬空 */
+            s_jobs[i].id[0] = '\0';  /* 标记为空；bus 通过 strdup 拷贝 message，安全释放 */
             s_job_count--;
             xSemaphoreGive(s_cron_mutex);
             cron_save_jobs();
@@ -379,7 +379,8 @@ static void axk_cron_execute_job(cron_job_t *job)
     strncpy(msg.channel, job->channel[0] ? job->channel : MIMI_CHAN_SYSTEM, sizeof(msg.channel) - 1);
     strncpy(msg.chat_id, job->chat_id[0] ? job->chat_id : "cron", sizeof(msg.chat_id) - 1);
     msg.content = job->message;
-    msg.priority = MIMI_PRIO_LOW;  /**< crontaskmsg */
+    msg.priority = MIMI_PRIO_LOW;
+    /* bus push_inbound 内部 strdup 拷贝 content，调用方保有所有权 */
     if (axk_message_bus_push_inbound(&msg) != 0) {
         AXK_LOG_WARN("[axk_cron] msg推入FAIL\r\n");
     }
