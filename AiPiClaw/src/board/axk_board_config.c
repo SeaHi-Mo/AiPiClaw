@@ -17,7 +17,7 @@
 
 /* ── bin2obj 外部符号 ───────────────────────────────── */
 extern const uint8_t _binary_boards_board_json_start[];
-extern const uint8_t _binary_boards_board_json_end[];
+extern const unsigned int _binary_boards_board_json_size;
 
 /* ── 解析后的内部状态 ──────────────────────────────── */
 static axk_board_config_t s_cfg;
@@ -232,8 +232,7 @@ int axk_board_config_init(void)
 
     /* 获取嵌入的 board.json 数据 */
     const char *json_start = (const char *)_binary_boards_board_json_start;
-    const char *json_end   = (const char *)_binary_boards_board_json_end;
-    ptrdiff_t json_len = json_end - json_start;
+    ptrdiff_t json_len = (ptrdiff_t)_binary_boards_board_json_size;
 
     if (json_len <= 0 || json_len > AXK_BOARD_JSON_MAX) {
         AXK_LOG_WARN("[board_config] embedded board.json invalid (len=%d), using fallback", (int)json_len);
@@ -401,8 +400,7 @@ const char *axk_board_config_get_json(void)
 {
     if (!s_initialized) return NULL;
     const char *start = (const char *)_binary_boards_board_json_start;
-    const char *end   = (const char *)_binary_boards_board_json_end;
-    ptrdiff_t len = end - start;
+    ptrdiff_t len = (ptrdiff_t)_binary_boards_board_json_size;
     if (len <= 0 || len > AXK_BOARD_JSON_MAX) return NULL;
     return start;
 }
