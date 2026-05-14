@@ -57,10 +57,10 @@ extern int wifi_mgmr_init(wifi_conf_t *conf);
 #include "rfparam_adapter.h"
 
 /* ============================================================ */
-/* C4: 静态 BSS 变量, 运行时 memset(0) 全量清零 padding 字节,
- *     防止 fhost_init/wifi_mgmr_init 内部 strcmp/country 映射访问 NULL
- *     注意: memset 必须在 fhost_init() 之前执行 (见 C5) */
-static wifi_conf_t s_wifi_conf;
+/* C4: .data 静态初始化, 保持 BSS 布局兼容 V1.0.0 基线。
+ *     之前改为 BSS + memset 导致 rom_code blob 内部硬编码的
+ *     wifiMgmr 等BSS地址偏移 8 字节 → strcmp(NULL) crash */
+static wifi_conf_t s_wifi_conf = { .country_code = "CN" };
 
 /**
  * @brief WiFifwstarttask
@@ -76,12 +76,6 @@ static void axk_wifi_firmware_task(void *param)
     /* createWiFitask */
     wifi_task_create();
     AXK_LOG_INFO("[axk_wifi_fw] WiFitaskcreated\r\n");
-
-    /* C5: s_wifi_conf 必须在 fhost_init 前初始化 — fhost 内部 country 映射
-     *     遍历可能访问 wifiMgmr BSS 中的 country_code 字段, 若为垃圾值则
-     *     strcmp(NULL) → mepc=a0061d2c mtval=0 crash */
-    memset(&s_wifi_conf, 0, sizeof(s_wifi_conf));
-    memcpy(s_wifi_conf.country_code, "CN", sizeof(s_wifi_conf.country_code));
 
     /* initfhost */
     int ret = fhost_init();
