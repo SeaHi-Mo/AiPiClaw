@@ -18,6 +18,8 @@
 #include "axk_tool_gpio_named.h"
 #include "axk_gpio_alias.h"
 #include "axk_tool_cron.h"
+#include "axk_tool_board_info.h"
+#include "axk_tool_gpio_list.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -39,7 +41,7 @@ static SemaphoreHandle_t s_reg_mutex = NULL;
  *
  * @param[in] tool 工具描述结构体指针
  */
-static void axk_register_tool(const mimi_tool_t *tool)
+void axk_register_tool(const mimi_tool_t *tool)
 {
     if (xSemaphoreTake(s_reg_mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
         AXK_LOG_ERROR("[axk_tool_registry] reg mutex timeout\r\n");
@@ -313,6 +315,12 @@ int axk_tool_registry_init(void)
         };
         axk_register_tool(&cr);
     }
+
+    /* register board_info tool */
+    axk_tool_board_info_register();
+
+    /* register gpio_list_aliases tool */
+    axk_tool_gpio_list_register();
 
     axk_build_tools_json();
 

@@ -13,6 +13,7 @@ sdk_add_compile_definitions(-DSHELL_CMD_SIZE=512)
 # 包含路径配置
 sdk_add_include_directories(src/include)
 sdk_add_include_directories(src/platform)
+sdk_add_include_directories(src/board)
 sdk_add_include_directories(src/bus)
 sdk_add_include_directories(src/gateway)
 sdk_add_include_directories(src/cron)
@@ -114,3 +115,12 @@ sdk_library_add_sources(compat/heap_compat.c)
 sdk_set_main_file(main.c)
 
 project(AiPiClaw)
+
+# ── 板卡配置解析器 ──
+# board_data.c: AUTO-GENERATED from boards/board.json (commit 时手动重新生成)
+sdk_library_add_sources(src/board/board_data.c)
+sdk_library_add_sources(src/board/axk_board_config.c)
+
+# 板卡信息工具 (board_info + gpio_list_aliases)
+sdk_library_add_sources(src/tools/axk_tool_board_info.c)
+sdk_library_add_sources(src/tools/axk_tool_gpio_list.c)

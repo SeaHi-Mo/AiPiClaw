@@ -10,6 +10,7 @@
 
 #include "axk_gpio_policy.h"
 #include "axk_platform.h"
+#include "axk_board_config.h"
 #include "shell.h"
 #include "FreeRTOS.h"
 #include "semphr.h"
@@ -34,17 +35,28 @@ static const char *ALLOWED_ACTIONS[] = {
 static bool s_initialized = false;
 
 /**
- * @brief 注册默认白名单引脚
+ * @brief 注册默认白名单引脚（从 board.json 解析结果加载）
  */
 static void axk_register_default_pins(void)
 {
-    /* AiPi-Eyes-DU 板载可用引脚: KEY0(10), KEY1(11), LED_R(12), LED_G(14), LED_B(15) */
-    const uint8_t defaults[] = { 10, 11, 12, 14, 15 };
-    size_t i;
-    for (i = 0; i < sizeof(defaults) / sizeof(defaults[0]); i++) {
-        if (s_allowed_count < AXK_GPIO_POLICY_MAX_PINS) {
-            s_allowed_pins[s_allowed_count++] = defaults[i];
+    int pins[AXK_GPIO_POLICY_MAX_PINS];
+    int count = axk_board_config_get_allowed_pins(pins, AXK_GPIO_POLICY_MAX_PINS);
+
+    if (count == 0) {
+        /* Fallback: AiPi-Eyes-DU 板载可用引脚 */
+        const uint8_t defaults[] = { 10, 11, 12, 14, 15 };
+        size_t i;
+        for (i = 0; i < sizeof(defaults) / sizeof(defaults[0]); i++) {
+            if (s_allowed_count < AXK_GPIO_POLICY_MAX_PINS) {
+                s_allowed_pins[s_allowed_count++] = defaults[i];
+            }
         }
+        return;
+    }
+
+    /* 从 board_config 填充白名单 */
+    for (int i = 0; i < count && s_allowed_count < AXK_GPIO_POLICY_MAX_PINS; i++) {
+        s_allowed_pins[s_allowed_count++] = (uint8_t)pins[i];
     }
 }
 

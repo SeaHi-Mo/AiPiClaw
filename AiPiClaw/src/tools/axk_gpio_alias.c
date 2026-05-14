@@ -9,6 +9,7 @@
 #include "axk_gpio_alias.h"
 #include "axk_platform.h"
 #include "axk_hal_gpio.h"
+#include "axk_board_config.h"
 #include "shell.h"
 #include "FreeRTOS.h"
 #include "semphr.h"
@@ -22,35 +23,48 @@ static SemaphoreHandle_t s_mutex = NULL;
 static bool s_initialized = false;
 
 /**
- * @brief 注册默认板载别名项
+ * @brief 注册默认板载别名项（从 board.json 解析结果加载）
  */
 static void axk_register_default_aliases(void)
 {
-    /* AiPi-Eyes-DU 板载LED: 高电平=亮 (1=ON, 0=OFF) */
-    const axk_gpio_alias_t defaults[] = {
-        /* 红色LED - GPIO12 */
-        { .name = "red_led",   .description = "红灯(GPIO12,高电平)",    .pin = 12, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
-        { .name = "红灯",       .description = "红灯(GPIO12,高电平)",    .pin = 12, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
-        { .name = "led_r",     .description = "红色LED(GPIO12)",        .pin = 12, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
+    axk_board_alias_entry_t entries[AXK_BOARD_MAX_ALIASES];
+    int count = axk_board_config_get_aliases(entries, AXK_BOARD_MAX_ALIASES);
 
-        /* 绿色LED - GPIO14 */
-        { .name = "green_led", .description = "绿灯(GPIO14,高电平)",    .pin = 14, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
-        { .name = "绿灯",       .description = "绿灯(GPIO14,高电平)",    .pin = 14, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
-        { .name = "led_g",     .description = "绿色LED(GPIO14)",        .pin = 14, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
+    if (count == 0) {
+        /* Fallback: 硬编码 AiPi-Eyes-DU 默认别名 */
+        const axk_gpio_alias_t defaults[] = {
+            { .name = "red_led",   .description = "红灯(GPIO12,高电平)",    .pin = 12, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
+            { .name = "红灯",       .description = "红灯(GPIO12,高电平)",    .pin = 12, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
+            { .name = "led_r",     .description = "红色LED(GPIO12)",        .pin = 12, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
+            { .name = "green_led", .description = "绿灯(GPIO14,高电平)",    .pin = 14, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
+            { .name = "绿灯",       .description = "绿灯(GPIO14,高电平)",    .pin = 14, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
+            { .name = "led_g",     .description = "绿色LED(GPIO14)",        .pin = 14, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
+            { .name = "blue_led",  .description = "蓝灯(GPIO15,高电平)",   .pin = 15, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
+            { .name = "蓝灯",       .description = "蓝灯(GPIO15,高电平)",   .pin = 15, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
+            { .name = "led_b",     .description = "蓝色LED(GPIO15)",        .pin = 15, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
+            { .name = "key_0",     .description = "KEY_0按键(GPIO10,只读)", .pin = 10, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_READ },
+            { .name = "key_1",     .description = "KEY_1按键(GPIO11,只读)", .pin = 11, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_READ },
+        };
+        size_t i;
+        for (i = 0; i < sizeof(defaults) / sizeof(defaults[0]); i++) {
+            axk_gpio_alias_register(&defaults[i]);
+        }
+        return;
+    }
 
-        /* 蓝色LED - GPIO15 */
-        { .name = "blue_led",  .description = "蓝灯(GPIO15,高电平)",   .pin = 15, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
-        { .name = "蓝灯",       .description = "蓝灯(GPIO15,高电平)",   .pin = 15, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
-        { .name = "led_b",     .description = "蓝色LED(GPIO15)",        .pin = 15, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_WRITE | AXK_GPIO_ALIAS_FLAG_READ },
-
-        /* 按键 - 只读 */
-        { .name = "key_0",     .description = "KEY_0按键(GPIO10,只读)", .pin = 10, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_READ },
-        { .name = "key_1",     .description = "KEY_1按键(GPIO11,只读)", .pin = 11, .active_level = 1, .flags = AXK_GPIO_ALIAS_FLAG_READ },
-    };
-
-    size_t i;
-    for (i = 0; i < sizeof(defaults) / sizeof(defaults[0]); i++) {
-        axk_gpio_alias_register(&defaults[i]);
+    /* 从 board_config 填充别名表 */
+    for (int i = 0; i < count; i++) {
+        axk_gpio_alias_t alias;
+        memset(&alias, 0, sizeof(alias));
+        strncpy(alias.name, entries[i].name, AXK_GPIO_ALIAS_NAME_MAX - 1);
+        strncpy(alias.description, entries[i].desc, AXK_GPIO_ALIAS_DESC_MAX - 1);
+        alias.pin = entries[i].pin;
+        alias.active_level = entries[i].active_level;
+        /* 映射 flags: board_config flags bit0=WRITE bit1=READ */
+        alias.flags = 0;
+        if (entries[i].flags & 1) alias.flags |= AXK_GPIO_ALIAS_FLAG_WRITE;
+        if (entries[i].flags & 2) alias.flags |= AXK_GPIO_ALIAS_FLAG_READ;
+        axk_gpio_alias_register(&alias);
     }
 }
 

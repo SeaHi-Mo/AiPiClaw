@@ -23,6 +23,7 @@
 
 #include "cJSON.h"
 #include "axk_platform.h"
+#include "axk_board_config.h"
 #include "axk_session_mgr.h"
 #include "axk_context_summary.h"
 #include "FreeRTOS.h"
@@ -364,17 +365,51 @@ static void build_system_prompt(char *buf, size_t size, const char *session_id)
         }
     }
 
+    /* 构建板卡信息块 */
+    char board_block[512] = { 0 };
+    const axk_board_config_t *cfg = axk_board_config_get();
+    if (cfg) {
+        /* 构建 GPIO 别名列表 */
+        char gpio_list[256] = { 0 };
+        int offset = 0;
+        axk_board_alias_entry_t aliases[AXK_BOARD_MAX_ALIASES];
+        int alias_count = axk_board_config_get_aliases(aliases, AXK_BOARD_MAX_ALIASES);
+        for (int i = 0; i < alias_count && offset < (int)(sizeof(gpio_list) - 20); i++) {
+            offset += snprintf(gpio_list + offset, sizeof(gpio_list) - offset,
+                               "%s%s(GPIO%d)",
+                               i > 0 ? ", " : "", aliases[i].name, aliases[i].pin);
+        }
+
+        snprintf(board_block, sizeof(board_block),
+                 "You are MimiClaw running on:\\n"
+                 "  - Board: %s (%s @ %dMHz)\\n"
+                 "  - Memory: %dKB SRAM + %dMB PSRAM + %dMB Flash\\n"
+                 "  - Available GPIOs: %s\\n"
+                 "Use available tools when needed.\\n"
+                 "If user asks for current time/date, call get_current_time.\\n"
+                 "For time-sensitive questions about today/latest/current/recent news, prices, weather, or markets:\\n"
+                 "- Keep the first web_search query very close to the user's original wording.\\n"
+                 "- Do not invent or change years unless the user explicitly specifies a year.\\n"
+                 "- If the user asks about today/latest and gives no year, prefer current-date information over historical years.\\n"
+                 "When finished, answer clearly and concisely.\\n",
+                 cfg->board_name, cfg->chip_model, cfg->chip_freq_mhz,
+                 cfg->sram_kb, cfg->psram_mb, cfg->flash_mb,
+                 gpio_list[0] ? gpio_list : "(none)");
+    }
+
     snprintf(buf, size,
-             "You are MimiClaw running on Bouffalo SDK.\n"
-             "Use available tools when needed.\n"
-             "If user asks for current time/date, call get_current_time.\n"
-             "For time-sensitive questions about today/latest/current/recent news, prices, weather, or markets:\n"
-             "- Keep the first web_search query very close to the user's original wording.\n"
-             "- Do not invent or change years unless the user explicitly specifies a year.\n"
-             "- If the user asks about today/latest and gives no year, prefer current-date information over historical years.\n"
-             "When finished, answer clearly and concisely.\n"
-             "%s\n"
+             "%s"
+             "%s\\n"
              "%s",
+             board_block[0] ? board_block :
+                 "You are MimiClaw running on Bouffalo SDK.\\n"
+                 "Use available tools when needed.\\n"
+                 "If user asks for current time/date, call get_current_time.\\n"
+                 "For time-sensitive questions about today/latest/current/recent news, prices, weather, or markets:\\n"
+                 "- Keep the first web_search query very close to the user's original wording.\\n"
+                 "- Do not invent or change years unless the user explicitly specifies a year.\\n"
+                 "- If the user asks about today/latest and gives no year, prefer current-date information over historical years.\\n"
+                 "When finished, answer clearly and concisely.\\n",
              date_line,
              ctx_block[0] ? ctx_block : "");
 }

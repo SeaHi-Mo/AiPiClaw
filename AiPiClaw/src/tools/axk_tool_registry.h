@@ -54,6 +54,12 @@ const char *axk_tool_registry_get_tools_json(void);
 int axk_tool_registry_execute(const char *name, const char *input_json,
                               char *output, size_t output_size);
 
+/**
+ * @brief 注册单个工具到注册表（供外部模块调用）
+ * @param[in] tool 工具描述结构体指针
+ */
+void axk_register_tool(const mimi_tool_t *tool);
+
 #ifdef __cplusplus
 }
 #endif
