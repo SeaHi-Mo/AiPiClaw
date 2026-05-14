@@ -492,13 +492,10 @@ static void ws_handle_client(struct netconn *client)
                         continue;
                     }
 
-                    /* NOTE: msg is malloc'd above — push_inbound MUST copy content
-                     * before returning (message bus is free to consume it at any
-                     * later time via deferred processing). The bus never owns the
-                     * pointer; msg is always freed here at L357. If the bus stored
-                     * the pointer instead of copying, free(msg) would be a
-                     * use-after-free / double-free. Verify bus copies when adding
-                     * new backends. */
+                    /* Ownership: msg is allocated here; push_inbound() strdup's
+                     * the content internally before enqueuing (see
+                     * axk_message_bus.c:128). The bus owns its copy; the
+                     * caller retains ownership of msg and must free it. */
                     mimi_msg_t m = {0};
                     strncpy(m.channel, MIMI_CHAN_WEBSOCKET, sizeof(m.channel) - 1);
                     strncpy(m.chat_id, "ws_client", sizeof(m.chat_id) - 1);
