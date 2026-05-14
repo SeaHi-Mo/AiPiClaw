@@ -267,8 +267,13 @@ int axk_wifi_connect(const char *ssid, const char *password)
     memcpy(g_wifi_ctx.ssid, ssid, ssid_len + 1);
     memcpy(g_wifi_ctx.password, pwd, pwd_len + 1);
 
-    /* build connectparam  */
-    wifi_mgmr_sta_connect_params_t params = { 0 };
+    /* build connectparam
+     * NOTE: static 生命周期！SDK wifi_mgmr_sta_connect() 内部仅存指针，
+     *      DHCP 异步任务 (fhost_wpa_connected_task) 执行时若 params 已
+     *      出栈 → 读取垃圾数据 (如 use_dhcp) → instruction access fault。
+     *      memset 清零确保每次新连前无旧数据残留。 */
+    static wifi_mgmr_sta_connect_params_t params;
+    memset(&params, 0, sizeof(params));
     memcpy(params.ssid, ssid, ssid_len);
     params.ssid_len = (uint8_t)ssid_len;
 
