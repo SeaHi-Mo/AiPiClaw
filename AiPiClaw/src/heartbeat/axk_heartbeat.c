@@ -18,12 +18,22 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #define HEARTBEAT_INTERVAL_MS  60000  /**< heartbeatinterval(ms)，default 60s */
+
+/** Total heap estimate for BL618: 160KB wifi RAM + 319KB system RAM ≈ 479KB.
+ *  Used for <20% watermark calculation. Actual total depends on PSRAM/retention. */
+#define HEAP_TOTAL_ESTIMATE    (160 * 1024 + 319 * 1024)  /* ~479KB */
+#define HEAP_LOW_WATERMARK_PCT 20
 
 static axk_timer_handle_t s_hb_timer = NULL;
 static bool s_report_enabled = true;
 static uint32_t s_uptime_sec = 0;
+
+/* Heap watermark tracking */
+static uint32_t s_min_free_heap = UINT32_MAX;
+static bool s_low_heap_warned = false;
 
 /* ── heartbeatcallback  ────────────────────────────────────── */
 
@@ -54,10 +64,44 @@ static void heartbeat_timer_cb(axk_timer_handle_t timer, void *arg)
     chip = axk_hal_system_get_chip_name();
     sdk = axk_hal_system_get_sdk_version();
 
+    /* Track minimum free heap */
+    if (free_heap < s_min_free_heap) {
+        s_min_free_heap = free_heap;
+    }
+
+    /* Calculate percentage and check low watermark */
+    uint32_t pct = (uint32_t)((uint64_t)free_heap * 100ULL / HEAP_TOTAL_ESTIMATE);
+    if (free_heap > HEAP_TOTAL_ESTIMATE) {
+        pct = 100; /* PSRAM case — cap at 100% */
+    }
+
+    if (pct < HEAP_LOW_WATERMARK_PCT && !s_low_heap_warned) {
+        s_low_heap_warned = true;
+        AXK_LOG_ERROR("[heartbeat] LOW HEAP: %lu bytes (%lu%%), min recorded=%lu bytes\r\n",
+                      (unsigned long)free_heap, (unsigned long)pct,
+                      (unsigned long)s_min_free_heap);
+        /* Push alert to message bus */
+        mimi_msg_t msg = {0};
+        strncpy(msg.channel, MIMI_CHAN_SYSTEM, sizeof(msg.channel) - 1);
+        char alert[128];
+        snprintf(alert, sizeof(alert),
+                 "LOW HEAP: %lu bytes (%lu%%) — system may become unstable",
+                 (unsigned long)free_heap, (unsigned long)pct);
+        msg.content = strdup(alert);
+        msg.priority = MIMI_PRIO_HIGH;
+        msg.is_error = true;
+        axk_message_bus_push_outbound(&msg);
+        if (msg.content) free(msg.content);
+    } else if (pct >= HEAP_LOW_WATERMARK_PCT) {
+        s_low_heap_warned = false; /* Reset warning if recovered */
+    }
+
     snprintf(buf, sizeof(buf),
-             "[heartbeat] uptime=%lus heap=%luKB chip=%s sdk=%s",
+             "[heartbeat] uptime=%lus heap=%luKB min_heap=%luKB pct=%lu%% chip=%s sdk=%s",
              (unsigned long)s_uptime_sec,
              (unsigned long)(free_heap / 1024),
+             (unsigned long)(s_min_free_heap / 1024),
+             (unsigned long)pct,
              chip ? chip : "?",
              sdk ? sdk : "?");
 

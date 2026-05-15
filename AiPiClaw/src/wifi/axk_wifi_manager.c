@@ -10,6 +10,7 @@
 
 #include "axk_wifi_manager.h"
 #include "axk_mimiclaw.h"
+#include "axk_message_bus.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -33,6 +34,18 @@
 #define AXK_WIFI_PASSWORD_MAX_LEN  64
 #define AXK_WIFI_MAX_CB_NUM        4
 #define AXK_WIFI_RECONNECT_DELAY_MS 5000
+#define AXK_WIFI_MAX_RETRY         10
+#define AXK_WIFI_BACKOFF_BASE_MS   1000
+
+/**
+ * @brief Calculate exponential backoff: 1s, 2s, 4s, 8s, 16s, 32s (capped at 32s)
+ */
+static inline uint32_t axk_wifi_backoff_ms(int retry_count)
+{
+    uint32_t delay = AXK_WIFI_BACKOFF_BASE_MS << retry_count; /* 1 << n */
+    if (delay > 32000) delay = 32000;
+    return delay;
+}
 
 /**
  * @brief WiFimanager上下文结构
@@ -44,6 +57,9 @@ typedef struct {
     bool auto_reconnect;                            /**< auto reconnect enabled */
     bool pending_reconnect;                         /**< 待执行reconnect */
     TickType_t reconnect_tick;                        /**< reconnect timer (raw FreeRTOS ticks) */
+    int retry_count;                                /**< current reconnect attempts counter */
+    uint32_t reconnect_delay_ms;                    /**< current backoff delay for this reconnect cycle */
+    bool max_retry_exceeded;                        /**< true when retry_count >= AXK_WIFI_MAX_RETRY */
 
     axk_wifi_event_cb_t cbs[AXK_WIFI_MAX_CB_NUM];   /**< registercallback func 数组 */
     void *cb_user_data[AXK_WIFI_MAX_CB_NUM];        /**< callback userdata */
@@ -123,20 +139,50 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
 
         case CODE_WIFI_ON_CONNECTED:
             AXK_LOG_INFO("[axk_wifi_manager] connect to AP\r\n");
+            g_wifi_ctx.retry_count = 0;
+            g_wifi_ctx.max_retry_exceeded = false;
+            g_wifi_ctx.pending_reconnect = false;
             axk_wifi_set_state(AXK_WIFI_STATE_CONNECTED);
             break;
 
         case CODE_WIFI_ON_GOT_IP:
             AXK_LOG_INFO("[axk_wifi_manager] get IPaddr \r\n");
+            g_wifi_ctx.retry_count = 0;
+            g_wifi_ctx.max_retry_exceeded = false;
+            g_wifi_ctx.pending_reconnect = false;
             axk_wifi_set_state(AXK_WIFI_STATE_GOT_IP);
             break;
 
         case CODE_WIFI_ON_DISCONNECT:
             AXK_LOG_WARN("[axk_wifi_manager] WiFiconnectdisconnect\r\n");
             if (g_wifi_ctx.auto_reconnect && g_wifi_ctx.ssid[0] != '\0') {
-                g_wifi_ctx.pending_reconnect = true;
-                g_wifi_ctx.reconnect_tick = axk_wifi_get_tick();
-                AXK_LOG_INFO("[axk_wifi_manager] will in  %d ms 后attempt reconnect \r\n", AXK_WIFI_RECONNECT_DELAY_MS);
+                g_wifi_ctx.retry_count++;
+                if (g_wifi_ctx.retry_count >= AXK_WIFI_MAX_RETRY) {
+                    AXK_LOG_ERROR("[axk_wifi_manager] max retry (%d) reached, stop reconnecting\r\n",
+                                  AXK_WIFI_MAX_RETRY);
+                    g_wifi_ctx.max_retry_exceeded = true;
+                    g_wifi_ctx.pending_reconnect = false;
+                    /* Notify via message bus */
+                    mimi_msg_t msg = {0};
+                    strncpy(msg.channel, MIMI_CHAN_SYSTEM, sizeof(msg.channel) - 1);
+                    char buf[128];
+                    snprintf(buf, sizeof(buf),
+                             "WiFi retry exhausted: SSID=%s retries=%d",
+                             g_wifi_ctx.ssid, AXK_WIFI_MAX_RETRY);
+                    msg.content = strdup(buf);
+                    msg.priority = MIMI_PRIO_HIGH;
+                    msg.is_error = true;
+                    axk_message_bus_push_outbound(&msg);
+                    if (msg.content) free(msg.content);
+                } else {
+                    uint32_t delay_ms = axk_wifi_backoff_ms(g_wifi_ctx.retry_count - 1);
+                    g_wifi_ctx.pending_reconnect = true;
+                    g_wifi_ctx.reconnect_tick = axk_wifi_get_tick();
+                    g_wifi_ctx.reconnect_delay_ms = delay_ms;
+                    AXK_LOG_INFO("[axk_wifi_manager] reconnect attempt %d/%d after %lums\r\n",
+                                 g_wifi_ctx.retry_count, AXK_WIFI_MAX_RETRY,
+                                 (unsigned long)delay_ms);
+                }
             }
             axk_wifi_set_state(AXK_WIFI_STATE_DISCONNECTED);
             break;
@@ -212,17 +258,19 @@ void axk_wifi_manager_poll(void)
         return;
     }
 
-    /* processauto reconnect  */
+    /* processauto reconnect with exponential backoff */
     if (g_wifi_ctx.pending_reconnect) {
         TickType_t elapsed = axk_wifi_get_tick() - g_wifi_ctx.reconnect_tick;
-        if (elapsed >= pdMS_TO_TICKS(AXK_WIFI_RECONNECT_DELAY_MS)) {
+        if (elapsed >= pdMS_TO_TICKS(g_wifi_ctx.reconnect_delay_ms)) {
             g_wifi_ctx.pending_reconnect = false;
+            uint32_t delay_used = g_wifi_ctx.reconnect_delay_ms;
             xSemaphoreGive(g_wifi_ctx.mutex);
 
-            AXK_LOG_INFO("[axk_wifi_manager] attempt auto reconnect : SSID=%s\r\n", g_wifi_ctx.ssid);
+            AXK_LOG_INFO("[axk_wifi_manager] attempt auto reconnect #%d after %lums: SSID=%s\r\n",
+                         g_wifi_ctx.retry_count, (unsigned long)delay_used, g_wifi_ctx.ssid);
             int ret = axk_wifi_connect(g_wifi_ctx.ssid, g_wifi_ctx.password);
             if (ret != 0) {
-                AXK_LOG_ERROR("[axk_wifi_manager] auto reconnect FAIL\r\n");
+                AXK_LOG_ERROR("[axk_wifi_manager] auto reconnect FAIL, will retry via next DISCONNECT event\r\n");
             }
             return; /* 经release mutex，直接return  */
         }
