@@ -17,6 +17,7 @@
 #include <stdbool.h>
 
 #include "wifi_mgmr.h"
+#include "wifi_mgmr_ext.h"
 #include "easyflash.h"
 #include "shell.h"
 
@@ -167,7 +168,11 @@ void axk_wifi_onboard_stop(void)
         return;
     }
     s_onboard_active = false;
-    AXK_LOG_INFO("[axk_wifi_onboard] provision mode stop \r\n");
+
+    /* Actually stop the SoftAP via wifi_mgmr */
+    wifi_mgmr_ap_stop();
+
+    AXK_LOG_INFO("[axk_wifi_onboard] SoftAP stopped\r\n");
 }
 
 /**

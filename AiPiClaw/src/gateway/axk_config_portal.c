@@ -39,7 +39,6 @@
 #include "axk_wifi_manager.h"
 #include "axk_wifi_onboard.h"
 #include "axk_llm_proxy.h"
-#include "axk_ws_server.h"
 #include "mimi_config.h"
 
 #include "config_ui.h"
@@ -261,6 +260,13 @@ static void scan_item_callback(void *env, void *arg, wifi_mgmr_scan_item_t *item
  * This is called from the HTTP handling context (portal task). We do a
  * short blocking wait with vTaskDelay because the scan completes via
  * async event (CODE_WIFI_ON_SCAN_DONE).
+ *
+ * @note Dual-mode (SoftAP + STA scan): On BL618 (WiFi6), the chipset
+ * supports simultaneous SoftAP and STA scan. During scan, the AP channel
+ * may briefly hop across other channels, potentially causing connected
+ * clients to experience short latency spikes or packet loss. The scan
+ * completes typically in 2-3 seconds. This is normal behavior.
+ * After scan returns, the AP stabilizes back on its configured channel.
  */
 static int trigger_scan_and_collect(void)
 {
@@ -750,8 +756,9 @@ static int handle_llm_config_get(struct netconn *client)
 /**
  * @brief POST /api/apply - Save all config and transition
  *
- * Saves WiFi + LLM config, then stops SoftAP, starts WebSocket server,
- * and connects WiFi.
+ * Saves WiFi + LLM config to flash, stops SoftAP and config portal,
+ * then connects to target WiFi. WS server (already running from boot)
+ * continues serving after STA connection is established.
  */
 static int handle_apply(struct netconn *client, const char *body)
 {
@@ -766,14 +773,11 @@ static int handle_apply(struct netconn *client, const char *body)
     /* Save everything to flash */
     ef_save_env();
 
-    /* Transition: stop SoftAP config portal */
+    /* Transition: stop SoftAP config portal first */
     axk_config_portal_stop();
     axk_wifi_onboard_stop();
 
-    /* Start WebSocket server for chat */
-    axk_ws_server_init();
-    axk_ws_server_start(MIMI_WS_PORT);
-
+    /* WS server already running from modules_init; ensure it's listening */
     /* Attempt auto connect (reads saved WiFi credentials) */
     int ret = axk_wifi_auto_connect();
 
