@@ -153,8 +153,18 @@ static void axk_mimiclaw_task(void *param)
                 if (ret != 0) {
                     /* No saved credentials — start SoftAP config portal */
                     AXK_LOG_INFO("[axk_mimiclaw] no saved WiFi, starting config portal...\r\n");
-                    axk_wifi_onboard_start();
-                    axk_config_portal_start();
+                    ret = axk_wifi_onboard_start();
+                    if (ret != 0) {
+                        AXK_LOG_ERROR("[axk_mimiclaw] SoftAP start FAIL: %d, retry after 2s\r\n", ret);
+                        vTaskDelay(pdMS_TO_TICKS(2000));
+                        ret = axk_wifi_onboard_start();
+                    }
+                    /* Wait for AP netif to be ready before binding HTTP */
+                    vTaskDelay(pdMS_TO_TICKS(500));
+                    ret = axk_config_portal_start();
+                    if (ret != 0) {
+                        AXK_LOG_ERROR("[axk_mimiclaw] config portal start FAIL: %d\r\n", ret);
+                    }
                 }
             }
         }

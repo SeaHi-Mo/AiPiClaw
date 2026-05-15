@@ -26,6 +26,7 @@
 #include <stdlib.h>
 
 #include "lwip/api.h"
+#include "lwip/netif.h"
 #include "lwip/ip4_addr.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -126,6 +127,19 @@ int axk_config_portal_start(void)
     if (listener == NULL) {
         AXK_LOG_ERROR("[portal] netconn_new FAIL\r\n");
         return -1;
+    }
+
+    /* Check if any netif is up — lwIP needs at least one interface */
+    struct netif *iface = netif_find(NULL);
+    if (iface) {
+        AXK_LOG_INFO("[portal] first netif found, name=%c%c ip=%d.%d.%d.%d\r\n",
+                     iface->name[0], iface->name[1],
+                     (iface->ip_addr.addr >> 0) & 0xFF,
+                     (iface->ip_addr.addr >> 8) & 0xFF,
+                     (iface->ip_addr.addr >> 16) & 0xFF,
+                     (iface->ip_addr.addr >> 24) & 0xFF);
+    } else {
+        AXK_LOG_WARN("[portal] no netif found at bind time\r\n");
     }
 
     err = netconn_bind(listener, IP_ADDR_ANY, PORTAL_LISTEN_PORT);
