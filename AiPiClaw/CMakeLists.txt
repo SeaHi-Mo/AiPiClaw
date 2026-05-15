@@ -117,6 +117,25 @@ sdk_library_add_sources(compat/heap_compat.c)
 # 设置主文件
 sdk_set_main_file(main.c)
 
+# ── Web UI 嵌入 (每次构建自动从 HTML 生成 C 头文件) ──
+set(CONFIG_UI_HTML  "/mnt/d/Users/Seahi/Desktop/agent-reports/config_ui.html")
+set(WEB_UI_HTML     "/mnt/d/Users/Seahi/Desktop/agent-reports/web_ui.html")
+add_custom_command(
+    OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/gateway/config_ui.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/gateway/web_ui.h
+    COMMAND ${CMAKE_COMMAND} -E env
+            python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/embed_html.py
+            "${CONFIG_UI_HTML}"  ${CMAKE_CURRENT_SOURCE_DIR}/src/gateway/config_ui.h  CONFIG_UI_HTML
+            "${WEB_UI_HTML}"     ${CMAKE_CURRENT_SOURCE_DIR}/src/gateway/web_ui.h     WEB_UI_HTML
+    DEPENDS ${CONFIG_UI_HTML} ${WEB_UI_HTML}
+    COMMENT "Embedding Web UI HTML into C headers"
+)
+set_source_files_properties(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/gateway/config_ui.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/gateway/web_ui.h
+    PROPERTIES GENERATED TRUE
+)
+
 project(AiPiClaw)
 
 # ── 板卡配置解析器 (DISABLED: 源文件导致 BSS 偏移 ~3KB) ──

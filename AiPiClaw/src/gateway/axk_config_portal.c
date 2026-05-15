@@ -44,6 +44,7 @@
 #include "mimi_config.h"
 
 #include "config_ui.h"
+#include "web_ui.h"
 
 /* ==================== Constants ==================== */
 
@@ -86,6 +87,7 @@ static int parse_request(struct netconn *client,
 
 /* Route handlers */
 static int handle_get_root(struct netconn *client);
+static int handle_get_chat(struct netconn *client);
 static int handle_wifi_scan(struct netconn *client);
 static int handle_wifi_connect(struct netconn *client, const char *body);
 static int handle_wifi_status(struct netconn *client);
@@ -535,6 +537,14 @@ static int handle_get_root(struct netconn *client)
 }
 
 /**
+ * @brief GET /chat - Serve the Web Chat SPA page
+ */
+static int handle_get_chat(struct netconn *client)
+{
+    return send_html_response(client, 200, WEB_UI_HTML);
+}
+
+/**
  * @brief GET /api/wifi/scan - Trigger scan and return results as JSON
  */
 static int handle_wifi_scan(struct netconn *client)
@@ -796,9 +806,9 @@ static int handle_apply(struct netconn *client, const char *body)
     /* Save everything to flash */
     ef_save_env();
 
-    /* Transition: stop SoftAP config portal first */
-    axk_config_portal_stop();
-    axk_wifi_onboard_stop();
+    /* Keep HTTP server running — still serves /chat page.
+     * SoftAP also stays up (AP+STA coexists).
+     * User can still browse /chat after config applied. */
 
     /* WS server already running from modules_init; ensure it's listening */
     /* Attempt auto connect (reads saved WiFi credentials) */
@@ -808,6 +818,9 @@ static int handle_apply(struct netconn *client, const char *body)
     cJSON_AddStringToObject(resp, "wifi_connecting",
                             (ret == 0) ? "yes" : "no_credentials");
     cJSON_AddStringToObject(resp, "ws_port", "18789");
+    cJSON_AddStringToObject(resp, "chat_url", "/chat");
+    cJSON_AddStringToObject(resp, "apply_msg",
+                            "Configuration saved. Browse /chat to start chatting.");
 
     int r = send_json_response(client, 200, resp);
     cJSON_Delete(resp);
@@ -838,6 +851,14 @@ static int handle_request(struct netconn *client,
             return send_response(client, 405, "text/plain", "Method Not Allowed");
         }
         return handle_get_root(client);
+    }
+
+    /* GET /chat */
+    if (strcmp(uri_path, "/chat") == 0) {
+        if (strcmp(method, "GET") != 0) {
+            return send_response(client, 405, "text/plain", "Method Not Allowed");
+        }
+        return handle_get_chat(client);
     }
 
     /* GET /api/wifi/scan */
