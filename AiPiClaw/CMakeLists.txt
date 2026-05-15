@@ -91,6 +91,7 @@ sdk_library_add_sources(src/gateway/axk_http_proxy.c)
 sdk_library_add_sources(src/gateway/axk_transport_ws.c)
 sdk_library_add_sources(src/gateway/axk_telegram_bot.c)
 sdk_library_add_sources(src/gateway/axk_feishu_bot.c)
+sdk_library_add_sources(src/gateway/axk_config_portal.c)
 
 # LLM代理模块
 sdk_add_include_directories(src/llm)

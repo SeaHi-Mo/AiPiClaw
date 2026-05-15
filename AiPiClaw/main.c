@@ -24,11 +24,12 @@
 #include "axk_message_bus.h"
 #include "axk_telegram_bot.h"
 
-/* 各module头file */
+    /* 各module头file */
 #include "axk_ota_manager.h"
 #include "axk_wifi_onboard.h"
 #include "axk_wifi_manager.h"
 #include "axk_ws_server.h"
+#include "axk_config_portal.h"
 #include "axk_http_proxy.h"
 #include "axk_gpio_control.h"
 #include "axk_llm_proxy.h"
@@ -144,7 +145,13 @@ static void axk_mimiclaw_task(void *param)
             s_auto_connect_done = true;
             if (axk_wifi_get_state() == AXK_WIFI_STATE_DISCONNECTED) {
                 AXK_LOG_INFO("[axk_mimiclaw] attempting saved WiFi connect...\r\n");
-                axk_wifi_auto_connect();
+                int ret = axk_wifi_auto_connect();
+                if (ret != 0) {
+                    /* No saved credentials — start SoftAP config portal */
+                    AXK_LOG_INFO("[axk_mimiclaw] no saved WiFi, starting config portal...\r\n");
+                    axk_wifi_onboard_start();
+                    axk_config_portal_start();
+                }
             }
         }
 
@@ -288,6 +295,10 @@ static int axk_mimiclaw_modules_init(void)
     ret = axk_wifi_onboard_init();
     if (ret != 0) AXK_LOG_WARN("[axk_mimiclaw] WiFi provisioningmoduleinitWARN: %d\r\n", ret);
     else AXK_LOG_INFO("[axk_mimiclaw] WiFi provisioningmoduleinitOK\r\n");
+
+    ret = axk_config_portal_init();
+    if (ret != 0) AXK_LOG_WARN("[axk_mimiclaw] config portalinitWARN: %d\r\n", ret);
+    else AXK_LOG_INFO("[axk_mimiclaw] config portalmoduleinitOK\r\n");
 
     ret = axk_http_proxy_init();
     if (ret != 0) AXK_LOG_WARN("[axk_mimiclaw] HTTP proxyinitWARN: %d\r\n", ret);

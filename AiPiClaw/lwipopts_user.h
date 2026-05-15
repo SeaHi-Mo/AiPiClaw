@@ -158,4 +158,9 @@ void sys_thread_sem_deinit(void);
 #define LWIP_NETCONN_THREAD_SEM_FREE()  sys_thread_sem_deinit()
 #endif
 
+/* ── HTTPD options for Config Portal ── */
+#define LWIP_HTTPD_CGI            0  /* not using old CGI; using netconn directly */
+#define LWIP_HTTPD_CGI_SSI        0
+#define LWIP_HTTPD_SSI            0
+
 #endif /* LWIP_HDR_LWIPOPTS_H__ */
