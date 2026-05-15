@@ -285,11 +285,10 @@ int axk_wifi_connect(const char *ssid, const char *password)
     params.use_dhcp = 1;  /* use DHCPget IP */
     params.scan_mode = 0; /* in all频道scan  */
 
-    xSemaphoreGive(g_wifi_ctx.mutex);
-
     AXK_LOG_INFO("[axk_wifi_manager] attempt connectWiFi: SSID=%s\r\n", ssid);
 
     int ret = wifi_mgmr_sta_connect(&params);
+    xSemaphoreGive(g_wifi_ctx.mutex);
     if (ret != 0) {
         AXK_LOG_ERROR("[axk_wifi_manager] call wifi_mgmr_sta_connectFAIL: %d\r\n", ret);
         return -1;
@@ -313,9 +312,8 @@ int axk_wifi_disconnect(void)
 
     g_wifi_ctx.pending_reconnect = false;
 
-    xSemaphoreGive(g_wifi_ctx.mutex);
-
     int ret = wifi_sta_disconnect();
+    xSemaphoreGive(g_wifi_ctx.mutex);
     if (ret != 0) {
         AXK_LOG_ERROR("[axk_wifi_manager] disconnectconnectFAIL: %d\r\n", ret);
         return -1;

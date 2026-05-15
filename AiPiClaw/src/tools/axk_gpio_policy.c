@@ -39,12 +39,9 @@ static bool s_initialized = false;
  */
 static void axk_register_default_pins(void)
 {
-    int pins[AXK_GPIO_POLICY_MAX_PINS];
-    int count = axk_board_config_get_allowed_pins(pins, AXK_GPIO_POLICY_MAX_PINS);
+    /* Phase 1 DISABLED: board_config 未初始化，直接使用硬编码 fallback */
+    const uint8_t defaults[] = { 10, 11, 12, 14, 15 };
 
-    if (count == 0) {
-        /* Fallback: AiPi-Eyes-DU 板载可用引脚 */
-        const uint8_t defaults[] = { 10, 11, 12, 14, 15 };
         size_t i;
         for (i = 0; i < sizeof(defaults) / sizeof(defaults[0]); i++) {
             if (s_allowed_count < AXK_GPIO_POLICY_MAX_PINS) {

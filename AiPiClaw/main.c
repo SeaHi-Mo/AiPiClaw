@@ -40,7 +40,6 @@
 
 /* JSON library for WS protocol encoding */
 #include "cJSON.h"
-#include "axk_board_config.h"
 
 /* BL618 SDK headers */
 #include "board.h"
@@ -256,14 +255,6 @@ static int axk_mimiclaw_modules_init(void)
     ret = axk_serial_cli_init();
     if (ret != 0) return ret;
     AXK_LOG_INFO("[axk_mimiclaw] serial CLImoduleinitOK\r\n");
-
-    /* 板卡配置解析（必须在 tool_registry 之前，alias/policy 依赖） */
-    ret = axk_board_config_init();
-    if (ret != 0) {
-        AXK_LOG_WARN("[axk_mimiclaw] board config init WARN (fallback): %d\r\n", ret);
-    } else {
-        AXK_LOG_INFO("[axk_mimiclaw] board config init OK\r\n");
-    }
 
     ret = axk_tool_registry_init();
     if (ret != 0) return ret;

@@ -16,7 +16,6 @@ sdk_add_compile_options(-UCONFIG_WPS2 -UCONFIG_WPS_PIN -UUSE_WPS_TASK)
 # 包含路径配置
 sdk_add_include_directories(src/include)
 sdk_add_include_directories(src/platform)
-sdk_add_include_directories(src/board)
 sdk_add_include_directories(src/bus)
 sdk_add_include_directories(src/gateway)
 sdk_add_include_directories(src/cron)
@@ -119,11 +118,10 @@ sdk_set_main_file(main.c)
 
 project(AiPiClaw)
 
-# ── 板卡配置解析器 ──
-# board_data.c: AUTO-GENERATED from boards/board.json (commit 时手动重新生成)
-sdk_library_add_sources(src/board/board_data.c)
-sdk_library_add_sources(src/board/axk_board_config.c)
+# ── 板卡配置解析器 (DISABLED: 源文件导致 BSS 偏移 ~3KB) ──
+# sdk_library_add_sources(src/board/board_data.c)
+# sdk_library_add_sources(src/board/axk_board_config.c)
 
-# 板卡信息工具 (board_info + gpio_list_aliases)
-sdk_library_add_sources(src/tools/axk_tool_board_info.c)
-sdk_library_add_sources(src/tools/axk_tool_gpio_list.c)
+# 板卡信息工具 (DISABLED: 同上)
+# sdk_library_add_sources(src/tools/axk_tool_board_info.c)
+# sdk_library_add_sources(src/tools/axk_tool_gpio_list.c)

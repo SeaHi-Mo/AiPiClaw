@@ -316,11 +316,9 @@ int axk_tool_registry_init(void)
         axk_register_tool(&cr);
     }
 
-    /* register board_info tool */
-    axk_tool_board_info_register();
-
-    /* register gpio_list_aliases tool */
-    axk_tool_gpio_list_register();
+    /* register tools from individual modules */
+    /* Phase 1 DISABLED: axk_tool_board_info_register(); */
+    /* Phase 1 DISABLED: axk_tool_gpio_list_register(); */
 
     axk_build_tools_json();
 
