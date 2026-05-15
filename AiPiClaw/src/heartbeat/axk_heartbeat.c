@@ -88,10 +88,13 @@ static void heartbeat_timer_cb(axk_timer_handle_t timer, void *arg)
                  "LOW HEAP: %lu bytes (%lu%%) — system may become unstable",
                  (unsigned long)free_heap, (unsigned long)pct);
         msg.content = strdup(alert);
+        if (!msg.content) {
+            return;
+        }
         msg.priority = MIMI_PRIO_HIGH;
         msg.is_error = true;
         axk_message_bus_push_outbound(&msg);
-        if (msg.content) free(msg.content);
+        free(msg.content);
     } else if (pct >= HEAP_LOW_WATERMARK_PCT) {
         s_low_heap_warned = false; /* Reset warning if recovered */
     }
