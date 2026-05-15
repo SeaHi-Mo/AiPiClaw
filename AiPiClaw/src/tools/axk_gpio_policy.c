@@ -10,7 +10,7 @@
 
 #include "axk_gpio_policy.h"
 #include "axk_platform.h"
-#include "axk_board_config.h"
+/* Phase 1 DISABLED: #include "axk_board_config.h" */
 #include "shell.h"
 #include "FreeRTOS.h"
 #include "semphr.h"
@@ -42,19 +42,19 @@ static void axk_register_default_pins(void)
     /* Phase 1 DISABLED: board_config 未初始化，直接使用硬编码 fallback */
     const uint8_t defaults[] = { 10, 11, 12, 14, 15 };
 
-        size_t i;
-        for (i = 0; i < sizeof(defaults) / sizeof(defaults[0]); i++) {
-            if (s_allowed_count < AXK_GPIO_POLICY_MAX_PINS) {
-                s_allowed_pins[s_allowed_count++] = defaults[i];
-            }
+    size_t i;
+    for (i = 0; i < sizeof(defaults) / sizeof(defaults[0]); i++) {
+        if (s_allowed_count < AXK_GPIO_POLICY_MAX_PINS) {
+            s_allowed_pins[s_allowed_count++] = defaults[i];
         }
-        return;
     }
+#if 0
+    /* Phase 1 DISABLED: board_config 依赖代码，待 board_config 恢复后启用 */
 
-    /* 从 board_config 填充白名单 */
     for (int i = 0; i < count && s_allowed_count < AXK_GPIO_POLICY_MAX_PINS; i++) {
         s_allowed_pins[s_allowed_count++] = (uint8_t)pins[i];
     }
+#endif
 }
 
 int axk_gpio_policy_init(void)
