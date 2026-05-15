@@ -15,11 +15,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "wifi_mgmr.h"
 #include "wifi_mgmr_ext.h"
 #include "easyflash.h"
 #include "shell.h"
+#include "lwip/ip4_addr.h"
 
 #define AXK_WIFI_KV_SSID     "mimi_wifi_ssid"
 #define AXK_WIFI_KV_PASSWORD "mimi_wifi_pwd"
@@ -141,6 +143,9 @@ int axk_wifi_onboard_start(void)
     ap_cfg.akm = "WPA2";
     ap_cfg.channel = 6;
     ap_cfg.use_dhcpd = true;
+    ap_cfg.use_ipcfg = true;   /* use static IP instead of DHCP on SoftAP */
+    ap_cfg.ap_ipaddr = htonl(0xC0A80401);  /* 192.168.4.1 */
+    ap_cfg.ap_mask  = htonl(0xFFFFFF00);   /* 255.255.255.0 */
     ap_cfg.start = 2;
     ap_cfg.limit = 4;
 
@@ -152,8 +157,8 @@ int axk_wifi_onboard_start(void)
     }
 
     AXK_LOG_INFO("[axk_wifi_onboard] SoftAPstarted\r\n");
-    AXK_LOG_INFO("[axk_wifi_onboard] SSID: MimiClaw-Config, password : 12345678\r\n");
-    AXK_LOG_INFO("[axk_wifi_onboard] 请connect热点后via CLIcmd wifi_set config\r\n");
+    AXK_LOG_INFO("[axk_wifi_onboard] SSID: AiPiClaw, password : 12345678, IP: 192.168.4.1\r\n");
+    AXK_LOG_INFO("[axk_wifi_onboard] 请connect热点后访问http://192.168.4.1 配置\r\n");
     return 0;
 }
 

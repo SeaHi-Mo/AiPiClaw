@@ -28,6 +28,7 @@
 #include "lwip/api.h"
 #include "lwip/netif.h"
 #include "lwip/ip4_addr.h"
+#include "lwip/ip_addr.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
@@ -129,20 +130,28 @@ int axk_config_portal_start(void)
         return -1;
     }
 
-    /* Check if any netif is up — lwIP needs at least one interface */
+    /* Find AP netif by IP 192.168.4.1 and bind to it */
+    ip_addr_t ap_ip;
+    ipaddr_aton("192.168.4.1", &ap_ip);
     struct netif *iface = netif_find(NULL);
-    if (iface) {
-        AXK_LOG_INFO("[portal] first netif found, name=%c%c ip=%d.%d.%d.%d\r\n",
-                     iface->name[0], iface->name[1],
-                     (iface->ip_addr.addr >> 0) & 0xFF,
-                     (iface->ip_addr.addr >> 8) & 0xFF,
-                     (iface->ip_addr.addr >> 16) & 0xFF,
-                     (iface->ip_addr.addr >> 24) & 0xFF);
-    } else {
-        AXK_LOG_WARN("[portal] no netif found at bind time\r\n");
+    struct netif *ap_netif = NULL;
+    while (iface) {
+        if (ip_addr_cmp(&iface->ip_addr, &ap_ip)) {
+            ap_netif = iface;
+            break;
+        }
+        iface = iface->next;
     }
 
-    err = netconn_bind(listener, IP_ADDR_ANY, PORTAL_LISTEN_PORT);
+    if (ap_netif) {
+        AXK_LOG_INFO("[portal] found AP netif %c%c, binding to %s\r\n",
+                     ap_netif->name[0], ap_netif->name[1],
+                     ipaddr_ntoa(&ap_ip));
+        err = netconn_bind(listener, &ap_ip, PORTAL_LISTEN_PORT);
+    } else {
+        AXK_LOG_WARN("[portal] AP netif not found, binding IP_ANY\r\n");
+        err = netconn_bind(listener, IP_ADDR_ANY, PORTAL_LISTEN_PORT);
+    }
     if (err != ERR_OK) {
         AXK_LOG_ERROR("[portal] netconn_bind port %d FAIL: %d\r\n",
                       PORTAL_LISTEN_PORT, err);
