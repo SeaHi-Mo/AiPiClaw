@@ -52,6 +52,7 @@
 #include "fhost_api.h"
 #include "macsw_plat.h"
 #include "wifi_mgmr_ext.h"
+#include "bflb_wdg.h"
 /* C3: wifi_mgmr_init 声明 (替代 include axk_hal_wifi.h, 避免与管理器层类型冲突) */
 extern int wifi_mgmr_init(wifi_conf_t *conf);
 #include "rfparam_adapter.h"
@@ -61,6 +62,9 @@ extern int wifi_mgmr_init(wifi_conf_t *conf);
  *     之前改为 BSS + memset 导致 rom_code blob 内部硬编码的
  *     wifiMgmr 等BSS地址偏移 8 字节 → strcmp(NULL) crash */
 static wifi_conf_t s_wifi_conf = { .country_code = "CN" };
+
+/* v79: watchdog设备句柄，在mimi_main循环中喂狗 */
+static struct bflb_device_s *s_wdg = NULL;
 
 /**
  * @brief WiFifwstarttask
@@ -184,6 +188,11 @@ static void axk_mimiclaw_task(void *param)
         }
 
         vTaskDelay(pdMS_TO_TICKS(10));
+
+        /* Feed watchdog: if mimi_main stalls >30s, system resets */
+        if (s_wdg) {
+            bflb_wdg_reset_countervalue(s_wdg);
+        }
     }
 }
 
@@ -372,6 +381,22 @@ int main(void)
     /* initlwIP TCP/IP stack */
     tcpip_init(NULL, NULL);
     printf("[main] tcpip_init ok\r\n");
+
+    /* Initialize watchdog: 30s timeout, reset mode */
+    s_wdg = bflb_device_get_by_name("watchdog0");
+    if (s_wdg) {
+        struct bflb_wdg_config_s wdg_cfg = {
+            .clock_source = WDG_CLKSRC_1K,  /* 1KHz clock */
+            .clock_div = 1,                   /* no division */
+            .comp_val = 30000,                /* 30 seconds */
+            .mode = WDG_MODE_RESET,           /* reset on timeout */
+        };
+        bflb_wdg_init(s_wdg, &wdg_cfg);
+        bflb_wdg_start(s_wdg);
+        printf("[main] watchdog started: 30s timeout, reset mode\r\n");
+    } else {
+        printf("[main] watchdog device not found\r\n");
+    }
 
     /* get UART0device  and initshell
      * note: : board_init → console_init config UART0 (GPIO21/22, rx_fifo_threshold=7)

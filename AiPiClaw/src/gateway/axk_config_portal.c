@@ -103,7 +103,7 @@ static int send_html_response(struct netconn *client, int status,
 
 /* ==================== Public API ==================== */
 
-void axk_config_portal_init(void)
+int axk_config_portal_init(void)
 {
     if (s_portal_mutex == NULL) {
         s_portal_mutex = xSemaphoreCreateMutex();
@@ -112,6 +112,7 @@ void axk_config_portal_init(void)
         s_scan_mutex = xSemaphoreCreateMutex();
     }
     AXK_LOG_INFO("[portal] Config Portal init ok\r\n");
+    return 0;
 }
 
 int axk_config_portal_start(void)
@@ -208,14 +209,19 @@ bool axk_config_portal_is_running(void)
 
 /**
  * @brief Callback for wifi_mgmr_scan_ap_all, builds JSON array of scan items.
- * Called synchronously inside wifi_mgmr_scan_ap_all loop, so we accumulate
- * into a cJSON array then convert to string after.
+ * Called synchronously inside wifi_mgmr_scan_ap_all loop.
  */
-static int scan_item_callback(void *env, void *arg, wifi_mgmr_scan_item_t *item)
+static void scan_item_callback(void *env, void *arg, wifi_mgmr_scan_item_t *item)
 {
+    (void)arg;
     cJSON *arr = (cJSON *)env;
     if (!arr || !item) {
-        return 0;
+        return;
+    }
+
+    /* Skip hidden SSIDs */
+    if (item->ssid[0] == '\0') {
+        return;
     }
 
     cJSON *ap = cJSON_CreateObject();
@@ -244,7 +250,6 @@ static int scan_item_callback(void *env, void *arg, wifi_mgmr_scan_item_t *item)
     cJSON_AddStringToObject(ap, "bssid", bssid_str);
 
     cJSON_AddItemToArray(arr, ap);
-    return 0; /* Continue iteration */
 }
 
 /* ==================== Scan Callback Wrapper ==================== */
@@ -535,9 +540,6 @@ static int handle_wifi_scan(struct netconn *client)
 
     int r = send_json_response(client, 200, resp);
     cJSON_Delete(resp);
-
-    /* Free scan results */
-    wifi_mgmr_sta_scanlist_free();
     return r;
 }
 

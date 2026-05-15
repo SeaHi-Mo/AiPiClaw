@@ -26,8 +26,10 @@ extern "C" {
  *
  * 注册路由表，准备 HTTP 服务器内部状态。
  * 不启动监听，需调用 axk_config_portal_start() 启动。
+ *
+ * @return 0成功，负数错误码
  */
-void axk_config_portal_init(void);
+int axk_config_portal_init(void);
 
 /**
  * @brief 启动配置门户 HTTP 服务器
