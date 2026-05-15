@@ -136,7 +136,7 @@ int axk_wifi_onboard_start(void)
     s_onboard_active = true;
     AXK_LOG_INFO("[axk_wifi_onboard] startSoftAPprovision mode \r\n");
 
-    ap_cfg.ssid = "MimiClaw-Config";
+    ap_cfg.ssid = "AiPiClaw";
     ap_cfg.key = "12345678";
     ap_cfg.akm = "WPA2";
     ap_cfg.channel = 6;
