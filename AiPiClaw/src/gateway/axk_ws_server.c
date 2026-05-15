@@ -126,9 +126,9 @@ static bool ws_do_handshake(struct netconn *client)
             "Content-Type: text/html; charset=utf-8\r\n"
             "Content-Length: %u\r\n"
             "Connection: close\r\n"
-            "\r\n", (unsigned int)WEB_UI_HTML_LEN);
+            "\r\n", (unsigned int)strlen(WEB_UI_HTML));
         netconn_write(client, resp_hdr, hdr_len, NETCONN_COPY);
-        netconn_write(client, WEB_UI_HTML, WEB_UI_HTML_LEN, NETCONN_COPY);
+        netconn_write(client, WEB_UI_HTML, strlen(WEB_UI_HTML), NETCONN_COPY);
         return false;  /* close after serving page */
     }
 

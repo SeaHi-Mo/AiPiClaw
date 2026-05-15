@@ -21,23 +21,31 @@ import sys
 
 
 def escape_c_string(text: str) -> str:
-    """Escape a string for use as a C string literal."""
+    """Escape a string for use as a C string literal.
+    Keeps UTF-8 multibyte sequences as-is (C compiler treats them as
+    literal bytes inside string constants). Only escapes control chars
+    and backslash/quote."""
     result = []
     for ch in text:
-        if ch == '\n':
+        code = ord(ch)
+        if code == 10:  # \n
             result.append('\\n"\n    "')
-        elif ch == '\r':
+        elif code == 13:  # \r
             result.append('\\r')
-        elif ch == '\\':
+        elif code == 92:  # \\
             result.append('\\\\')
-        elif ch == '"':
+        elif code == 34:  # "
             result.append('\\"')
-        elif ch == '\t':
+        elif code == 9:  # \t
             result.append('\\t')
-        elif 32 <= ord(ch) < 127:
+        elif 32 <= code < 127:
             result.append(ch)
+        elif code < 32:
+            # Rare control chars
+            result.append(f'\\x{code:02x}')
         else:
-            result.append(f'\\x{ord(ch):02x}')
+            # UTF-8 characters (>= 128) — keep as-is, compiler passes bytes through
+            result.append(ch)
     return ''.join(result)
 
 

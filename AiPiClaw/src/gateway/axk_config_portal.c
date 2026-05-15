@@ -341,7 +341,6 @@ static int parse_request(struct netconn *client,
     char req_buf[PORTAL_MAX_HEADERS];
     bool headers_done = false;
     int content_length = 0;
-    size_t uri_offset = 0;
     size_t uri_len = 0;
 
     body[0] = '\0';
@@ -395,7 +394,6 @@ static int parse_request(struct netconn *client,
                             if (uri_len >= uri_sz) uri_len = uri_sz - 1;
                             memcpy(uri, uri_start, uri_len);
                             uri[uri_len] = '\0';
-                            uri_offset = (uri_start - req_buf);
                         }
                     }
                 }
