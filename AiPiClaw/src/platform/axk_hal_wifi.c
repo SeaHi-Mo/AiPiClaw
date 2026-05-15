@@ -51,10 +51,16 @@ int axk_hal_wifi_init(axk_wifi_mode_t mode)
 /**
  * @brief 连接到指定WiFi热点
  *
+ * @note 此函数当前无调用者（由上层 axk_wifi_manager.c 接管），
+ *       标记为死代码以防误用。若未来启用，必须：
+ *       1. 添加 g_hal_wifi_mutex 保护 static params 防并发覆盖
+ *       2. 注意 wifi_mgmr_sta_connect() 同步阻塞，勿在锁内调用
+ *       参考 axk_wifi_manager.c::axk_wifi_connect() 的模式
  * @param[in] ssid WiFi热点名称
  * @param[in] password WiFi密码（可选，NULL表示开放网络）
  * @return 0 成功，-1 ssid为空
  */
+#if 0
 int axk_hal_wifi_connect(const char* ssid, const char* password)
 {
     if (ssid == NULL) return -1;
@@ -83,6 +89,7 @@ int axk_hal_wifi_connect(const char* ssid, const char* password)
 #endif
     return 0;
 }
+#endif
 
 /**
  * @brief 断开当前WiFi连接

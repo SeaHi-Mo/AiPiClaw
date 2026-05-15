@@ -55,7 +55,9 @@ typedef void (*axk_wifi_event_cb_t)(axk_wifi_state_t state, void* arg);  /**< Wi
 int axk_hal_wifi_init(axk_wifi_mode_t mode);
 /**
  * @brief 连接到WiFi热点
- *
+ * @note 此函数当前已死代码（#if 0 在 .c 中），由上层 axk_wifi_manager.c 接管
+ *       保留声明仅保持 HAL 接口完整性，
+ *       wifi 连接请使用 axk_wifi_connect()
  * @param[in] ssid WiFi名称
  * @param[in] password WiFi密码
  * @return 0成功，负数错误码
