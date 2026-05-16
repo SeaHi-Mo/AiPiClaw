@@ -118,6 +118,7 @@ static int handle_llm_config_get(struct netconn *client);
 static int handle_llm_config_set(struct netconn *client, const char *body);
 static int handle_save(struct netconn *client, const char *body);
 static int handle_redirect(struct netconn *client);
+static int handle_captive_portal(struct netconn *client, const char *uri_path);
 
 /* Captive portal DNS hijack */
 static void dns_hijack_init(void);
@@ -1066,21 +1067,31 @@ static int handle_apply(struct netconn *client, const char *body)
 }
 
 /**
- * @brief Captive portal detection handler.
+ * @brief Captive portal detection + non-API path handler.
  *
- * iOS sends GET http://captive.apple.com/hotspot-detect.html
- *   → expects HTTP 200 with body containing "Success" or specific HTML.
- * Android sends GET http://connectivitycheck.gstatic.com/generate_204
- *   → expects HTTP 204 No Content.
- *
- * We return 200 + success body for iOS-style, and 204 for generate_204 paths.
- * All other non-API paths return 302 redirect to / (standard captive portal).
+ * Detects known captive portal probing URLs and returns the expected
+ * response so iOS/Android auto-pop the config portal:
+ *   - iOS:     GET /hotspot-detect.html → 200 Success
+ *   - Android: GET /generate_204        → 204 No Content
+ *   - Other:   302 redirect to http://192.168.4.1/
  */
-static int handle_redirect(struct netconn *client)
+static int handle_captive_portal(struct netconn *client, const char *uri_path)
 {
-    /* Return a 200 with Apple's expected success body */
-    return send_response(client, 200, "text/html",
-        "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>");
+    /* iOS captive.apple.com: /hotspot-detect.html → 200 Success */
+    if (strcmp(uri_path, "/hotspot-detect.html") == 0 ||
+        strcmp(uri_path, "/library/test/success.html") == 0) {
+        return send_response(client, 200, "text/html",
+            "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>");
+    }
+
+    /* Android connectivitycheck: /generate_204 → 204 No Content */
+    if (strcmp(uri_path, "/generate_204") == 0) {
+        return send_response(client, 204, "text/plain", "");
+    }
+
+    /* All other non-API paths: 302 redirect to config portal */
+    return send_response(client, 302, "text/html",
+        "<html><head><meta http-equiv=\"refresh\" content=\"0;url=http://192.168.4.1/\"></head></html>");
 }
 
 /* ==================== Request Dispatcher ==================== */
@@ -1167,8 +1178,8 @@ static int handle_request(struct netconn *client,
         return handle_apply(client, body);
     }
 
-    /* ④ Captive portal: any non-API path → 302 redirect to / */
-    return handle_redirect(client);
+    /* Captive portal: detect known probing URLs, redirect others to / */
+    return handle_captive_portal(client, uri_path);
 }
 
 /* ==================== Client Handler ==================== */
