@@ -147,16 +147,14 @@ static void axk_mimiclaw_task(void *param)
         axk_wifi_manager_poll();
         axk_agent_loop_run();
         /* delay auto-connect， etc待WiFifwinitok */
-        if (!s_auto_connect_done &&
-            (xTaskGetTickCount() - startup_tick) > pdMS_TO_TICKS(3000)) {
+        /* DEBUG: Skip auto-connect for stability test — SoftAP only.
+         * Re-enable once root cause of mepc:a0060f98 (queue assert
+         * during fhost IPC callback → lwIP sys_mbox_post) is fixed. */
+        if (!s_auto_connect_done) {
             s_auto_connect_done = true;
-            if (axk_wifi_get_state() == AXK_WIFI_STATE_DISCONNECTED) {
-                AXK_LOG_INFO("[axk_mimiclaw] attempting saved WiFi connect...\r\n");
-                int ret = axk_wifi_auto_connect();
-                if (ret != 0) {
-                    /* No saved credentials — start SoftAP config portal */
-                    AXK_LOG_INFO("[axk_mimiclaw] no saved WiFi, starting config portal...\r\n");
-                    ret = axk_wifi_onboard_start();
+            /* Start SoftAP config portal without attempting WiFi connect */
+            AXK_LOG_INFO("[axk_mimiclaw] DEBUG mode: SoftAP only, no WiFi connect\r\n");
+            ret = axk_wifi_onboard_start();
                     if (ret != 0) {
                         AXK_LOG_ERROR("[axk_mimiclaw] SoftAP start FAIL: %d, retry after 2s\r\n", ret);
                         vTaskDelay(pdMS_TO_TICKS(2000));
