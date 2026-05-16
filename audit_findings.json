@@ -1,0 +1,86 @@
+[
+    {
+        "file": "/home/seahi/workspase/AiPiClaw/AiPiClaw/src/platform/axk_hal_gpio.c",
+        "line": 277,
+        "severity": "CRITICAL",
+        "desc": "uint64_t read from ISR: `now = bflb_mtimer_get_time_ms()` returns a 64-bit value assigned to a local `uint64_t now`. On the BL618 32-bit MCU, this is not atomic — the 64-bit read could be interrupted by a higher-priority ISR, causing a torn read.",
+        "recommendation": "Disable interrupts around the 64-bit read, or use a volatile uint32_t low-word and check for wraparound. Since this is a local variable initialized from a function call, consider that bflb_mtimer_get_time_ms() itself might be problematic if called from true ISR context."
+    },
+    {
+        "file": "/home/seahi/workspase/AiPiClaw/AiPiClaw/src/platform/axk_hal_gpio.c",
+        "line": 281,
+        "severity": "CRITICAL",
+        "desc": "uint64_t non-atomic read in ISR: `now - s_gpio_last_int_time[pin]` reads `s_gpio_last_int_time[pin]` (a static uint64_t) from ISR context. On 32-bit MCU this is a two-instruction read that can be torn by a nested interrupt.",
+        "recommendation": "Either disable nested interrupts during the read, or use a 32-bit timestamp comparison instead. Consider using uint32_t for debounce timing if 50-day wraparound is acceptable, or use a seqlock/atomic read helper."
+    },
+    {
+        "file": "/home/seahi/workspase/AiPiClaw/AiPiClaw/src/platform/axk_hal_gpio.c",
+        "line": 285,
+        "severity": "CRITICAL",
+        "desc": "uint64_t non-atomic write in ISR: `s_gpio_last_int_time[pin] = now` writes a 64-bit value from ISR context. On 32-bit BL618 MCU, this is a two-instruction store that can be interrupted mid-write, leaving a torn value visible to other ISRs or the main loop.",
+        "recommendation": "Use a 32-bit debounce timestamp (sufficient for 50ms with 49.7-day wraparound) or guard the 64-bit write with interrupt disable. If 64-bit precision is truly needed, add a volatile uint32_t low/high seqlock or use a helper that does a single-copy-atomic store."
+    },
+    {
+        "file": "/home/seahi/workspase/AiPiClaw/AiPiClaw/src/platform/axk_hal_gpio.c",
+        "line": 323,
+        "severity": "CRITICAL",
+        "desc": "Write-then-mask timing inversion: `s_gpio_isr_cbs[pin] = cb` at line 323 and `s_gpio_isr_args[pin] = arg` at line 324 are written BEFORE `bflb_gpio_int_mask(dev, pin, true)` at line 326. A window exists between lines 323-326 where an ISR could fire on the same pin and read the new callback pointer with the old interrupt configuration, or if the pin was previously unmasked, a stale ISR callback could execute mid-update.",
+        "recommendation": "Reorder: first mask the interrupt via bflb_gpio_int_mask, then write the callback/arg pointers, then attach/init, then unmask. Also consider disabling ALL GPIO interrupts briefly while updating the callback table to prevent ISR from seeing partially-updated state."
+    },
+    {
+        "file": "/home/seahi/workspase/AiPiClaw/AiPiClaw/src/platform/axk_hal_system.c",
+        "line": 130,
+        "severity": "CRITICAL",
+        "desc": "Non-reentrant critical section: `s_saved_irq_state` is a single static uint32_t variable used by both `axk_hal_system_enter_critical()` and `axk_hal_system_exit_critical()`. If these functions are called nested (critical section entered, interrupt fires, handler also calls enter_critical), the outer saved state is overwritten. On exit, only the inner state is restored, potentially returning to the wrong interrupt mask state.",
+        "recommendation": "Implement a proper nesting counter: increment a counter on enter, decrement on exit, only save on count==0, only restore on count==1->0 transition. Or use a stack-based approach. Alternatively, use the standard FreeRTOS portENTER_CRITICAL/portEXIT_CRITICAL which already handle nesting correctly."
+    },
+    {
+        "file": "/home/seahi/workspase/AiPiClaw/AiPiClaw/src/platform/axk_hal_timer.c",
+        "line": 101,
+        "severity": "CRITICAL",
+        "desc": "No mutex/critical-section protection for shared timer pool. `axk_hal_timer_create()` (line 100-124), `axk_hal_timer_start()` (line 143), `axk_hal_timer_stop()` (line 166), `axk_hal_timer_delete()` (line 189), and `axk_hal_timer_reset()` (line 210) all read and write `s_timers[]` entries without any synchronization. Meanwhile `axk_hal_timer_poll()` (line 228-251) reads and writes the same entries. If `timer_create`/`timer_start` is called from one task while `timer_poll` is executing in another, TOCTOU races exist on `active`, `next_expire`, `cb`, and `arg` fields.",
+        "recommendation": "Guard all timer pool accesses with a mutex or disable interrupts during the read-modify-write sequences. Add a single mutex for the entire timer module and take it in every public API function and in `axk_hal_timer_poll()`."
+    },
+    {
+        "file": "/home/seahi/workspase/AiPiClaw/AiPiClaw/src/platform/axk_hal_timer.c",
+        "line": 232,
+        "severity": "WARNING",
+        "desc": "TOCTOU on timer callback: `s_timers[i].cb` and `s_timers[i].arg` are read at lines 234-235 after the `next_expire` check at line 232, but without any lock. Between checking `active`/`next_expire` and reading `cb`/`arg`, another task could call `axk_hal_timer_delete()` or `axk_hal_timer_stop()` which clears `cb` or sets `active=false`, leading to a NULL callback dispatch or use-after-free of `arg`.",
+        "recommendation": "Take the timer pool mutex before the loop and hold it across the callback dispatch, or snapshot cb/arg atomically with the active/next_expire check."
+    },
+    {
+        "file": "/home/seahi/workspase/AiPiClaw/AiPiClaw/src/wifi/axk_wifi_manager.c",
+        "line": 88,
+        "severity": "WARNING",
+        "desc": "State access without mutex in event handler: `axk_wifi_set_state()` (line 88) reads `g_wifi_ctx.state` and writes it, and calls `axk_wifi_notify_callbacks()` which iterates `g_wifi_ctx.cbs[]` array — all without taking `g_wifi_ctx.mutex`. This function is called from `axk_wifi_event_handler()` which runs in the async event system context. While this is not a true hardware ISR on BL618 (async events dispatch from task context), the state and callback pointers can be concurrently modified by `axk_wifi_connect()`, `axk_wifi_disconnect()`, `axk_wifi_register_event_cb()`, and `axk_wifi_unregister_event_cb()` which do use the mutex, creating a data race.",
+        "recommendation": "Take `g_wifi_ctx.mutex` at the start of `axk_wifi_set_state()` and hold it across the state update and callback notification. Be careful about deadlock: if a callback tries to take the same mutex, use a flag to defer or avoid calling callbacks from within the locked section."
+    },
+    {
+        "file": "/home/seahi/workspase/AiPiClaw/AiPiClaw/src/wifi/axk_wifi_manager.c",
+        "line": 216,
+        "severity": "WARNING",
+        "desc": "Mutex released then re-acquired mid-operation in `axk_wifi_manager_poll()`: At line 220, `xSemaphoreGive(g_wifi_ctx.mutex)` is called, then at line 223 `axk_wifi_connect()` is called which takes the same mutex. Between the give and take, another task (e.g., via serial CLI `wifi_set`) could acquire the mutex and modify shared state (ssid, password, state), causing the reconnect to use stale credentials.",
+        "recommendation": "Snapshot ssid/password into local variables while holding the mutex, then release the mutex before calling `axk_wifi_connect()` with the local copies. This avoids the TOCTOU window."
+    },
+    {
+        "file": "/home/seahi/workspase/AiPiClaw/AiPiClaw/src/heartbeat/axk_heartbeat.c",
+        "line": 47,
+        "severity": "WARNING",
+        "desc": "Race on `s_uptime_sec`: Written at line 47 from `heartbeat_timer_cb()` (called from `axk_hal_timer_poll()` which runs in the task that calls `axk_heartbeat_tick()`) and read at line 127 from `axk_heartbeat_get_uptime_sec()` which could be called from any FreeRTOS task. No mutex or atomic protection. While `uint32_t` access is naturally atomic on 32-bit BL618, the increment `s_uptime_sec += 60` is not an atomic RMW — read and write are separate instructions.",
+        "recommendation": "Use an atomic increment (or disable interrupts around the +=) and an atomic load for the reader. Or add a mutex for the heartbeat state."
+    },
+    {
+        "file": "/home/seahi/workspase/AiPiClaw/AiPiClaw/src/llm/axk_llm_proxy.c",
+        "line": 294,
+        "severity": "INFO",
+        "desc": "WiFi TOCTOU: `axk_wifi_is_connected()` is checked at line 294 to decide whether to proceed with the LLM HTTP call. Between the check and the actual HTTP send at line 320, WiFi could disconnect. This is an inherent TOCTOU in network programming — the HTTP call will simply fail if WiFi drops, and the caller handles the error. No memory safety issue, but could cause spurious failures under marginal WiFi conditions.",
+        "recommendation": "Accept as inherent in network programming. If desired, add a retry-with-backoff loop around the HTTP call rather than failing on a single pre-check."
+    },
+    {
+        "file": "/home/seahi/workspase/AiPiClaw/AiPiClaw/src/platform/axk_hal_gpio.c",
+        "line": 269,
+        "severity": "INFO",
+        "desc": "ISR callback function `axk_gpio_isr_callback` calls user-registered callbacks at line 289 via `s_gpio_isr_cbs[pin](pin, s_gpio_isr_args[pin])`. If a user callback is not designed for ISR context (e.g., it calls blocking FreeRTOS APIs, printf, or takes a mutex), this could cause crashes or deadlocks. This is a documentation/integration concern, not a code bug per se.",
+        "recommendation": "Document that the GPIO ISR callback runs in interrupt context and must not call blocking APIs, mutex take/give, or printf (unless the underlying UART ISR is safe). Consider adding a deferred-work pattern (e.g., FreeRTOS task notification) for complex callbacks."
+    }
+]

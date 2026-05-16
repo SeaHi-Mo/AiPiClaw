@@ -1,0 +1,282 @@
+[
+  {
+    "file": "src/bus/axk_message_bus.c",
+    "line": 68,
+    "severity": "minor",
+    "category": "spacing",
+    "finding": "Inconsistent spacing: 'if (s_inbound[j])  { vQueueDelete(s_inbound[j]);  s_inbound[j]  = NULL; }' has double spaces before '{', '= NULL' has double space before '='. Inconsistent with adjacent line 69 which has single spaces."
+  },
+  {
+    "file": "src/platform/axk_platform_bl618.h",
+    "line": 30,
+    "severity": "minor",
+    "category": "spacing",
+    "finding": "Missing space in '} while(0)' — should be '} while (0)' (K&R style with space before paren). Same issue at lines 89, 119."
+  },
+  {
+    "file": "src/platform/axk_platform_esp32.h",
+    "line": 40,
+    "severity": "minor",
+    "category": "spacing",
+    "finding": "Missing space in '} while(0)' — should be '} while (0)'. Same issue at lines 108, 137."
+  },
+  {
+    "file": "src/platform/axk_platform.h",
+    "line": 30,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace on closing comment line: ' * ' (line has trailing spaces before newline). Same at lines 58, 81, 93, 134, 185, 205, 221."
+  },
+  {
+    "file": "src/platform/axk_platform.h",
+    "line": 72,
+    "severity": "minor",
+    "category": "spacing",
+    "finding": "Missing space after comma in X-Macro: '1,1' should be '1, 1' for AXK_CAP_ENTRY(SPI, ... ). Inconsistent with all other rows which use '1, 1' spacing."
+  },
+  {
+    "file": "src/gateway/axk_telegram_bot.h",
+    "line": 42,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace in Doxygen comment: '@param[in] text msgcontent ' (trailing space before newline)."
+  },
+  {
+    "file": "src/gateway/axk_feishu_bot.h",
+    "line": 37,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace: '@param[in] text msgcontent '"
+  },
+  {
+    "file": "src/cron/axk_cron_service.h",
+    "line": 51,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace in Doxygen comment."
+  },
+  {
+    "file": "src/cron/axk_cron_service.h",
+    "line": 82,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace in Doxygen comment."
+  },
+  {
+    "file": "src/cron/axk_cron_service.c",
+    "line": 3,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace in file header comment."
+  },
+  {
+    "file": "src/cron/axk_cron_service.c",
+    "line": 8,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace in Doxygen @note."
+  },
+  {
+    "file": "src/cron/axk_cron_service.c",
+    "line": 454,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace in Doxygen @note."
+  },
+  {
+    "file": "src/gateway/axk_transport_ws.c",
+    "line": 94,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Multiple trailing whitespace occurrences in Doxygen params: lines 94, 96, 97, 197, 198, 244."
+  },
+  {
+    "file": "src/gateway/axk_telegram_bot.c",
+    "line": 81,
+    "severity": "style",
+    "category": "naming",
+    "finding": "Static function uses lowercase_snake_case 'safe_copy' which is consistent with project convention, but this pattern is reused identically across multiple files (axk_llm_proxy.c:64, axk_http_proxy.c:41) — suggests a copy-paste candidate that could be centralized."
+  },
+  {
+    "file": "src/gateway/axk_http_proxy.c",
+    "line": 31,
+    "severity": "style",
+    "category": "naming",
+    "finding": "Local typedef 'http_proxy_resp_t' uses lowercase prefix without 'axk_' namespace prefix. Most other project types use 'axk_' prefix (axk_board_config_t, axk_wifi_state_t). Inconsistent namespace convention."
+  },
+  {
+    "file": "src/llm/axk_llm_proxy.c",
+    "line": 55,
+    "severity": "style",
+    "category": "naming",
+    "finding": "Local typedef 'llm_resp_buf_t' uses lowercase prefix without 'axk_' namespace prefix. Inconsistent with project convention of axk_ prefix for local types."
+  },
+  {
+    "file": "src/gateway/axk_ws_server.c",
+    "line": 40,
+    "severity": "style",
+    "category": "naming",
+    "finding": "Local typedef 'ws_client_t' lacks 'axk_' namespace prefix. Inconsistent with project convention."
+  },
+  {
+    "file": "src/memory/axk_session_mgr.c",
+    "line": 37,
+    "severity": "style",
+    "category": "naming",
+    "finding": "Local typedef 'session_entry_t' lacks 'axk_' namespace prefix. Inconsistent with project convention."
+  },
+  {
+    "file": "src/platform/axk_platform.h",
+    "line": 10,
+    "severity": "minor",
+    "category": "spelling",
+    "finding": "Comment typo: '编译during ok平台选择' — likely intended meaning garbled (Chinese/English mix). Not a formatting violation per se, but indicates inconsistent documentation quality."
+  },
+  {
+    "file": "src/gateway/axk_ws_server.c",
+    "line": 28,
+    "severity": "minor",
+    "category": "spacing",
+    "finding": "Inconsistent spacing in #define: 'WS_MAGIC_STRING     \"258EAFA5...\"' vs adjacent macros. Not a strict violation but column alignment is inconsistent across the file."
+  },
+  {
+    "file": "src/gpio/axk_gpio_control.c",
+    "line": 3,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace in Doxygen brief: '短按唤醒 / 长按3srestore 出厂set '"
+  },
+  {
+    "file": "src/gpio/axk_gpio_control.c",
+    "line": 8,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace in Doxygen @note: ' * @note '"
+  },
+  {
+    "file": "src/gpio/axk_gpio_control.c",
+    "line": 10,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace in Doxygen @note line."
+  },
+  {
+    "file": "src/gpio/axk_gpio_control.c",
+    "line": 85,
+    "severity": "style",
+    "category": "brace_style",
+    "finding": "One-liner 'if (s_gpio_dev == NULL) return;' without braces. Consistent with project convention, but K&R typically uses braces for all control flow. Noted as minor inconsistency."
+  },
+  {
+    "file": "src/bus/axk_message_bus.h",
+    "line": 9,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace on Doxygen comment line: ' *       '"
+  },
+  {
+    "file": "src/bus/axk_message_bus.h",
+    "line": 10,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace: 'TODO v2: 反压机制 (backpressure) — queuefull 时阻塞生产者而非drop '"
+  },
+  {
+    "file": "src/tools/axk_tool_registry.h",
+    "line": 41,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace in Doxygen @note."
+  },
+  {
+    "file": "src/tools/axk_tool_registry.h",
+    "line": 48,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace: '@param[in] name toolname '"
+  },
+  {
+    "file": "src/skills/axk_skill_loader.h",
+    "line": 40,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace: '@param[in] name 技能name ' (and lines 41, 42, 45, 60, 61, 64)."
+  },
+  {
+    "file": "src/tools/axk_tool_files.h",
+    "line": 67,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace in Doxygen @note."
+  },
+  {
+    "file": "src/platform/axk_hal_flash.c",
+    "line": 141,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace: '@param[in] addr 起始addr ' (and lines 142, 143, 171, 172, 173, 175)."
+  },
+  {
+    "file": "src/platform/axk_hal_uart.h",
+    "line": 71,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Multiple trailing whitespace in Doxygen params (lines 71, 74, 92, 102, 103, 112, 113, 114)."
+  },
+  {
+    "file": "src/platform/axk_hal_timer.c",
+    "line": 86,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace: '@param[in] cb expirescallback func ' (and lines 87, 129, 152, 174, 196)."
+  },
+  {
+    "file": "src/platform/axk_hal_system.c",
+    "line": 46,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace: '@brief systemreset '"
+  },
+  {
+    "file": "src/platform/axk_mimiclaw_ext_rtc.c",
+    "line": 168,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace: '@brief from  DS3231 readUTCtime ' (and line 170, 232, 234)."
+  },
+  {
+    "file": "src/tools/axk_tool_cron.h",
+    "line": 23,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace: '@param[out] output output buffer ' (and lines 33, 43)."
+  },
+  {
+    "file": "src/tools/axk_tool_cron.c",
+    "line": 8,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace: '@note provide  cron_add、cron_list、cron_remove 三toolfunc '"
+  },
+  {
+    "file": "src/platform/axk_platform_bl618.h",
+    "line": 15,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace: 'BL618 SDK headersinclude '"
+  },
+  {
+    "file": "src/platform/axk_platform_bl618.h",
+    "line": 39,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace: 'log 实现 - via UART0output '"
+  },
+  {
+    "file": "src/platform/axk_hal_uart.h",
+    "line": 21,
+    "severity": "minor",
+    "category": "trailing_whitespace",
+    "finding": "Trailing whitespace: 'UARTdevice handle '"
+  }
+]

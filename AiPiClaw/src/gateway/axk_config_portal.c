@@ -28,6 +28,7 @@
 #include "lwip/api.h"
 #include "lwip/netif.h"
 #include "lwip/ip4_addr.h"
+#include "lwip/tcpip.h"
 #include "lwip/ip_addr.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -135,6 +136,7 @@ int axk_config_portal_start(void)
     /* Find AP netif by IP 192.168.4.1 and bind to it */
     ip_addr_t ap_ip;
     ipaddr_aton("192.168.4.1", &ap_ip);
+    LOCK_TCPIP_CORE();
     struct netif *iface = netif_find(NULL);
     struct netif *ap_netif = NULL;
     while (iface) {
@@ -144,6 +146,7 @@ int axk_config_portal_start(void)
         }
         iface = iface->next;
     }
+    UNLOCK_TCPIP_CORE();
 
     if (ap_netif) {
         AXK_LOG_INFO("[portal] found AP netif %c%c, binding to %s\r\n",

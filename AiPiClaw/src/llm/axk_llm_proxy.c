@@ -39,7 +39,7 @@ static const char *TAG = "llm";
 #define MIMI_DEEPSEEK_API_URL "https://api.deepseek.com/chat/completions"
 #endif
 #ifndef MIMI_MINIMAX_API_URL
-#define MIMI_MINIMAX_API_URL "https://api.minimax.chat/v1/text/chatcompletion_v2"
+#define MIMI_MINIMAX_API_URL "https://api.minimaxi.com/anthropic/v1/messages"
 #endif
 
 static char s_api_key[LLM_API_KEY_MAX_LEN] = { 0 };
@@ -126,7 +126,7 @@ static bool provider_is_minimax_anthropic(void)
  */
 static bool provider_uses_openai_format(void)
 {
-    return provider_is_openai() || provider_is_deepseek() || provider_is_minimax();
+    return provider_is_openai() || provider_is_deepseek();
 }
 
 /**

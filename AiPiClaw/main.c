@@ -42,6 +42,9 @@
 /* JSON library for WS protocol encoding */
 #include "cJSON.h"
 
+/* Config portal delay: wait for AP netif before binding HTTP */
+#define PORTAL_BIND_DELAY_MS 500
+
 /* BL618 SDK headers */
 #include "board.h"
 #include "bflb_uart.h"
@@ -159,11 +162,16 @@ static void axk_mimiclaw_task(void *param)
                         vTaskDelay(pdMS_TO_TICKS(2000));
                         ret = axk_wifi_onboard_start();
                     }
-                    /* Wait for AP netif to be ready before binding HTTP */
-                    vTaskDelay(pdMS_TO_TICKS(500));
-                    ret = axk_config_portal_start();
                     if (ret != 0) {
-                        AXK_LOG_ERROR("[axk_mimiclaw] config portal start FAIL: %d\r\n", ret);
+                        /* Both attempts failed - skip config portal to avoid crash on missing AP netif */
+                        AXK_LOG_ERROR("[axk_mimiclaw] SoftAP start both attempts FAIL, skip config portal\r\n");
+                    } else {
+                        /* Wait for AP netif to be ready before binding HTTP */
+                        vTaskDelay(pdMS_TO_TICKS(PORTAL_BIND_DELAY_MS));
+                        ret = axk_config_portal_start();
+                        if (ret != 0) {
+                            AXK_LOG_ERROR("[axk_mimiclaw] config portal start FAIL: %d\r\n", ret);
+                        }
                     }
                 }
             }

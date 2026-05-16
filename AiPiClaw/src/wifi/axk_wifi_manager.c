@@ -164,6 +164,10 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
             if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
                 if (g_wifi_ctx.auto_reconnect && g_wifi_ctx.ssid[0] != '\0') {
                     g_wifi_ctx.retry_count++;
+                    /* Copy ssid to local before Give to avoid TOCTOU */
+                    char local_ssid[sizeof(g_wifi_ctx.ssid)];
+                    strncpy(local_ssid, g_wifi_ctx.ssid, sizeof(local_ssid) - 1);
+                    local_ssid[sizeof(local_ssid) - 1] = '\0';
                     if (g_wifi_ctx.retry_count >= AXK_WIFI_MAX_RETRY) {
                         AXK_LOG_ERROR("[axk_wifi_manager] max retry (%d) reached, stop reconnecting\r\n",
                                       AXK_WIFI_MAX_RETRY);
@@ -176,7 +180,7 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
                         char buf[128];
                         snprintf(buf, sizeof(buf),
                                  "WiFi retry exhausted: SSID=%s retries=%d",
-                                 g_wifi_ctx.ssid, AXK_WIFI_MAX_RETRY);
+                                 local_ssid, AXK_WIFI_MAX_RETRY);
                         msg.content = strdup(buf);
                         if (msg.content) {
                             msg.priority = MIMI_PRIO_HIGH;
@@ -197,6 +201,8 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
                 } else {
                     xSemaphoreGive(g_wifi_ctx.mutex);
                 }
+            } else {
+                AXK_LOG_WARN("[axk_wifi_manager] DISCONNECT mutex TAKE FAIL, skip reconnect handling\r\n");
             }
             axk_wifi_set_state(AXK_WIFI_STATE_DISCONNECTED);
             break;

@@ -1,0 +1,5 @@
+YELLOW|AiPiClaw/src/gateway/axk_config_portal.c:133|netif_find(NULL) called without TCPIP core lock — other callers use LOCK_TCPIP_CORE(). Diagnostic-only so low risk, but inconsistent with codebase pattern.|Wrap in LOCK_TCPIP_CORE()/UNLOCK_TCPIP_CORE() per net_al.c:359-361 pattern.
+YELLOW|AiPiClaw/main.c:163|Second axk_wifi_onboard_start() retry return value unchecked — if both attempts fail, code silently proceeds to config_portal_start which will fail to bind.|Check ret after second attempt; if still non-zero, skip config_portal_start and set longer delay before retry cycle.
+BLUE|AiPiClaw/main.c:164|Magic number 500ms delay — hardcoded literal instead of named constant.|Define PORTAL_BIND_DELAY_MS 500 and use it.
+YELLOW|axk_wifi_manager.c:179|TOCTOU: g_wifi_ctx.ssid read for snprintf after xSemaphoreGive at L172, may race with concurrent SSID updates|Capture ssid into local var while mutex held before formatting
+YELLOW|axk_wifi_manager.c:164|Silent failure: xSemaphoreTake timeout on disconnect drops all retry state update, reconnect may never trigger|Log warning when mutex acquisition fails; consider deferred retry via timer
