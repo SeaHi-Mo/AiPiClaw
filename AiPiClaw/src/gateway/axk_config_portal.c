@@ -206,7 +206,8 @@ int axk_config_portal_start(void)
     AXK_LOG_INFO("[portal] HTTP server started on port %d\r\n",
                  PORTAL_LISTEN_PORT);
 
-    /* Step 1 (#68): Pre-scan WiFi and cache results for fast first page load */
+    /* Pre-scan WiFi and cache results for fast first page load.
+     * AP is already running; scan may fail (single-radio), cache stays empty. */
     AXK_LOG_INFO("[portal] running pre-scan for cache...\r\n");
     portal_scan_and_cache();
     AXK_LOG_INFO("[portal] pre-scan done\r\n");
@@ -317,42 +318,57 @@ static void scan_item_callback(void *env, void *arg, wifi_mgmr_scan_item_t *item
  */
 static int trigger_scan_and_collect(void)
 {
-    /*
-     * 5-step WiFi scan for fhost (WiFi6) mode:
-     *   1. Stop SoftAP (free STA radio for scanning)
-     *   2. Call wifi_mgmr_sta_scan
-     *   3. Wait up to 5s for scan results
-     *   4. Collect results
-     *   5. Restart SoftAP
-     *
-     * On fhost precompiled library, wifi_mgmr_sta_scan requires the STA
-     * VIF to exist and the radio to be available. With SoftAP active,
-     * the fhost firmware refuses scan requests (returns -1). Stopping
-     * AP releases the radio for the scan period, then AP restarts on
-     * its original channel. Brief client disconnect (~5s) is expected.
-     */
     wifi_mgmr_scan_params_t scan_params = { 0 };
     int ret;
 
-    /* Read saved AP credentials from flash — fallback to defaults if none saved */
-    char saved_ssid[64] = {0};
-    char saved_key[64] = {0};
+    /*
+     * Phase 1: Passive scan on AP channel (ch6) — no AP teardown.
+     * On BL618 fhost single-radio, passive scan only listens for
+     * beacon frames on the AP's current channel. If neighbor APs
+     * share channel 6, results arrive immediately without disconnecting
+     * any phone connected to the SoftAP.
+     */
+    scan_params.channels_cnt = 0;    /* fw uses current channel for passive */
+    scan_params.passive = true;
+
+    AXK_LOG_INFO("[portal] Phase1: passive scan (AP active, ch6)...\r\n");
+    ret = wifi_mgmr_sta_scan(&scan_params);
+    if (ret == 0) {
+        /* Wait 3s for beacons on ch6 */
+        int wait_ms = 0;
+        while (wait_ms < 3000) {
+            vTaskDelay(pdMS_TO_TICKS(200));
+            wait_ms += 200;
+            if (wifi_mgmr_sta_scanlist_nums_get() > 0) {
+                AXK_LOG_INFO("[portal] Phase1 got %lu results, no AP restart needed\r\n",
+                             (unsigned long)wifi_mgmr_sta_scanlist_nums_get());
+                return 0;
+            }
+        }
+        AXK_LOG_INFO("[portal] Phase1: no APs on ch6, proceeding to Phase2\r\n");
+    } else {
+        AXK_LOG_INFO("[portal] Phase1 passive scan unavailable (%d), Phase2 fallback\r\n", ret);
+    }
+
+    /*
+     * Phase 2: Full scan — stop SoftAP, scan all channels, restart AP.
+     * Brief client disconnect (~5s) is expected.
+     */
     wifi_mgmr_ap_params_t ap_cfg = { 0 };
     ap_cfg.ssid = "AiPiClaw";
     ap_cfg.key = "12345678";
     {
+        char saved_ssid[64] = {0};
+        char saved_key[64] = {0};
         size_t len = 0;
         if (ef_get_env_blob("mimi_wifi_ssid", saved_ssid, sizeof(saved_ssid), &len) == 0 && len > 0) {
             saved_ssid[sizeof(saved_ssid) - 1] = '\0';
             ap_cfg.ssid = saved_ssid;
-            AXK_LOG_INFO("[portal] using saved SSID: %s\r\n", saved_ssid);
         }
         len = 0;
         if (ef_get_env_blob("mimi_wifi_pwd", saved_key, sizeof(saved_key), &len) == 0 && len > 0) {
             saved_key[sizeof(saved_key) - 1] = '\0';
             ap_cfg.key = saved_key;
-        } else {
-            ap_cfg.key = "12345678";
         }
     }
     ap_cfg.akm = "WPA2";
@@ -364,49 +380,32 @@ static int trigger_scan_and_collect(void)
     ap_cfg.start = 2;
     ap_cfg.limit = 4;
 
-    /* Step 1: Stop SoftAP to free radio for STA scan */
-    AXK_LOG_INFO("[portal] stopping SoftAP for scan...\r\n");
-    int ap_stop_ret = wifi_mgmr_ap_stop();
-    if (ap_stop_ret != 0) {
-        AXK_LOG_ERROR("[portal] wifi_mgmr_ap_stop FAIL: %d, radio may be occupied, skip scan\r\n", ap_stop_ret);
-        return -1;
-    }
-    vTaskDelay(pdMS_TO_TICKS(200));  /* wait for AP to fully teardown */
+    AXK_LOG_INFO("[portal] Phase2: stopping AP for full scan...\r\n");
+    wifi_mgmr_ap_stop();
+    vTaskDelay(pdMS_TO_TICKS(200));
 
-    /* Step 2: Trigger STA scan */
-    scan_params.channels_cnt = 0;
     scan_params.passive = false;
+    scan_params.channels_cnt = 0;
     ret = wifi_mgmr_sta_scan(&scan_params);
     if (ret != 0) {
-        AXK_LOG_ERROR("[portal] wifi_mgmr_sta_scan FAIL: %d\r\n", ret);
-        goto restart_ap;
-    }
-
-    /* Step 3: Wait up to 5 seconds for scan results */
-    {
+        AXK_LOG_ERROR("[portal] Phase2 scan FAIL: %d\r\n", ret);
+    } else {
         int wait_ms = 0;
         while (wait_ms < 5000) {
             vTaskDelay(pdMS_TO_TICKS(200));
             wait_ms += 200;
-            /* Step 5 (#68): Feed watchdog during scan to prevent reset */
-            struct bflb_device_s *wdg = bflb_device_get_by_name("watchdog0");
-            if (wdg) {
-                bflb_wdg_reset_countervalue(wdg);
-            }
-            uint32_t count = wifi_mgmr_sta_scanlist_nums_get();
-            if (count > 0) {
-                break;
-            }
+            if (wifi_mgmr_sta_scanlist_nums_get() > 0) break;
         }
+        AXK_LOG_INFO("[portal] Phase2 got %lu results\r\n",
+                     (unsigned long)wifi_mgmr_sta_scanlist_nums_get());
     }
 
-restart_ap:
-    /* Step 5: Restart SoftAP (always, even if scan failed) */
-    AXK_LOG_INFO("[portal] restarting SoftAP...\r\n");
+    /* Always restart AP */
+    AXK_LOG_INFO("[portal] restarting AP...\r\n");
     if (wifi_mgmr_ap_start(&ap_cfg) != 0) {
-        AXK_LOG_ERROR("[portal] SoftAP restart FAIL\r\n");
+        AXK_LOG_ERROR("[portal] AP restart FAIL\r\n");
     }
-    vTaskDelay(pdMS_TO_TICKS(500));  /* wait for AP to be ready */
+    vTaskDelay(pdMS_TO_TICKS(500));
 
     return (ret == 0) ? 0 : -1;
 }
@@ -751,13 +750,25 @@ static int handle_wifi_connect(struct netconn *client, const char *body)
         return r;
     }
 
-    /* Initiate connection (async) */
+    /* Initiate connection (async).
+     * NOTE: On BL618 single-radio (fhost), wifi_mgmr_sta_connect may
+     * internally stop the SoftAP to free radio for STA connect.
+     * If onboard (SoftAP) is active, we restart it immediately after
+     * connect to minimize client disruption. */
     ret = axk_wifi_connect(ssid, password[0] ? password : NULL);
     if (ret != 0) {
         cJSON_AddStringToObject(resp, "error", "connect_failed");
     } else {
         cJSON_AddStringToObject(resp, "status", "connecting");
         cJSON_AddStringToObject(resp, "ssid", ssid);
+        /* If SoftAP is active, wifi_mgmr_sta_connect may have stopped it.
+         * Restart AP to keep the config portal reachable. Avoid blocking;
+         * this is best-effort — if restart fails the portal was already
+         * going away anyway. */
+        if (axk_wifi_onboard_is_active()) {
+            AXK_LOG_INFO("[portal] restarting SoftAP after STA connect...\r\n");
+            axk_wifi_onboard_start();
+        }
     }
 
     cJSON_Delete(json);

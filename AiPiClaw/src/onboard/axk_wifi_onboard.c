@@ -123,6 +123,14 @@ int axk_wifi_onboard_init(void)
 }
 
 /**
+ * @brief 查询onboard / SoftAP运行状态
+ */
+bool axk_wifi_onboard_is_active(void)
+{
+    return s_onboard_active;
+}
+
+/**
  * @brief startprovision mode （预留SoftAP功能）
  */
 int axk_wifi_onboard_start(void)

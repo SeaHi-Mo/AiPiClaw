@@ -48,6 +48,12 @@ int axk_wifi_onboard_start(void);
 void axk_wifi_onboard_stop(void);
 
 /**
+ * @brief 查询是否处于onboard配网模式（SoftAP运行中）
+ *
+ * @return true SoftAP正在运行，false 未运行
+ */
+bool axk_wifi_onboard_is_active(void);
+/**
  * @brief save WiFicredential  to easyflash
  *
  * @param[in] ssid SSIDchars 串
