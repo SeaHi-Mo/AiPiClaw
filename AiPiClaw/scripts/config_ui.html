@@ -270,29 +270,17 @@ function scanWifi() {
   document.getElementById('scan-status').textContent = '';
   document.getElementById('ap-list').innerHTML = '';
 
-  // GET 触发扫描 — 修复 405 Method Not Allowed
+  // GET 触发扫描并获取结果（后端同步扫描后返回）
   fetch('/api/wifi/scan')
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
     .then(res => {
-      if (res.ssids && res.ssids.length > 0) {
-        renderAPList(res.ssids);
+      if (res.aps && res.aps.length > 0) {
+        renderAPList(res.aps);
       } else {
-        // 无结果，轮询等待
-        const poll = () => {
-          fetch('/api/wifi/scan')
-            .then(r => r.json())
-            .then(res2 => {
-              if (res2.ssids && res2.ssids.length > 0) {
-                renderAPList(res2.ssids);
-              } else {
-                setTimeout(poll, 500);
-              }
-            })
-            .catch(err => {
-              showMsg('wifi-msg', 'error', '扫描失败: ' + err.message);
-            });
-        };
-        setTimeout(poll, 500);
+        document.getElementById('scan-status').textContent = '未发现 WiFi 网络，请确认路由器已开启';
       }
     })
     .catch(err => {

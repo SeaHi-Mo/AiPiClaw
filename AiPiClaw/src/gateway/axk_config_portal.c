@@ -681,13 +681,14 @@ static int handle_wifi_scan(struct netconn *client)
     AXK_LOG_INFO("[portal] refreshing scan cache...\r\n");
     portal_scan_and_cache();
 
-    /* Return cached results */
+    /* Return cached results wrapped in an object */
     xSemaphoreTake(s_scan_mutex, portMAX_DELAY);
     if (s_scan_json) {
         cJSON *cached = cJSON_Parse(s_scan_json);
         if (cached) {
             cJSON_Delete(resp);
-            resp = cached;
+            resp = cJSON_CreateObject();
+            cJSON_AddItemToObject(resp, "aps", cached);
             cJSON_AddStringToObject(resp, "status", "ok");
             int r = send_json_response(client, 200, resp);
             cJSON_Delete(resp);
@@ -695,7 +696,6 @@ static int handle_wifi_scan(struct netconn *client)
             return r;
         }
     }
-    xSemaphoreGive(s_scan_mutex);
 
     cJSON_AddStringToObject(resp, "error", "scan_failed");
     int r = send_json_response(client, 500, resp);
