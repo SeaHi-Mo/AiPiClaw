@@ -139,7 +139,10 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
 
         case CODE_WIFI_ON_CONNECTED:
             AXK_LOG_INFO("[axk_wifi_manager] connect to AP\r\n");
-            if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            /* async_event callback may fire in wifi_task/IPC context
+             * where blocking xSemaphoreTake triggers queue.c assert.
+             * Use trylock (0 timeout) to avoid crash. */
+            if (xSemaphoreTake(g_wifi_ctx.mutex, 0) == pdTRUE) {
                 g_wifi_ctx.retry_count = 0;
                 g_wifi_ctx.max_retry_exceeded = false;
                 g_wifi_ctx.pending_reconnect = false;
@@ -150,7 +153,8 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
 
         case CODE_WIFI_ON_GOT_IP:
             AXK_LOG_INFO("[axk_wifi_manager] get IPaddr \r\n");
-            if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            /* async_event callback — trylock only to avoid queue assert */
+            if (xSemaphoreTake(g_wifi_ctx.mutex, 0) == pdTRUE) {
                 g_wifi_ctx.retry_count = 0;
                 g_wifi_ctx.max_retry_exceeded = false;
                 g_wifi_ctx.pending_reconnect = false;
@@ -161,7 +165,8 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
 
         case CODE_WIFI_ON_DISCONNECT:
             AXK_LOG_WARN("[axk_wifi_manager] WiFiconnectdisconnect\r\n");
-            if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            /* async_event callback — trylock only to avoid queue assert */
+            if (xSemaphoreTake(g_wifi_ctx.mutex, 0) == pdTRUE) {
                 if (g_wifi_ctx.auto_reconnect && g_wifi_ctx.ssid[0] != '\0') {
                     g_wifi_ctx.retry_count++;
                     /* Copy ssid to local before Give to avoid TOCTOU */
