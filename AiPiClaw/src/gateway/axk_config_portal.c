@@ -679,7 +679,8 @@ static int handle_wifi_scan(struct netconn *client)
 
     /* Always refresh the cache — the frontend polls after refresh trigger */
     AXK_LOG_INFO("[portal] refreshing scan cache...\r\n");
-    portal_scan_and_cache();
+    int scan_ret = portal_scan_and_cache();
+    AXK_LOG_INFO("[portal] scan cache refresh ret=%d\r\n", scan_ret);
 
     /* Return cached results wrapped in an object */
     xSemaphoreTake(s_scan_mutex, portMAX_DELAY);
@@ -847,6 +848,8 @@ static int handle_llm_config_set(struct netconn *client, const char *body)
     if (api_key_j && cJSON_IsString(api_key_j)) {
         if (axk_llm_set_api_key(api_key_j->valuestring) != 0) {
             errors++;
+            AXK_LOG_ERROR("[portal] LLM set_api_key FAIL (len=%u)\r\n",
+                          (unsigned int)strlen(api_key_j->valuestring));
         }
     }
 
