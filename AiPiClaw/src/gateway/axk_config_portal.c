@@ -697,6 +697,7 @@ static int handle_wifi_scan(struct netconn *client)
             return r;
         }
     }
+    xSemaphoreGive(s_scan_mutex);
 
     cJSON_AddStringToObject(resp, "error", "scan_failed");
     int r = send_json_response(client, 500, resp);

@@ -10,3 +10,5 @@ YELLOW|web_ui.h:501|el['scroll-btn'] not in DOM cache array (line 316-317) — n
 YELLOW|web_ui.h:271/744|Double click binding on scroll-btn — inline onclick + addEventListener both fire scrollToBottom()|Remove either inline onclick or addEventListener
 YELLOW|web_ui.h:367|ws.onerror handler is empty — if onclose doesn't fire after error, no reconnect triggers|Add scheduleReconnect() call in onerror
 YELLOW|axk_config_portal.c:385|wifi_mgmr_ap_start failure logged but unrecovered — portal permanently unreachable, no retry/reboot|add retry loop or trigger system reset on AP restart failure
+YELLOW|axk_config_portal.c:391|bflb_device_get_by_name("watchdog0") called every scan poll iteration — wasteful device lookup in tight loop|hoist device pointer outside the while loop, lookup once before loop
+YELLOW|axk_config_portal.c:428|portal_scan_and_cache() sets s_scan_cached=true even when trigger_scan_and_collect() failed (empty cache from failed boot pre-scan)|only set s_scan_cached=true when ret==0 and json_str non-NULL and non-empty
