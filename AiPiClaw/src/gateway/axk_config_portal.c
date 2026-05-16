@@ -34,6 +34,9 @@
 #include "task.h"
 #include "semphr.h"
 
+/* Watchdog for portal task — prevent lockup during scan/accept */
+#include "bflb_wdg.h"
+
 #include "cJSON.h"
 #include "easyflash.h"
 #include "wifi_mgmr.h"
@@ -298,29 +301,72 @@ static void scan_item_callback(void *env, void *arg, wifi_mgmr_scan_item_t *item
  */
 static int trigger_scan_and_collect(void)
 {
+    /*
+     * 5-step WiFi scan for fhost (WiFi6) mode:
+     *   1. Stop SoftAP (free STA radio for scanning)
+     *   2. Call wifi_mgmr_sta_scan
+     *   3. Wait up to 5s for scan results
+     *   4. Collect results
+     *   5. Restart SoftAP
+     *
+     * On fhost precompiled library, wifi_mgmr_sta_scan requires the STA
+     * VIF to exist and the radio to be available. With SoftAP active,
+     * the fhost firmware refuses scan requests (returns -1). Stopping
+     * AP releases the radio for the scan period, then AP restarts on
+     * its original channel. Brief client disconnect (~5s) is expected.
+     */
     wifi_mgmr_scan_params_t scan_params = { 0 };
+    int ret;
+
+    /* Save AP config for restart */
+    wifi_mgmr_ap_params_t ap_cfg = { 0 };
+    ap_cfg.ssid = "AiPiClaw";
+    ap_cfg.key = "12345678";
+    ap_cfg.akm = "WPA2";
+    ap_cfg.channel = 6;
+    ap_cfg.use_dhcpd = true;
+    ap_cfg.use_ipcfg = true;
+    ap_cfg.ap_ipaddr = htonl(0xC0A80401);
+    ap_cfg.ap_mask  = htonl(0xFFFFFF00);
+    ap_cfg.start = 2;
+    ap_cfg.limit = 4;
+
+    /* Step 1: Stop SoftAP to free radio for STA scan */
+    AXK_LOG_INFO("[portal] stopping SoftAP for scan...\r\n");
+    wifi_mgmr_ap_stop();
+    vTaskDelay(pdMS_TO_TICKS(200));  /* wait for AP to fully teardown */
+
+    /* Step 2: Trigger STA scan */
     scan_params.channels_cnt = 0;
     scan_params.passive = false;
-
-    int ret = wifi_mgmr_sta_scan(&scan_params);
+    ret = wifi_mgmr_sta_scan(&scan_params);
     if (ret != 0) {
         AXK_LOG_ERROR("[portal] wifi_mgmr_sta_scan FAIL: %d\r\n", ret);
-        return -1;
+        goto restart_ap;
     }
 
-    /* Wait up to 5 seconds for scan to complete */
-    int wait_ms = 0;
-    while (wait_ms < 5000) {
-        vTaskDelay(pdMS_TO_TICKS(200));
-        wait_ms += 200;
-
-        uint32_t count = wifi_mgmr_sta_scanlist_nums_get();
-        if (count > 0) {
-            break;
+    /* Step 3: Wait up to 5 seconds for scan results */
+    {
+        int wait_ms = 0;
+        while (wait_ms < 5000) {
+            vTaskDelay(pdMS_TO_TICKS(200));
+            wait_ms += 200;
+            uint32_t count = wifi_mgmr_sta_scanlist_nums_get();
+            if (count > 0) {
+                break;
+            }
         }
     }
 
-    return 0;
+restart_ap:
+    /* Step 5: Restart SoftAP (always, even if scan failed) */
+    AXK_LOG_INFO("[portal] restarting SoftAP...\r\n");
+    if (wifi_mgmr_ap_start(&ap_cfg) != 0) {
+        AXK_LOG_ERROR("[portal] SoftAP restart FAIL\r\n");
+    }
+    vTaskDelay(pdMS_TO_TICKS(500));  /* wait for AP to be ready */
+
+    return (ret == 0) ? 0 : -1;
 }
 
 /* ==================== Request Parsing ==================== */
@@ -944,8 +990,16 @@ static void portal_task(void *param)
 {
     (void)param;
 
+    /* Local watchdog device: feed each loop to prevent reset during scan */
+    struct bflb_device_s *wdg = bflb_device_get_by_name("watchdog0");
+
     while (s_portal_running) {
         struct netconn *client;
+
+        /* Feed watchdog every loop iteration */
+        if (wdg) {
+            bflb_wdg_reset_countervalue(wdg);
+        }
 
         err_t err = netconn_accept(s_listener, &client);
         if (err != ERR_OK) {

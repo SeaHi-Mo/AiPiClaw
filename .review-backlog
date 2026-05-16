@@ -3,3 +3,9 @@ YELLOW|AiPiClaw/main.c:163|Second axk_wifi_onboard_start() retry return value un
 BLUE|AiPiClaw/main.c:164|Magic number 500ms delay — hardcoded literal instead of named constant.|Define PORTAL_BIND_DELAY_MS 500 and use it.
 YELLOW|axk_wifi_manager.c:179|TOCTOU: g_wifi_ctx.ssid read for snprintf after xSemaphoreGive at L172, may race with concurrent SSID updates|Capture ssid into local var while mutex held before formatting
 YELLOW|axk_wifi_manager.c:164|Silent failure: xSemaphoreTake timeout on disconnect drops all retry state update, reconnect may never trigger|Log warning when mutex acquisition fails; consider deferred retry via timer
+YELLOW|config_ui.h:238|_stepTimer global mutable — concurrent saveWiFi/saveLLM could race on timer reference|Use per-step local timers or guard with state flag
+YELLOW|config_ui.h:290|scanWifi polling: renderAPList called outside promise chain, unhandled if throws|Wrap in try/catch or keep in chain
+YELLOW|web_ui.h:367|WebSocket heartbeat (ping/pong) removed — silent TCP half-open disconnection won't be detected; no reconnect trigger|Restore 10s ping / 8s pong timeout or use WebSocket built-in ping
+YELLOW|web_ui.h:501|el['scroll-btn'] not in DOM cache array (line 316-317) — newChat() silently fails to hide scroll button|Add 'scroll-btn' to el cache array
+YELLOW|web_ui.h:271/744|Double click binding on scroll-btn — inline onclick + addEventListener both fire scrollToBottom()|Remove either inline onclick or addEventListener
+YELLOW|web_ui.h:367|ws.onerror handler is empty — if onclose doesn't fire after error, no reconnect triggers|Add scheduleReconnect() call in onerror
