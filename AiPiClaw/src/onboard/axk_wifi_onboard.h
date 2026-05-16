@@ -11,6 +11,7 @@
 #define __AXK_WIFI_ONBOARD_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {

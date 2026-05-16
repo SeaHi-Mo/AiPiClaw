@@ -807,26 +807,17 @@ static int handle_wifi_connect(struct netconn *client, const char *body)
     /* Initiate connection (async).
      * NOTE: On BL618 single-radio (fhost), wifi_mgmr_sta_connect may
      * internally stop the SoftAP to free radio for STA connect.
-     * If onboard (SoftAP) is active, we restart it immediately after
-     * connect to minimize client disruption. */
+     * Do NOT attempt to restart AP here — IPC tx during STA handshake
+     * can trigger FreeRTOS queue assertions (crash at rom_code+a0045dee).
+     * The POST /api/apply endpoint handles the AP→STA transition when
+     * the user is ready. After POST /api/wifi/connect, the phone should
+     * expect brief network interruption. */
     ret = axk_wifi_connect(ssid, password[0] ? password : NULL);
     if (ret != 0) {
         cJSON_AddStringToObject(resp, "error", "connect_failed");
     } else {
         cJSON_AddStringToObject(resp, "status", "connecting");
         cJSON_AddStringToObject(resp, "ssid", ssid);
-        /* If SoftAP is active, wifi_mgmr_sta_connect may have stopped it.
-         * Restart AP to keep the config portal reachable. Avoid blocking;
-         * this is best-effort — if restart fails the portal was already
-         * going away anyway. */
-        /* SoftAP may have been torn down by STA connect (single-radio).
-         * Must stop first to reset s_onboard_active guard, otherwise
-         * axk_wifi_onboard_start() early-exits at its guard check. */
-        if (axk_wifi_onboard_is_active()) {
-            AXK_LOG_INFO("[portal] restarting SoftAP after STA connect...\r\n");
-            axk_wifi_onboard_stop();
-            axk_wifi_onboard_start();
-        }
     }
 
     cJSON_Delete(json);
@@ -1254,91 +1245,29 @@ static void portal_task(void *param)
 /* ==================== Captive Portal DNS Hijack ==================== */
 
 /**
- * @brief DNS hijack receive callback.
- * Intercepts all UDP port 53 queries and replies with a forged response
- * pointing to 192.168.4.1. iOS/Android captive portal detection sends
- * DNS queries for known domains (captive.apple.com, connectivitycheck.android.com, etc.)
- * — this hijack ensures all of them resolve to our config portal IP.
+ * @brief DNS hijack receive callback (log-only, no response).
+ *
+ * In lwIP NO_SYS mode, udp_recv callbacks fire inside the tcpip_thread
+ * context. Calling udp_sendto from here can block on fhost wifi IPC
+ * (netif->output → IPC → WiFi firmware), stalling tcpip_thread and
+ * triggering FreeRTOS Tmr Svc stack overflow assertions.
+ *
+ * iOS/Android captive portal detection works via HTTP GET (302 redirect
+ * in handle_redirect), so DNS hijack is purely supplemental. We log
+ * the query for debugging but do NOT send a forged DNS response.
  */
 static void dns_hijack_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
                             const ip_addr_t *addr, u16_t port)
 {
     (void)arg;
+    (void)pcb;
+    (void)addr;
+    (void)port;
 
-    if (!p || p->len < 12) {
-        if (p) pbuf_free(p);
-        return;
-    }
+    if (!p) return;
 
-    /* Parse DNS header: first 12 bytes, verify it's a standard query */
-    uint8_t *dns = (uint8_t *)p->payload;
-    uint16_t txid = (dns[0] << 8) | dns[1];
-    uint16_t flags = (dns[2] << 8) | dns[3];
-
-    /* Respond only to standard queries (flags & 0xF800 == 0x0000) */
-    if ((flags & 0xF800) != 0x0000) {
-        pbuf_free(p);
-        return;
-    }
-
-    /* Build minimal forged response:
-     *  - Same TXID
-     *  - QR=1 (response), AA=1 (authoritative), RA=1 (recursion avail)
-     *  - 1 answer: type A → 192.168.4.1
-     */
-    uint8_t resp[128] = {0};
-    int off = 0;
-
-    /* DNS header */
-    resp[off++] = (txid >> 8) & 0xFF;
-    resp[off++] = txid & 0xFF;
-    resp[off++] = 0x85;  /* flags hi: QR|AA|not TC|RD */
-    resp[off++] = 0x80;  /* flags lo: RA|0|0|0|0|0|0|0 */
-    resp[off++] = 0x00;  /* QDCOUNT hi */
-    resp[off++] = 0x01;  /* QDCOUNT lo: 1 question */
-    resp[off++] = 0x00;  /* ANCOUNT hi */
-    resp[off++] = 0x01;  /* ANCOUNT lo: 1 answer */
-    resp[off++] = 0x00;  /* NSCOUNT */
-    resp[off++] = 0x00;
-    resp[off++] = 0x00;  /* ARCOUNT */
-    resp[off++] = 0x00;
-
-    /* Copy original question (after header, up to 96 bytes max) */
-    int qlen = p->len - 12;
-    if (qlen > 96) qlen = 96;
-    if (off + qlen + 16 > (int)sizeof(resp)) {
-        pbuf_free(p);
-        return;
-    }
-    memcpy(resp + off, dns + 12, qlen);
-    off += qlen;
-
-    /* Answer: name pointer 0xC00C (refer to question), type A, class IN */
-    resp[off++] = 0xC0;
-    resp[off++] = 0x0C;
-    resp[off++] = 0x00;  /* TYPE A */
-    resp[off++] = 0x01;
-    resp[off++] = 0x00;  /* CLASS IN */
-    resp[off++] = 0x01;
-    resp[off++] = 0x00;  /* TTL = 60s */
-    resp[off++] = 0x00;
-    resp[off++] = 0x00;
-    resp[off++] = 0x3C;
-    resp[off++] = 0x00;  /* RDLENGTH = 4 */
-    resp[off++] = 0x04;
-    resp[off++] = 192;   /* 192.168.4.1 */
-    resp[off++] = 168;
-    resp[off++] = 4;
-    resp[off++] = 1;
-
-    /* Send forged response back to client */
-    struct pbuf *resp_p = pbuf_alloc(PBUF_TRANSPORT, off, PBUF_RAM);
-    if (resp_p) {
-        memcpy(resp_p->payload, resp, off);
-        udp_sendto(pcb, resp_p, addr, port);
-        pbuf_free(resp_p);
-    }
-
+    AXK_LOG_DEBUG("[portal] DNS hijack: query from " IPSTR ":%u (%u bytes)\r\n",
+                  IP2STR(addr), port, p->len);
     pbuf_free(p);
 }
 
