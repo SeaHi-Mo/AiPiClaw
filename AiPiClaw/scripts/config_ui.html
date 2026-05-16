@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <!--
   =============================================================
-  AiPiClaw Config Portal — SoftAP 配置门户 SPA 三步向导
+  AiPiClaw Config Portal — SoftAP 配置页面（单页设计）
   =============================================================
   用途: 新机首次配置 WiFi + LLM 的 Web 引导页面
   访问: http://192.168.4.1 (设备 SoftAP IP)
   API 基础路径: /api/
-  依赖: 零外部依赖, 纯 HTML + CSS + JS ~330行
+  依赖: 零外部依赖, 纯 HTML + CSS + JS
   作者: 安信可科技 Ai-Thinker
   =============================================================
 -->
@@ -32,22 +32,18 @@ body{
   padding:14px 20px 0
 }
 #brand{font-size:17px;font-weight:600;color:#eee;letter-spacing:.3px}
-#brand span{color:#4a9eff} /* AiPi 蓝 */
-.steps-indicator{font-size:12px;color:#555}
-.steps-indicator .active{color:#4a9eff;font-weight:600}
+#brand span{color:#4a9eff}
 
 /* ===== 3. 内容区 ===== */
 #container{width:100%;max-width:520px;flex:1;padding:20px;overflow-y:auto}
-.step{display:none}
-.step.active{display:block}
-.step h2{font-size:16px;font-weight:500;color:#eee;margin-bottom:16px}
-.step h2 .num{display:inline-flex;align-items:center;justify-content:center;
-  width:22px;height:22px;border-radius:50%;background:#4a9eff;color:#fff;
-  font-size:12px;margin-right:8px;vertical-align:middle}
+#container h2{font-size:16px;font-weight:500;color:#eee;margin-bottom:16px}
+.section{border:1px solid #222;border-radius:12px;padding:16px;margin-bottom:16px}
+.section h3{font-size:14px;font-weight:500;color:#aaa;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.section h3 .icon{font-size:16px}
 
 /* ===== 4. 表单控件 ===== */
-label{display:block;font-size:13px;color:#888;margin-bottom:4px;margin-top:14px}
-label:first-child{margin-top:0}
+label{display:block;font-size:13px;color:#888;margin-bottom:4px;margin-top:12px}
+label:first-of-type{margin-top:0}
 input,select{
   width:100%;padding:12px 14px;background:#1a1a1a;border:1px solid #333;
   border-radius:10px;color:#ddd;font-size:14px;outline:none;transition:.2s
@@ -76,7 +72,7 @@ input[type="password"]{letter-spacing:2px}
 
 /* ===== 6. WiFi 扫描列表 ===== */
 #scan-status{font-size:12px;color:#666;margin-top:10px}
-#ap-list{margin-top:10px;display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto}
+#ap-list{margin-top:10px;display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto}
 .ap-card{
   display:flex;align-items:center;gap:10px;
   padding:10px 14px;background:#111;border:1px solid #222;border-radius:10px;
@@ -97,23 +93,7 @@ input[type="password"]{letter-spacing:2px}
 .msg.error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#f87171}
 .msg.info{background:rgba(74,158,255,.1);border:1px solid rgba(74,158,255,.2);color:#60a5fa}
 
-/* ===== 8. 步骤导航条 ===== */
-.step-nav{display:flex;align-items:center;justify-content:center;gap:0;padding:12px 0 8px}
-.step-nav .dot{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;background:#1a1a2e;color:#555;border:2px solid #222;cursor:pointer;transition:.2s;user-select:none}
-.step-nav .dot.active{background:#4a9eff;color:#fff;border-color:#4a9eff}
-.step-nav .dot.done{background:#22c55e;color:#fff;border-color:#22c55e;cursor:pointer}
-.step-nav .line{width:32px;height:2px;background:#222;margin:0 4px;transition:.3s}
-.step-nav .line.done{background:#22c55e}
-
-/* ===== 9. 步骤3 — 配置摘要 ===== */
-.summary-card{
-  background:#111;border:1px solid #222;border-radius:12px;padding:16px;margin-bottom:10px
-}
-.summary-card .row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px}
-.summary-card .row .lbl{color:#666}
-.summary-card .row .val{color:#ddd}
-
-/* ===== 10. 转换到聊天的过渡动画 ===== */
+/* ===== 8. 过渡动画 ===== */
 .transition-screen{
   display:none;position:fixed;top:0;left:0;width:100%;height:100%;
   background:#000;z-index:100;
@@ -124,44 +104,35 @@ input[type="password"]{letter-spacing:2px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .transition-screen .text{font-size:14px;color:#555}
 
-/* ===== 11. 滚动条 ===== */
+/* ===== 9. 滚动条 ===== */
 #ap-list::-webkit-scrollbar{width:4px}
 #ap-list::-webkit-scrollbar-track{background:transparent}
 #ap-list::-webkit-scrollbar-thumb{background:#222;border-radius:4px}
-/* 移动端额外间距 */
 @media(max-width:400px){#container{padding:16px}}
 </style>
 </head>
 <body>
 
 <div id="topbar">
-  <div id="brand" onclick="switchToChat()" style="cursor:pointer"><span>AiPi</span>Claw</div>
-  <div class="step-nav" id="step-nav">
-    <div class="dot active" id="nav-dot-1" onclick="goToStep(1)">1</div>
-    <div class="line" id="nav-line-1"></div>
-    <div class="dot" id="nav-dot-2" onclick="goToStep(2)">2</div>
-    <div class="line" id="nav-line-2"></div>
-    <div class="dot" id="nav-dot-3" onclick="goToStep(3)">3</div>
-  </div>
+  <div id="brand"><span>AiPi</span>Claw</div>
 </div>
 
 <div id="container">
 
-<!-- ===== Step 1: WiFi 配置 ===== -->
-<div class="step active" id="step1">
-  <h2><span class="num">1</span>选择 WiFi 网络</h2>
+<!-- ===== WiFi 配置区 ===== -->
+<div class="section">
+  <h3><span class="icon">📶</span>WiFi 网络</h3>
   <button class="btn btn-secondary" id="scan-btn" onclick="scanWifi()">📡 扫描 WiFi</button>
   <div id="scan-status"></div>
   <div id="ap-list"></div>
   <label>WiFi 密码</label>
   <input type="password" id="wifi-pwd" placeholder="输入密码" autocomplete="off">
-  <button class="btn btn-primary" id="connect-btn" onclick="connectWifi()" disabled>连接 WiFi</button>
   <div class="msg" id="wifi-msg"></div>
 </div>
 
-<!-- ===== Step 2: LLM 配置 ===== -->
-<div class="step" id="step2">
-  <h2><span class="num">2</span>配置 AI 服务</h2>
+<!-- ===== AI 服务配置区 ===== -->
+<div class="section">
+  <h3><span class="icon">🤖</span>AI 服务</h3>
   <label>API 提供商</label>
   <select id="llm-provider">
     <option value="minimax">MiniMax</option>
@@ -173,33 +144,16 @@ input[type="password"]{letter-spacing:2px}
   <input type="text" id="llm-model" value="MiniMax-M2.5" placeholder="如 MiniMax-M2.5">
   <label>API Key</label>
   <input type="password" id="llm-key" placeholder="输入 API Key" autocomplete="off">
-  <button class="btn btn-secondary" onclick="goToStep(1)">← 上一步</button>
-  <button class="btn btn-primary" id="llm-save-btn" onclick="saveLLM()">💾 保存配置</button>
   <div class="msg" id="llm-msg"></div>
 </div>
 
-<!-- ===== Step 3: 完成 & 启动 ===== -->
-<div class="step" id="step3">
-  <h2><span class="num">3</span>确认并启动</h2>
-  <div class="summary-card" id="summary-wifi">
-    <div class="row"><span class="lbl">WiFi</span><span class="val" id="summary-ssid">—</span></div>
-  </div>
-  <div class="summary-card" id="summary-llm">
-    <div class="row"><span class="lbl">提供商</span><span class="val" id="summary-provider">—</span></div>
-    <div class="row"><span class="lbl">模型</span><span class="val" id="summary-model">—</span></div>
-    <div class="row"><span class="lbl">API Key</span><span class="val" id="summary-key">—</span></div>
-  </div>
-  <button class="btn btn-secondary" onclick="goToStep(2)">← 上一步</button>
-  <button class="btn btn-success" id="apply-btn" onclick="applyAndStart()">🚀 保存并启动</button>
-  <div style="text-align:center;margin-top:12px">
-    <a href="javascript:switchToChat()" style="color:#4a9eff;font-size:13px;text-decoration:none">跳转到聊天页面 →</a>
-  </div>
-  <div class="msg" id="apply-msg"></div>
-</div>
+<!-- ===== 保存并启动 ===== -->
+<button class="btn btn-success" id="apply-btn" onclick="applyConfig()">🚀 保存并启动</button>
+<div class="msg" id="apply-msg"></div>
 
 </div><!-- /container -->
 
-<!-- 转换到聊天界面的过渡动画 -->
+<!-- 过渡动画 -->
 <div class="transition-screen" id="transition">
   <div class="spinner"></div>
   <div class="text">正在连接设备...</div>
@@ -207,16 +161,15 @@ input[type="password"]{letter-spacing:2px}
 
 <script>
 /* =========================================================
-   AiPiClaw Config Portal — 三步向导 JS
+   AiPiClaw Config Portal — 单页配置
    =========================================================
    依赖: 无
-   接口: 7个 REST API 端点 (详见文件头)
-   流程: Step1 WiFi → Step2 LLM → Step3 Apply → Chat
+   接口: 5个 REST API 端点
+   流程: 配置 WiFi + LLM → 一键保存并启动 → 切 /chat
    ========================================================= */
 
 // ---- 全局状态 ----
 let state = {
-  step: 1,
   selectedSSID: '',
   ssid: '',
   pwd: '',
@@ -224,30 +177,8 @@ let state = {
   model: 'MiniMax-M2.5',
   key: '',
   scanning: false,
-  connecting: false
+  saving: false
 };
-
-// 清除自动跳转 timeout，防止用户手动切步后仍被推进
-let _stepTimer = null;
-
-// ---- 步骤切换 ----
-function goToStep(n) {
-  if (_stepTimer) { clearTimeout(_stepTimer); _stepTimer = null; }
-  document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
-  document.getElementById('step' + n).classList.add('active');
-  state.step = n;
-  // 更新导航点
-  for (let i = 1; i <= 3; i++) {
-    const dot = document.getElementById('nav-dot-' + i);
-    dot.classList.remove('active', 'done');
-    if (i === n) dot.classList.add('active');
-    else if (i < n) dot.classList.add('done');
-    if (i < 3) {
-      const line = document.getElementById('nav-line-' + i);
-      line.classList.toggle('done', i < n);
-    }
-  }
-}
 
 // ---- 工具: 显示消息 ----
 function showMsg(id, type, text) {
@@ -260,7 +191,7 @@ function hideMsg(id) {
   document.getElementById(id).textContent = '';
 }
 
-// ---- Step 1: WiFi 扫描 ----
+// ---- WiFi 扫描 ----
 function scanWifi() {
   if (state.scanning) return;
   state.scanning = true;
@@ -270,7 +201,6 @@ function scanWifi() {
   document.getElementById('scan-status').textContent = '';
   document.getElementById('ap-list').innerHTML = '';
 
-  // GET 触发扫描并获取结果（后端同步扫描后返回）
   fetch('/api/wifi/scan')
     .then(r => {
       if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -280,7 +210,7 @@ function scanWifi() {
       if (res.aps && res.aps.length > 0) {
         renderAPList(res.aps);
       } else {
-        document.getElementById('scan-status').textContent = '未发现 WiFi 网络，请确认路由器已开启';
+        document.getElementById('scan-status').textContent = '未发现 WiFi 网络';
       }
     })
     .catch(err => {
@@ -293,175 +223,106 @@ function scanWifi() {
     });
 }
 
-function renderAPList(ssids) {
+function renderAPList(aps) {
   const list = document.getElementById('ap-list');
   list.innerHTML = '';
-  if (!ssids || ssids.length === 0) {
-    document.getElementById('scan-status').textContent = '未发现 WiFi 网络';
-    return;
-  }
-  document.getElementById('scan-status').textContent = '找到 ' + ssids.length + ' 个网络';
-  ssids.forEach(ap => {
+  document.getElementById('scan-status').textContent = '找到 ' + aps.length + ' 个网络';
+  aps.forEach(ap => {
     const card = document.createElement('div');
     card.className = 'ap-card';
-    const bars = ap.rssi > -50 ? 3 : ap.rssi > -70 ? 2 : 1;
     card.innerHTML =
-      '<div class="icon">' + '📶' + '</div>' +
+      '<div class="icon">📶</div>' +
       '<div class="info"><div class="ssid">' + escHtml(ap.ssid) + '</div>' +
       '<div class="meta">' + (ap.auth || 'WPA2') + '</div></div>' +
       '<div class="rssi">' + ap.rssi + ' dBm</div>';
     card.onclick = function() {
       document.querySelectorAll('.ap-card').forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
-      state.selectedSSID = ap.ssid;
       state.ssid = ap.ssid;
-      document.getElementById('connect-btn').disabled = false;
       document.getElementById('wifi-pwd').focus();
     };
     list.appendChild(card);
   });
 }
 
-// ---- Step 1: WiFi 连接 ----
-function connectWifi() {
-  if (!state.ssid) { showMsg('wifi-msg', 'error', '请先选择一个 WiFi 网络'); return; }
-  if (state.connecting) return;
-  state.connecting = true;
-  state.pwd = document.getElementById('wifi-pwd').value;
-  const btn = document.getElementById('connect-btn');
-  btn.disabled = true;
-  btn.textContent = '⏳ 连接中...';
-  hideMsg('wifi-msg');
+// ---- 一键保存并启动 ----
+function applyConfig() {
+  if (state.saving) return;
 
+  // 收集数据
+  state.ssid = state.ssid || document.getElementById('wifi-pwd').dataset.ssid || '';
+  state.pwd = document.getElementById('wifi-pwd').value;
+  state.provider = document.getElementById('llm-provider').value;
+  state.model = document.getElementById('llm-model').value || state.model;
+  state.key = document.getElementById('llm-key').value;
+
+  // 验证
+  if (!state.ssid) {
+    showMsg('apply-msg', 'error', '请先选择 WiFi 网络');
+    document.getElementById('scan-btn').scrollIntoView({behavior:'smooth'});
+    return;
+  }
+  if (!state.key || state.key.trim() === '') {
+    showMsg('apply-msg', 'error', '请输入 API Key');
+    document.getElementById('llm-key').focus();
+    return;
+  }
+
+  state.saving = true;
+  const btn = document.getElementById('apply-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ 正在保存...';
+  hideMsg('apply-msg');
+
+  // 1. 保存 WiFi
   fetch('/api/wifi/connect', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ssid: state.ssid, password: state.pwd })
   })
-  .then(r => r.json())
-  .then(d => {
-    showMsg('wifi-msg', 'success', 'WiFi 凭据已保存，正在连接...');
-    return pollWifiStatus();
+  .then(r => {
+    if (!r.ok) throw new Error('WiFi 保存失败: HTTP ' + r.status);
+    return r.json();
   })
-  .then(status => {
-    if (status.status === 'connected') {
-      showMsg('wifi-msg', 'success', '✅ WiFi 已连接 — ' + (status.ip || ''));
-      _stepTimer = setTimeout(() => goToStep(2), 800);
-    } else {
-      showMsg('wifi-msg', 'info', 'WiFi 凭据已保存，连接可能需要 10-15 秒');
-      _stepTimer = setTimeout(() => goToStep(2), 1500);
-    }
-  })
-  .catch(err => {
-    showMsg('wifi-msg', 'error', '连接失败: ' + err.message);
-    btn.disabled = false;
-    btn.textContent = '连接 WiFi';
-    state.connecting = false;
-  });
-}
-
-function pollWifiStatus(maxRetries) {
-  maxRetries = maxRetries || 15;
-  return new Promise((resolve, reject) => {
-    let tries = 0;
-    const poll = () => {
-      tries++;
-      fetch('/api/wifi/status')
-        .then(r => r.json())
-        .then(s => {
-          if (s.status === 'connected') resolve(s);
-          else if (tries >= maxRetries) resolve(s);
-          else setTimeout(poll, 800);
-        })
-        .catch(() => {
-          if (tries >= maxRetries) reject(new Error('状态查询超时'));
-          else setTimeout(poll, 800);
-        });
-    };
-    setTimeout(poll, 500);
-  });
-}
-
-// ---- Step 2: LLM 配置 ----
-function saveLLM() {
-  state.provider = document.getElementById('llm-provider').value;
-  state.model = document.getElementById('llm-model').value || state.model;
-  state.key = document.getElementById('llm-key').value;
-
-  // 验证 KEY 非空
-  if (!state.key || state.key.trim() === '') {
-    showMsg('llm-msg', 'error', '请输入 API Key');
-    document.getElementById('llm-key').focus();
-    return;
-  }
-
-  const btn = document.getElementById('llm-save-btn');
-  btn.disabled = true;
-  btn.textContent = '⏳ 保存中...';
-  hideMsg('llm-msg');
-
-  fetch('/api/llm/config', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ provider: state.provider, model: state.model, api_key: state.key })
+  .then(() => {
+    // 2. 保存 LLM
+    return fetch('/api/llm/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: state.provider, model: state.model, api_key: state.key })
+    });
   })
   .then(r => {
-    if (!r.ok) {
-      return r.text().then(t => Promise.reject(new Error('HTTP ' + r.status + ': ' + t)));
-    }
+    if (!r.ok) throw new Error('AI 配置保存失败: HTTP ' + r.status);
     return r.json();
   })
   .then(d => {
-    if (d.error) {
-      showMsg('llm-msg', 'error', '保存失败: ' + d.error);
-      btn.disabled = false;
-      btn.textContent = '💾 保存配置';
-      return;
-    }
-    if (d.status === 'partial') {
-      showMsg('llm-msg', 'info', '部分配置保存成功（' + d.errors + ' 项失败）');
-      _stepTimer = setTimeout(() => goToStep(3), 1000);
-      return;
-    }
-    showMsg('llm-msg', 'success', '✅ AI 配置已保存');
-    _stepTimer = setTimeout(() => goToStep(3), 800);
+    if (d.error) throw new Error(d.error);
+    // 3. 应用
+    return fetch('/api/apply', { method: 'POST' });
+  })
+  .then(r => {
+    if (!r.ok) throw new Error('应用失败: HTTP ' + r.status);
+    return r.json();
+  })
+  .then(() => {
+    showMsg('apply-msg', 'success', '✅ 配置已保存！正在切换到聊天...');
+    // 显示过渡动画
+    document.getElementById('transition').classList.add('show');
+    // 8 秒后尝试切换到聊天
+    setTimeout(switchToChat, 8000);
   })
   .catch(err => {
-    showMsg('llm-msg', 'error', '保存失败: ' + err.message);
+    showMsg('apply-msg', 'error', err.message);
     btn.disabled = false;
-    btn.textContent = '💾 保存配置';
+    btn.textContent = '🚀 保存并启动';
+    state.saving = false;
   });
 }
 
-// ---- Step 3: 应用 & 启动 ----
-function applyAndStart() {
-  document.getElementById('summary-ssid').textContent = state.ssid || '—';
-  document.getElementById('summary-provider').textContent = state.provider || '—';
-  document.getElementById('summary-model').textContent = state.model || '—';
-  document.getElementById('summary-key').textContent = state.key ? '••••' + state.key.slice(-4) : '—';
-
-  const btn = document.getElementById('apply-btn');
-  btn.disabled = true;
-  btn.textContent = '⏳ 正在应用...';
-  hideMsg('apply-msg');
-
-  fetch('/api/apply', { method: 'POST' })
-    .then(r => r.json())
-    .then(d => {
-      showMsg('apply-msg', 'success', '✅ 配置已应用！正在切换到聊天模式...');
-      document.getElementById('transition').classList.add('show');
-      setTimeout(switchToChat, 8000);
-    })
-    .catch(err => {
-      showMsg('apply-msg', 'error', '应用失败: ' + err.message);
-      btn.disabled = false;
-      btn.textContent = '🚀 保存并启动';
-    });
-}
-
-// ---- 切换到聊天界面 ----
+// ---- 切换到聊天界面（auto-connect via hostname） ----
 function switchToChat() {
-  const host = '192.168.4.1';
+  const host = window.location.hostname || '192.168.4.1';
   const wsUrl = 'ws://' + host + ':18789';
   document.querySelector('#transition .text').textContent = '连接聊天服务...';
 
@@ -523,7 +384,6 @@ function loadExistingConfig() {
     .then(s => {
       if (s.ssid) {
         state.ssid = s.ssid;
-        state.selectedSSID = s.ssid;
       }
     })
     .catch(() => {});
