@@ -315,14 +315,21 @@ void axk_config_portal_stop(void)
     /* Stop captive portal DNS hijack */
     dns_hijack_deinit();
 
-    /* Stop TLS acceptor */
+    /* Signal TLS acceptor to stop: set flag + close listener to unblock accept.
+     * Task itself cleans up listener and deletes itself. */
     if (s_tls_listener) {
         netconn_close(s_tls_listener);
+    }
+    /* Wait for TLS task to exit */
+    int tls_wait = 0;
+    while (s_tls_task && tls_wait < 50) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+        tls_wait++;
+    }
+    if (s_tls_listener) {
         netconn_delete(s_tls_listener);
         s_tls_listener = NULL;
     }
-    /* TLS task exits when its accept fails; wait briefly */
-    vTaskDelay(pdMS_TO_TICKS(50));
 
     /* Wait for portal task to exit, then clean up */
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -1372,6 +1379,7 @@ static void tls_acceptor_task(void *param)
     AXK_LOG_INFO("[portal] TLS acceptor task started\r\n");
     while (s_portal_running) {
         struct netconn *client;
+        /* Use a timeout so we can check s_portal_running periodically */
         err_t err = netconn_accept(s_tls_listener, &client);
         if (err != ERR_OK) {
             break;
@@ -1379,6 +1387,12 @@ static void tls_acceptor_task(void *param)
         AXK_LOG_INFO("[portal] TLS hit on 443 (rejected, client will fallback to HTTP)\r\n");
         netconn_close(client);
         netconn_delete(client);
+    }
+
+    /* Clean up listener on our own thread, before stop() deletes it */
+    if (s_tls_listener) {
+        netconn_delete(s_tls_listener);
+        s_tls_listener = NULL;
     }
 
     AXK_LOG_INFO("[portal] TLS acceptor stopped\r\n");
