@@ -155,7 +155,6 @@ int axk_config_portal_init(void)
      * can use them immediately without waiting for portal config. */
     {
         char ssid[64] = {0};
-        char pwd[64] = {0};
         char provider[32] = {0};
         char model[64] = {0};
         char api_key[320] = {0};
@@ -806,7 +805,8 @@ static int handle_wifi_connect(struct netconn *client, const char *body)
      * loop (normal task context) to auto-connect on next tick. The
      * POST /api/apply endpoint handles the full AP→STA transition when
      * the user is ready. */
-    ret = axk_wifi_save_credentials(ssid, password);
+    AXK_LOG_INFO("[portal] POST /api/wifi/connect: ssid=%s\r\n", ssid);
+    int ret = axk_wifi_save_credentials(ssid, password);
     if (ret != 0) {
         cJSON_Delete(json);
         cJSON_AddStringToObject(resp, "error", "save_failed");
@@ -1047,23 +1047,18 @@ static int handle_apply(struct netconn *client, const char *body)
                             "{\"error\":\"OOM\"}");
     }
 
-    /* Save everything already saved via POST /api/save — just commit */
+    /* TEST mode: save only, no AP→STA transition.
+     * Normal mode would stop AP+portal and connect STA here. */
     ef_save_env();
 
-    /* Stop SoftAP and config portal, connect to target WiFi */
-    AXK_LOG_INFO("[portal] apply: stopping AP+portal, connecting STA...\r\n");
-    axk_config_portal_stop();
-    axk_wifi_onboard_stop();
-
-    int ret = axk_wifi_auto_connect();
+    AXK_LOG_INFO("[portal] POST /api/apply: config saved (TEST mode, AP kept alive)\r\n");
 
     cJSON_AddStringToObject(resp, "status", "applied");
-    cJSON_AddStringToObject(resp, "wifi_connecting",
-                            (ret == 0) ? "yes" : "no_credentials");
+    cJSON_AddStringToObject(resp, "wifi_connecting", "test_mode");
     cJSON_AddStringToObject(resp, "ws_port", "18789");
     cJSON_AddStringToObject(resp, "chat_url", "/chat");
     cJSON_AddStringToObject(resp, "apply_msg",
-                            "Configuration saved. Browse /chat to start chatting.");
+                            "Configuration saved (TEST mode).");
 
     int r = send_json_response(client, 200, resp);
     cJSON_Delete(resp);
@@ -1264,8 +1259,7 @@ static void dns_hijack_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 
     if (!p) return;
 
-    AXK_LOG_DEBUG("[portal] DNS hijack: query from " IPSTR ":%u (%u bytes)\r\n",
-                  IP2STR(addr), port, p->len);
+    AXK_LOG_DEBUG("[portal] DNS hijack: query (%u bytes)\r\n", p->len);
     pbuf_free(p);
 }
 
