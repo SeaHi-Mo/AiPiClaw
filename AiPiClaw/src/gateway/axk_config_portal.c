@@ -47,6 +47,10 @@
 #include "axk_llm_proxy.h"
 #include "mimi_config.h"
 
+/* lwIP UDP RAW for captive portal DNS hijack */
+#include "lwip/udp.h"
+#include "lwip/pbuf.h"
+
 #include "config_ui.h"
 #include "web_ui.h"
 
@@ -66,6 +70,13 @@
 #define KV_LLM_MODEL            "mimiclaw.llm.model"
 #define KV_LLM_PROVIDER         "mimiclaw.llm.provider"
 
+/* Captive portal: DNS hijack to 192.168.4.1 */
+#define PORTAL_DNS_PORT         53
+
+/* HTTP 302 redirect for captive portal detection */
+#define PORTAL_REDIRECT_302     "HTTP/1.1 302 Found\r\nLocation: http://192.168.4.1/\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+#define PORTAL_REDIRECT_HTML    "<html><head><meta http-equiv=\"refresh\" content=\"0;url=http://192.168.4.1/\"></head></html>"
+
 /* ==================== Internal State ==================== */
 
 static bool s_portal_running = false;
@@ -77,6 +88,9 @@ static SemaphoreHandle_t s_portal_mutex = NULL;
 static char *s_scan_json = NULL;
 static bool s_scan_cached = false;   /**< true when cache has been filled at least once */
 static SemaphoreHandle_t s_scan_mutex = NULL;
+
+/* Captive portal: DNS hijack UDP PCB */
+static struct udp_pcb *s_dns_pcb = NULL;
 
 /* ==================== Public API ==================== */
 
@@ -102,7 +116,14 @@ static int handle_wifi_connect(struct netconn *client, const char *body);
 static int handle_wifi_status(struct netconn *client);
 static int handle_llm_config_get(struct netconn *client);
 static int handle_llm_config_set(struct netconn *client, const char *body);
-static int handle_apply(struct netconn *client, const char *body);
+static int handle_save(struct netconn *client, const char *body);
+static int handle_redirect(struct netconn *client);
+
+/* Captive portal DNS hijack */
+static void dns_hijack_init(void);
+static void dns_hijack_deinit(void);
+static void dns_hijack_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
+                            const ip_addr_t *addr, u16_t port);
 
 /* Response helpers */
 static int send_response(struct netconn *client, int status,
@@ -128,6 +149,33 @@ int axk_config_portal_init(void)
     if (s_scan_mutex == NULL) {
         s_scan_mutex = xSemaphoreCreateMutex();
     }
+
+    /* ① Auto-restore saved LLM & WiFi config from flash at boot.
+     * If credentials exist, load them into runtime state so the agent
+     * can use them immediately without waiting for portal config. */
+    {
+        char ssid[64] = {0};
+        char pwd[64] = {0};
+        char provider[32] = {0};
+        char model[64] = {0};
+        char api_key[320] = {0};
+        size_t len = 0;
+
+        if (axk_kv_get_blob(KV_WIFI_SSID, ssid, sizeof(ssid), &len) == 0 && len > 0) {
+            AXK_LOG_INFO("[portal] boot: found saved WiFi SSID=%s\r\n", ssid);
+        }
+        /* LLM config: restore to proxy runtime so axk_llm_chat_tools works */
+        if (axk_kv_get_blob(KV_LLM_PROVIDER, provider, sizeof(provider), &len) == 0 && len > 0) {
+            (void)axk_llm_set_provider(provider);
+        }
+        if (axk_kv_get_blob(KV_LLM_MODEL, model, sizeof(model), &len) == 0 && len > 0) {
+            (void)axk_llm_set_model(model);
+        }
+        if (axk_kv_get_blob(KV_LLM_API_KEY, api_key, sizeof(api_key), &len) == 0 && len > 0) {
+            (void)axk_llm_set_api_key(api_key);
+        }
+    }
+
     AXK_LOG_INFO("[portal] Config Portal init ok\r\n");
     return 0;
 }
@@ -212,6 +260,9 @@ int axk_config_portal_start(void)
     portal_scan_and_cache();
     AXK_LOG_INFO("[portal] pre-scan done\r\n");
 
+    /* ③ Start captive portal DNS hijack (udp:53 → 192.168.4.1) */
+    dns_hijack_init();
+
     return 0;
 }
 
@@ -236,6 +287,9 @@ void axk_config_portal_stop(void)
         }
         xSemaphoreGive(s_scan_mutex);
     }
+
+    /* Stop captive portal DNS hijack */
+    dns_hijack_deinit();
 
     /* Wait for portal task to exit, then clean up */
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -927,11 +981,72 @@ static int handle_llm_config_get(struct netconn *client)
 }
 
 /**
- * @brief POST /api/apply - Save all config and transition
+ * @brief POST /api/save — 统一保存WiFi+LLM配置到flash
  *
- * Saves WiFi + LLM config to flash, stops SoftAP and config portal,
- * then connects to target WiFi. WS server (already running from boot)
- * continues serving after STA connection is established.
+ * JSON body: { "ssid": "...", "password": "...",
+ *              "provider": "...", "model": "...", "api_key": "..." }
+ * 所有字段可选，只保存提供的字段。完成后不断SoftAP，用户可继续浏览。
+ */
+static int handle_save(struct netconn *client, const char *body)
+{
+    cJSON *resp = cJSON_CreateObject();
+    if (!resp) {
+        return send_response(client, 500, "application/json",
+                            "{\"error\":\"OOM\"}");
+    }
+
+    int n_saved = 0;
+    cJSON *json = cJSON_Parse(body);
+    if (!json) {
+        cJSON_AddStringToObject(resp, "error", "invalid_json");
+        int r = send_json_response(client, 400, resp);
+        cJSON_Delete(resp);
+        return r;
+    }
+
+    /* WiFi fields */
+    cJSON *ssid_j = cJSON_GetObjectItem(json, "ssid");
+    cJSON *pass_j = cJSON_GetObjectItem(json, "password");
+    if (ssid_j && cJSON_IsString(ssid_j) && ssid_j->valuestring[0]) {
+        const char *pwd = (pass_j && cJSON_IsString(pass_j)) ? pass_j->valuestring : "";
+        if (axk_wifi_save_credentials(ssid_j->valuestring, pwd) == 0) {
+            n_saved++;
+        }
+    }
+
+    /* LLM fields */
+    cJSON *provider_j = cJSON_GetObjectItem(json, "provider");
+    if (provider_j && cJSON_IsString(provider_j)) {
+        if (axk_llm_set_provider(provider_j->valuestring) == 0) n_saved++;
+    }
+    cJSON *model_j = cJSON_GetObjectItem(json, "model");
+    if (model_j && cJSON_IsString(model_j)) {
+        if (axk_llm_set_model(model_j->valuestring) == 0) n_saved++;
+    }
+    cJSON *api_key_j = cJSON_GetObjectItem(json, "api_key");
+    if (api_key_j && cJSON_IsString(api_key_j) && api_key_j->valuestring[0]) {
+        if (axk_llm_set_api_key(api_key_j->valuestring) == 0) n_saved++;
+    }
+
+    cJSON_Delete(json);
+
+    if (n_saved > 0) {
+        cJSON_AddStringToObject(resp, "status", "ok");
+        cJSON_AddNumberToObject(resp, "saved", n_saved);
+    } else {
+        cJSON_AddStringToObject(resp, "status", "no_data");
+    }
+
+    int r = send_json_response(client, 200, resp);
+    cJSON_Delete(resp);
+    return r;
+}
+
+/**
+ * @brief POST /api/apply — 保存配置 → 停AP → 连STA → 转聊天
+ *
+ * 这是三步骤配置的最终确认按钮后端。统一保存WiFi+LLM到flash，
+ * 然后停止SoftAP + config portal，连接目标WiFi，重定向到/chat。
  */
 static int handle_apply(struct netconn *client, const char *body)
 {
@@ -943,15 +1058,14 @@ static int handle_apply(struct netconn *client, const char *body)
                             "{\"error\":\"OOM\"}");
     }
 
-    /* Save everything to flash */
+    /* Save everything already saved via POST /api/save — just commit */
     ef_save_env();
 
-    /* Keep HTTP server running — still serves /chat page.
-     * SoftAP also stays up (AP+STA coexists).
-     * User can still browse /chat after config applied. */
+    /* Stop SoftAP and config portal, connect to target WiFi */
+    AXK_LOG_INFO("[portal] apply: stopping AP+portal, connecting STA...\r\n");
+    axk_config_portal_stop();
+    axk_wifi_onboard_stop();
 
-    /* WS server already running from modules_init; ensure it's listening */
-    /* Attempt auto connect (reads saved WiFi credentials) */
     int ret = axk_wifi_auto_connect();
 
     cJSON_AddStringToObject(resp, "status", "applied");
@@ -965,6 +1079,16 @@ static int handle_apply(struct netconn *client, const char *body)
     int r = send_json_response(client, 200, resp);
     cJSON_Delete(resp);
     return r;
+}
+
+/**
+ * @brief Captive portal redirect for any non-API, non-asset path.
+ * Returns a 302 redirect to http://192.168.4.1/ so iOS/Android
+ * captive portal detection lands on our config page.
+ */
+static int handle_redirect(struct netconn *client)
+{
+    return send_response(client, 302, "text/html", PORTAL_REDIRECT_HTML);
 }
 
 /* ==================== Request Dispatcher ==================== */
@@ -1035,7 +1159,15 @@ static int handle_request(struct netconn *client,
         return send_response(client, 405, "text/plain", "Method Not Allowed");
     }
 
-    /* POST /api/apply */
+    /* POST /api/save — 统一保存WiFi+LLM */
+    if (strcmp(uri_path, "/api/save") == 0) {
+        if (strcmp(method, "POST") != 0) {
+            return send_response(client, 405, "text/plain", "Method Not Allowed");
+        }
+        return handle_save(client, body);
+    }
+
+    /* POST /api/apply — 完成配置，停AP转STA */
     if (strcmp(uri_path, "/api/apply") == 0) {
         if (strcmp(method, "POST") != 0) {
             return send_response(client, 405, "text/plain", "Method Not Allowed");
@@ -1043,8 +1175,8 @@ static int handle_request(struct netconn *client,
         return handle_apply(client, body);
     }
 
-    /* 404 for unmatched routes */
-    return send_response(client, 404, "text/plain", "Not Found");
+    /* ④ Captive portal: any non-API path → 302 redirect to / */
+    return handle_redirect(client);
 }
 
 /* ==================== Client Handler ==================== */
@@ -1117,4 +1249,134 @@ static void portal_task(void *param)
     s_portal_task = NULL;
 
     vTaskDelete(NULL);
+}
+
+/* ==================== Captive Portal DNS Hijack ==================== */
+
+/**
+ * @brief DNS hijack receive callback.
+ * Intercepts all UDP port 53 queries and replies with a forged response
+ * pointing to 192.168.4.1. iOS/Android captive portal detection sends
+ * DNS queries for known domains (captive.apple.com, connectivitycheck.android.com, etc.)
+ * — this hijack ensures all of them resolve to our config portal IP.
+ */
+static void dns_hijack_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
+                            const ip_addr_t *addr, u16_t port)
+{
+    (void)arg;
+
+    if (!p || p->len < 12) {
+        if (p) pbuf_free(p);
+        return;
+    }
+
+    /* Parse DNS header: first 12 bytes, verify it's a standard query */
+    uint8_t *dns = (uint8_t *)p->payload;
+    uint16_t txid = (dns[0] << 8) | dns[1];
+    uint16_t flags = (dns[2] << 8) | dns[3];
+
+    /* Respond only to standard queries (flags & 0xF800 == 0x0000) */
+    if ((flags & 0xF800) != 0x0000) {
+        pbuf_free(p);
+        return;
+    }
+
+    /* Build minimal forged response:
+     *  - Same TXID
+     *  - QR=1 (response), AA=1 (authoritative), RA=1 (recursion avail)
+     *  - 1 answer: type A → 192.168.4.1
+     */
+    uint8_t resp[128] = {0};
+    int off = 0;
+
+    /* DNS header */
+    resp[off++] = (txid >> 8) & 0xFF;
+    resp[off++] = txid & 0xFF;
+    resp[off++] = 0x85;  /* flags hi: QR|AA|not TC|RD */
+    resp[off++] = 0x80;  /* flags lo: RA|0|0|0|0|0|0|0 */
+    resp[off++] = 0x00;  /* QDCOUNT hi */
+    resp[off++] = 0x01;  /* QDCOUNT lo: 1 question */
+    resp[off++] = 0x00;  /* ANCOUNT hi */
+    resp[off++] = 0x01;  /* ANCOUNT lo: 1 answer */
+    resp[off++] = 0x00;  /* NSCOUNT */
+    resp[off++] = 0x00;
+    resp[off++] = 0x00;  /* ARCOUNT */
+    resp[off++] = 0x00;
+
+    /* Copy original question (after header, up to 96 bytes max) */
+    int qlen = p->len - 12;
+    if (qlen > 96) qlen = 96;
+    if (off + qlen + 16 > (int)sizeof(resp)) {
+        pbuf_free(p);
+        return;
+    }
+    memcpy(resp + off, dns + 12, qlen);
+    off += qlen;
+
+    /* Answer: name pointer 0xC00C (refer to question), type A, class IN */
+    resp[off++] = 0xC0;
+    resp[off++] = 0x0C;
+    resp[off++] = 0x00;  /* TYPE A */
+    resp[off++] = 0x01;
+    resp[off++] = 0x00;  /* CLASS IN */
+    resp[off++] = 0x01;
+    resp[off++] = 0x00;  /* TTL = 60s */
+    resp[off++] = 0x00;
+    resp[off++] = 0x00;
+    resp[off++] = 0x3C;
+    resp[off++] = 0x00;  /* RDLENGTH = 4 */
+    resp[off++] = 0x04;
+    resp[off++] = 192;   /* 192.168.4.1 */
+    resp[off++] = 168;
+    resp[off++] = 4;
+    resp[off++] = 1;
+
+    /* Send forged response back to client */
+    struct pbuf *resp_p = pbuf_alloc(PBUF_TRANSPORT, off, PBUF_RAM);
+    if (resp_p) {
+        memcpy(resp_p->payload, resp, off);
+        udp_sendto(pcb, resp_p, addr, port);
+        pbuf_free(resp_p);
+    }
+
+    pbuf_free(p);
+}
+
+/**
+ * @brief Start DNS hijack: bind UDP port 53 on AP IP.
+ */
+static void dns_hijack_init(void)
+{
+    if (s_dns_pcb) return;
+
+    s_dns_pcb = udp_new();
+    if (!s_dns_pcb) {
+        AXK_LOG_ERROR("[portal] DNS hijack: udp_new FAIL\r\n");
+        return;
+    }
+
+    ip_addr_t ap_ip;
+    IP4_ADDR(&ap_ip, 192, 168, 4, 1);
+    err_t err = udp_bind(s_dns_pcb, &ap_ip, PORTAL_DNS_PORT);
+    if (err != ERR_OK) {
+        AXK_LOG_ERROR("[portal] DNS hijack: udp_bind port 53 FAIL: %d\r\n", err);
+        udp_remove(s_dns_pcb);
+        s_dns_pcb = NULL;
+        return;
+    }
+
+    udp_recv(s_dns_pcb, dns_hijack_recv, NULL);
+    AXK_LOG_INFO("[portal] DNS hijack started on 192.168.4.1:53\r\n");
+}
+
+/**
+ * @brief Stop DNS hijack.
+ */
+static void dns_hijack_deinit(void)
+{
+    if (s_dns_pcb) {
+        udp_remove(s_dns_pcb);
+        s_dns_pcb = NULL;
+        AXK_LOG_INFO("[portal] DNS hijack stopped\r\n");
+    }
 }

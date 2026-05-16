@@ -15,3 +15,4 @@ YELLOW|axk_config_portal.c:428|portal_scan_and_cache() sets s_scan_cached=true e
 YELLOW|axk_config_portal.c:384|wifi_mgmr_ap_stop() return value unchecked; old code checked and returned -1 on failure — silent failure may cause subsequent scan to fail unpredictably
 YELLOW|axk_config_portal.c:394-397|watchdog feed (bflb_wdg_reset_countervalue) removed from 5s Phase2 scan wait loop — potential watchdog reset on long scans
 BLUE|axk_config_portal.c:770|axk_wifi_onboard_start() called synchronously in HTTP handler — blocks response until AP restarts (~500ms+); comment says "Avoid blocking" but call IS blocking
+2026-05-16T19:52:46+08:00|YELLOW|axk_config_portal.c:769|axk_wifi_onboard_stop() return value unchecked; stop failure means guard persists, start() early-exits silently|Check retval; log warning on non-zero return
