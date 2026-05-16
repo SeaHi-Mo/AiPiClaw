@@ -366,7 +366,11 @@ static int trigger_scan_and_collect(void)
 
     /* Step 1: Stop SoftAP to free radio for STA scan */
     AXK_LOG_INFO("[portal] stopping SoftAP for scan...\r\n");
-    wifi_mgmr_ap_stop();
+    int ap_stop_ret = wifi_mgmr_ap_stop();
+    if (ap_stop_ret != 0) {
+        AXK_LOG_ERROR("[portal] wifi_mgmr_ap_stop FAIL: %d, radio may be occupied, skip scan\r\n", ap_stop_ret);
+        return -1;
+    }
     vTaskDelay(pdMS_TO_TICKS(200));  /* wait for AP to fully teardown */
 
     /* Step 2: Trigger STA scan */
