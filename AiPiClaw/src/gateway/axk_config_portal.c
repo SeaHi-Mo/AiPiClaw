@@ -334,10 +334,27 @@ static int trigger_scan_and_collect(void)
     wifi_mgmr_scan_params_t scan_params = { 0 };
     int ret;
 
-    /* Save AP config for restart */
+    /* Read saved AP credentials from flash — fallback to defaults if none saved */
+    char saved_ssid[64] = {0};
+    char saved_key[64] = {0};
     wifi_mgmr_ap_params_t ap_cfg = { 0 };
     ap_cfg.ssid = "AiPiClaw";
     ap_cfg.key = "12345678";
+    {
+        size_t len = 0;
+        if (ef_get_env_blob("mimi_wifi_ssid", saved_ssid, sizeof(saved_ssid), &len) == 0 && len > 0) {
+            saved_ssid[sizeof(saved_ssid) - 1] = '\0';
+            ap_cfg.ssid = saved_ssid;
+            AXK_LOG_INFO("[portal] using saved SSID: %s\r\n", saved_ssid);
+        }
+        len = 0;
+        if (ef_get_env_blob("mimi_wifi_pwd", saved_key, sizeof(saved_key), &len) == 0 && len > 0) {
+            saved_key[sizeof(saved_key) - 1] = '\0';
+            ap_cfg.key = saved_key;
+        } else {
+            ap_cfg.key = "12345678";
+        }
+    }
     ap_cfg.akm = "WPA2";
     ap_cfg.channel = 6;
     ap_cfg.use_dhcpd = true;
