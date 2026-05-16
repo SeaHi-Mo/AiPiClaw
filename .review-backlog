@@ -1,2 +1,3 @@
 YELLOW|axk_config_portal.c:1081|handle_redirect comment claims dual iOS(200)/Android(204) CPD handling but code only returns 200 — missing path-based routing for generate_204→204|Add URI check: if path contains "generate_204" return 204, else return 200+Success body
 YELLOW|axk_config_portal.c:~320|Blind vTaskDelay(50ms) after TLS listener close — no task synchronization guarantee. s_tls_task may still be running. Use xTaskNotifyGive+ulTaskNotifyTake or vTaskDelete with task handle check.
+YELLOW|axk_config_portal.c:329|On 500ms timeout expiration, stop() deletes s_tls_listener while acceptor task may still hold reference (s_tls_task non-NULL) — potential use-after-free on timeout path|Add s_tls_task=NULL check before delete, or use mutex to prevent concurrent access

@@ -92,10 +92,6 @@ static SemaphoreHandle_t s_scan_mutex = NULL;
 /* Captive portal: DNS hijack UDP PCB */
 static struct udp_pcb *s_dns_pcb = NULL;
 
-/* Captive portal: TLS acceptor on port 443 (immediately close to trigger HTTP fallback) */
-static struct netconn *s_tls_listener = NULL;
-static TaskHandle_t s_tls_task = NULL;
-
 /* ==================== Public API ==================== */
 
 static void portal_task(void *param);
@@ -129,9 +125,6 @@ static void dns_hijack_init(void);
 static void dns_hijack_deinit(void);
 static void dns_hijack_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
                             const ip_addr_t *addr, u16_t port);
-
-/* Captive portal: TLS acceptor task — accept and close to trigger HTTP fallback */
-static void tls_acceptor_task(void *param);
 
 /* Response helpers */
 static int send_response(struct netconn *client, int status,
@@ -267,25 +260,8 @@ int axk_config_portal_start(void)
     portal_scan_and_cache();
     AXK_LOG_INFO("[portal] pre-scan done\r\n");
 
-    /* ③ Start captive portal DNS hijack (udp:53 → 192.168.4.1) */
+    /* Start captive portal DNS hijack (udp:53 → forged A record to 192.168.4.1) */
     dns_hijack_init();
-
-    /* Start TLS acceptor on port 443 — accept and immediately close
-     * to trigger iOS/Android HTTPS captive portal detection fallback to HTTP. */
-    s_tls_listener = netconn_new(NETCONN_TCP);
-    if (s_tls_listener) {
-        ip_addr_t ap_ip;
-        IP4_ADDR(&ap_ip, 192, 168, 4, 1);
-        if (netconn_bind(s_tls_listener, &ap_ip, 443) == ERR_OK &&
-            netconn_listen(s_tls_listener) == ERR_OK) {
-            xTaskCreate(tls_acceptor_task, "tls_accept", 2048, NULL,
-                        PORTAL_TASK_PRIO - 1, &s_tls_task);
-            AXK_LOG_INFO("[portal] TLS acceptor on port 443\r\n");
-        } else {
-            netconn_delete(s_tls_listener);
-            s_tls_listener = NULL;
-        }
-    }
 
     return 0;
 }
@@ -314,22 +290,6 @@ void axk_config_portal_stop(void)
 
     /* Stop captive portal DNS hijack */
     dns_hijack_deinit();
-
-    /* Signal TLS acceptor to stop: set flag + close listener to unblock accept.
-     * Task itself cleans up listener and deletes itself. */
-    if (s_tls_listener) {
-        netconn_close(s_tls_listener);
-    }
-    /* Wait for TLS task to exit */
-    int tls_wait = 0;
-    while (s_tls_task && tls_wait < 50) {
-        vTaskDelay(pdMS_TO_TICKS(10));
-        tls_wait++;
-    }
-    if (s_tls_listener) {
-        netconn_delete(s_tls_listener);
-        s_tls_listener = NULL;
-    }
 
     /* Wait for portal task to exit, then clean up */
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -1129,9 +1089,11 @@ static int handle_captive_portal(struct netconn *client, const char *uri_path)
         return send_response(client, 204, "text/plain", "");
     }
 
-    /* All other non-API paths: 302 redirect to config portal */
-    return send_response(client, 302, "text/html",
-        "<html><head><meta http-equiv=\"refresh\" content=\"0;url=http://192.168.4.1/\"></head></html>");
+    /* All other non-API paths: return 200 Success.
+     * iOS/Android treat 200 as "portal detected, show login page".
+     * Some versions ignore 302 redirects for captive portal detection. */
+    return send_response(client, 200, "text/html",
+        "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>");
 }
 
 /* ==================== Request Dispatcher ==================== */
@@ -1218,7 +1180,7 @@ static int handle_request(struct netconn *client,
         return handle_apply(client, body);
     }
 
-    /* Captive portal: detect known probing URLs, redirect others to / */
+    /* Captive portal: detect known probing URLs, return 200 for unknown */
     return handle_captive_portal(client, uri_path);
 }
 
@@ -1297,28 +1259,74 @@ static void portal_task(void *param)
 /* ==================== Captive Portal DNS Hijack ==================== */
 
 /**
- * @brief DNS hijack receive callback (log-only, no response).
+ * @brief DNS hijack receive callback — forged A-record to 192.168.4.1.
  *
  * In lwIP NO_SYS mode, udp_recv callbacks fire inside the tcpip_thread
- * context. Calling udp_sendto from here can block on fhost wifi IPC
- * (netif->output → IPC → WiFi firmware), stalling tcpip_thread and
- * triggering FreeRTOS Tmr Svc stack overflow assertions.
+ * context. udp_sendto from here is safe ONLY during SoftAP-only mode
+ * (no STA connect → no fhost IPC → netif->output is non-blocking).
+ * On a STA-connected system, revert this to log-only to avoid
+ * tcpip_thread blocking on fhost IPC.
  *
- * iOS/Android captive portal detection works via HTTP GET (302 redirect
- * in handle_redirect), so DNS hijack is purely supplemental. We log
- * the query for debugging but do NOT send a forged DNS response.
+ * iOS/Android captive portal detection first resolves the detection
+ * domain via DNS. If DNS returns an IP we own (and port 80 responds),
+ * the OS connects via HTTP and gets our detection response.
  */
 static void dns_hijack_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
                             const ip_addr_t *addr, u16_t port)
 {
     (void)arg;
-    (void)pcb;
-    (void)addr;
-    (void)port;
 
-    if (!p) return;
+    if (!p || p->len < 12) {
+        if (p) pbuf_free(p);
+        return;
+    }
 
-    AXK_LOG_DEBUG("[portal] DNS hijack: query (%u bytes)\r\n", p->len);
+    uint8_t *dns = (uint8_t *)p->payload;
+    uint16_t flags = (dns[2] << 8) | dns[3];
+    if ((flags & 0xF800) != 0x0000) {  /* not a standard query */
+        pbuf_free(p);
+        return;
+    }
+
+    /* Reuse TXID from query */
+    uint16_t txid = (dns[0] << 8) | dns[1];
+
+    /* Build minimal forged response: A record → 192.168.4.1 */
+    uint8_t resp[128];
+    int off = 0;
+    resp[off++] = (txid >> 8) & 0xFF;
+    resp[off++] = txid & 0xFF;
+    resp[off++] = 0x85;  /* QR|AA|RD */
+    resp[off++] = 0x80;  /* RA */
+    resp[off++] = 0x00; resp[off++] = 0x01;  /* QDCOUNT=1 */
+    resp[off++] = 0x00; resp[off++] = 0x01;  /* ANCOUNT=1 */
+    resp[off++] = 0x00; resp[off++] = 0x00;  /* NSCOUNT=0 */
+    resp[off++] = 0x00; resp[off++] = 0x00;  /* ARCOUNT=0 */
+
+    /* Copy original question */
+    int qlen = p->len - 12;
+    if (qlen > 96) qlen = 96;
+    if (off + qlen + 16 > (int)sizeof(resp)) {
+        pbuf_free(p);
+        return;
+    }
+    memcpy(resp + off, dns + 12, qlen);
+    off += qlen;
+
+    /* Answer: pointer to query name, type A, class IN, TTL=60, 192.168.4.1 */
+    resp[off++] = 0xC0; resp[off++] = 0x0C;
+    resp[off++] = 0x00; resp[off++] = 0x01;  /* A */
+    resp[off++] = 0x00; resp[off++] = 0x01;  /* IN */
+    resp[off++] = 0x00; resp[off++] = 0x00; resp[off++] = 0x00; resp[off++] = 0x3C; /* TTL=60 */
+    resp[off++] = 0x00; resp[off++] = 0x04;  /* RDLENGTH=4 */
+    resp[off++] = 192; resp[off++] = 168; resp[off++] = 4; resp[off++] = 1;
+
+    struct pbuf *resp_p = pbuf_alloc(PBUF_TRANSPORT, off, PBUF_RAM);
+    if (resp_p) {
+        memcpy(resp_p->payload, resp, off);
+        udp_sendto(pcb, resp_p, addr, port);
+        pbuf_free(resp_p);
+    }
     pbuf_free(p);
 }
 
@@ -1359,43 +1367,4 @@ static void dns_hijack_deinit(void)
         s_dns_pcb = NULL;
         AXK_LOG_INFO("[portal] DNS hijack stopped\r\n");
     }
-}
-
-/* ==================== TLS Acceptor Task ==================== */
-
-/**
- * @brief Accept and immediately close TCP port 443 connections.
- *
- * iOS/Android captive portal detection first attempts HTTPS on port 443.
- * If the connection is immediately accepted but then closed without TLS
- * negotiation, the OS treats it as "portal requires login" and falls
- * back to HTTP on port 80, where our handle_captive_portal returns
- * the appropriate detection responses.
- */
-static void tls_acceptor_task(void *param)
-{
-    (void)param;
-
-    AXK_LOG_INFO("[portal] TLS acceptor task started\r\n");
-    while (s_portal_running) {
-        struct netconn *client;
-        /* Use a timeout so we can check s_portal_running periodically */
-        err_t err = netconn_accept(s_tls_listener, &client);
-        if (err != ERR_OK) {
-            break;
-        }
-        AXK_LOG_INFO("[portal] TLS hit on 443 (rejected, client will fallback to HTTP)\r\n");
-        netconn_close(client);
-        netconn_delete(client);
-    }
-
-    /* Clean up listener on our own thread, before stop() deletes it */
-    if (s_tls_listener) {
-        netconn_delete(s_tls_listener);
-        s_tls_listener = NULL;
-    }
-
-    AXK_LOG_INFO("[portal] TLS acceptor stopped\r\n");
-    s_tls_task = NULL;
-    vTaskDelete(NULL);
 }
