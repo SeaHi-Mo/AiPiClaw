@@ -765,8 +765,12 @@ static int handle_wifi_connect(struct netconn *client, const char *body)
          * Restart AP to keep the config portal reachable. Avoid blocking;
          * this is best-effort — if restart fails the portal was already
          * going away anyway. */
+        /* SoftAP may have been torn down by STA connect (single-radio).
+         * Must stop first to reset s_onboard_active guard, otherwise
+         * axk_wifi_onboard_start() early-exits at its guard check. */
         if (axk_wifi_onboard_is_active()) {
             AXK_LOG_INFO("[portal] restarting SoftAP after STA connect...\r\n");
+            axk_wifi_onboard_stop();
             axk_wifi_onboard_start();
         }
     }

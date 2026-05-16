@@ -12,3 +12,6 @@ YELLOW|web_ui.h:367|ws.onerror handler is empty — if onclose doesn't fire afte
 YELLOW|axk_config_portal.c:385|wifi_mgmr_ap_start failure logged but unrecovered — portal permanently unreachable, no retry/reboot|add retry loop or trigger system reset on AP restart failure
 YELLOW|axk_config_portal.c:391|bflb_device_get_by_name("watchdog0") called every scan poll iteration — wasteful device lookup in tight loop|hoist device pointer outside the while loop, lookup once before loop
 YELLOW|axk_config_portal.c:428|portal_scan_and_cache() sets s_scan_cached=true even when trigger_scan_and_collect() failed (empty cache from failed boot pre-scan)|only set s_scan_cached=true when ret==0 and json_str non-NULL and non-empty
+YELLOW|axk_config_portal.c:384|wifi_mgmr_ap_stop() return value unchecked; old code checked and returned -1 on failure — silent failure may cause subsequent scan to fail unpredictably
+YELLOW|axk_config_portal.c:394-397|watchdog feed (bflb_wdg_reset_countervalue) removed from 5s Phase2 scan wait loop — potential watchdog reset on long scans
+BLUE|axk_config_portal.c:770|axk_wifi_onboard_start() called synchronously in HTTP handler — blocks response until AP restarts (~500ms+); comment says "Avoid blocking" but call IS blocking
