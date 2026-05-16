@@ -804,21 +804,29 @@ static int handle_wifi_connect(struct netconn *client, const char *body)
         return r;
     }
 
-    /* Initiate connection (async).
-     * NOTE: On BL618 single-radio (fhost), wifi_mgmr_sta_connect may
-     * internally stop the SoftAP to free radio for STA connect.
-     * Do NOT attempt to restart AP here — IPC tx during STA handshake
-     * can trigger FreeRTOS queue assertions (crash at rom_code+a0045dee).
-     * The POST /api/apply endpoint handles the AP→STA transition when
-     * the user is ready. After POST /api/wifi/connect, the phone should
-     * expect brief network interruption. */
-    ret = axk_wifi_connect(ssid, password[0] ? password : NULL);
+    /* Save credentials only — DO NOT call axk_wifi_connect here.
+     *
+     * On BL618 single-radio fhost, wifi_mgmr_sta_connect() sends an IPC
+     * command to the WiFi firmware. The IPC reply callback may fire
+     * inside a context (wifi_task / Tmr Svc) where lwIP's sys_mbox_post
+     * → xQueueSend triggers FreeRTOS configASSERT at queue.c:1592
+     * (blocking queue op in non-scheduler context → abort).
+     *
+     * Instead, the save triggers axk_wifi_manager_poll() in mimi_main
+     * loop (normal task context) to auto-connect on next tick. The
+     * POST /api/apply endpoint handles the full AP→STA transition when
+     * the user is ready. */
+    ret = axk_wifi_save_credentials(ssid, password);
     if (ret != 0) {
-        cJSON_AddStringToObject(resp, "error", "connect_failed");
-    } else {
-        cJSON_AddStringToObject(resp, "status", "connecting");
-        cJSON_AddStringToObject(resp, "ssid", ssid);
+        cJSON_Delete(json);
+        cJSON_AddStringToObject(resp, "error", "save_failed");
+        int r = send_json_response(client, 500, resp);
+        cJSON_Delete(resp);
+        return r;
     }
+
+    cJSON_AddStringToObject(resp, "status", "saved");
+    cJSON_AddStringToObject(resp, "ssid", ssid);
 
     cJSON_Delete(json);
     int r = send_json_response(client, ret == 0 ? 200 : 500, resp);
