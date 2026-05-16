@@ -1,0 +1,747 @@
+
+<!DOCTYPE html>
+<!--
+  =============================================================
+  AiPiClaw Web Chat — AiPiClaw AI Agent Web 聊天界面
+  =============================================================
+  用途: 通过 WebSocket 与 BL618 固件通信, 实现 AI 对话交互
+  连接: ws://{hostname}:18789 (自动连接)
+  协议: 纯文本帧, UTF-8 编码, 无 JSON 封装
+  依赖: 零外部依赖, 纯 HTML + CSS + JS
+  作者: 安信可科技 Ai-Thinker
+=============================================================
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AiPiClaw</title>
+<style>
+/* ===== 1. 全局重置 & 基础样式 ===== */
+/* 清除浏览器默认边距, 统一盒模型 */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans-serif;
+  background:#000;color:#fff;display:flex;flex-direction:column
+}
+
+/* ===== 2. 顶栏 — 品牌名 / 操作按钮 / 连接状态 ===== */
+#topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 20px;flex-shrink:0;min-height:50px;position:relative
+}
+#brand{font-size:16px;font-weight:600;color:#eee;letter-spacing:.3px}
+#brand span{color:#4a9eff} /* AiPi 蓝色高亮 */
+
+/* 右上角功能区 */
+#topbar-right{display:flex;align-items:center;gap:10px}
+
+/* 状态指示灯 — 12px 圆点 + 发光效果 */
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot.green{background:#2ecc71;box-shadow:0 0 8px rgba(46,204,71,.5)}
+.dot.red{background:#e74c3c;box-shadow:0 0 8px rgba(231,76,60,.5)}
+.dot.yellow{background:#f39c12;box-shadow:0 0 8px rgba(243,156,18,.5)}
+
+/* 状态标签文字 */
+#status{display:flex;align-items:center;gap:5px;font-size:12px}
+#status-label{font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+#status-label.green{color:#2ecc71}
+#status-label.red{color:#e74c3c}
+#status-label.yellow{color:#f39c12}
+
+/* 顶栏操作按钮: 48x48 触控热区, 正圆, 悬停高亮 */
+.tb-btn{
+  background:transparent;border:1px solid #222;border-radius:50%;
+  width:30px;height:30px;color:#666;cursor:pointer;font-size:12px;
+  display:flex;align-items:center;justify-content:center;transition:.2s
+}
+.tb-btn:hover{background:#111;color:#aaa;border-color:#444}
+
+/* WiFi SVG 图标 — 16x16 灰显 */
+#wifi-icon{fill:#555;width:16px;height:16px;vertical-align:middle}
+
+/* ===== 3. 主区域 ===== */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+
+/* 聊天消息滚动容器 */
+#chat-area{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+/* 自动滚动到底部 */
+#chat-area::after{content:"";display:block;height:1px;flex-shrink:0}
+
+/* ===== 4. 滚动到底部按钮 — 浮动在右下角 ===== */
+#scroll-btn{
+  position:absolute;bottom:80px;right:20px;
+  background:#1a1a1a;border:1px solid #333;border-radius:50%;
+  width:36px;height:36px;color:#888;cursor:pointer;z-index:10;
+  display:none;align-items:center;justify-content:center;
+  transition:opacity .3s;box-shadow:0 2px 12px rgba(0,0,0,.6)
+}
+#scroll-btn.show{display:flex}
+#scroll-btn:hover{background:#222;color:#ccc}
+
+/* ===== 5. 空状态引导区 — 首次打开时显示 ===== */
+/* 包含标题 + 推荐问题卡片, 发送第一条消息后自动隐藏 */
+#empty-state{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;flex:1;padding:0 20px 40px
+}
+#empty-state h1{font-size:26px;font-weight:500;color:#e0e0e0;margin-bottom:6px}
+#empty-state .sub{font-size:13px;color:#555;margin-bottom:24px}
+.suggestions{display:flex;flex-direction:column;gap:8px;width:100%;max-width:360px}
+.suggestions .card{
+  background:#111;border:1px solid #222;border-radius:12px;
+  padding:12px 16px;cursor:pointer;transition:.2s;
+  display:flex;align-items:center;gap:10px;font-size:13px;color:#999
+}
+.suggestions .card:hover{background:#1a1a1a;border-color:#333;color:#ccc}
+.suggestions .card .icon{font-size:18px;flex-shrink:0}
+
+/* ===== 6. 消息气泡 — 用户/AI/系统/错误四种样式 ===== */
+/* max-width:720px 居中容器, padding 提供左右留白 */
+#messages{width:100%;max-width:720px;margin:0 auto;padding:16px 20px 8px}
+.msg{display:flex;margin-bottom:14px}
+.msg.user{justify-content:flex-end}   /* 用户气泡靠右 */
+.msg.ai{justify-content:flex-start}   /* AI 气泡靠左 */
+.msg.system{justify-content:center;margin-bottom:6px}   /* 系统提示居中 */
+.msg.error{justify-content:center;margin-bottom:6px}    /* 错误消息居中 */
+
+/* 气泡本体 */
+.bubble{
+  padding:10px 16px;border-radius:18px;font-size:14px;line-height:1.6;
+  max-width:80%;word-wrap:break-word;overflow-wrap:break-word
+}
+/* 用户气泡 — 蓝底, 右下圆角收口 */
+.msg.user .bubble{
+  background:#2a2a2a;color:#e0e0e0;border-bottom-right-radius:4px  /* 用户: 右下角收口 */
+}
+/* AI 气泡 — 深灰底, 左下圆角收口 */
+.msg.ai .bubble{
+  background:#181818;color:#ccc;border-bottom-left-radius:4px    /* AI: 左下角收口 */
+}
+/* 系统消息气泡 — 小号灰色居中 */
+.msg.system .bubble{
+  background:transparent;color:#555;font-size:12px;padding:2px 8px;max-width:100%
+}
+/* 错误消息气泡 — 红色居中 */
+.msg.error .bubble{
+  background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.15);
+  color:#e74c3c;font-size:13px;max-width:90%
+}
+
+/* ===== 7. Markdown 渲染 ===== */
+/* AI 回复中的行内代码 / 代码块 / 链接 / 列表 */
+.bubble p{margin:0 0 6px}
+.bubble p:last-child{margin-bottom:0}
+.bubble em{font-style:italic}
+.bubble strong{font-weight:600;color:#e8e8e8}
+.bubble code{
+  background:rgba(255,255,255,.06);color:#e6c07b;padding:1px 5px;
+  border-radius:4px;font-size:13px;font-family:"Consolas","Courier New",monospace
+}
+.bubble pre{
+  background:#0d0d0d;border:1px solid #222;border-radius:8px;
+  padding:10px 14px;margin:6px 0;overflow-x:auto;font-size:13px
+}
+.bubble pre code{background:none;padding:0;border-radius:0}
+.bubble a{color:#4a9eff;text-decoration:none}
+.bubble a:hover{text-decoration:underline}
+.bubble ul,.bubble ol{padding-left:20px;margin:4px 0}
+.bubble li{margin:2px 0}
+
+/* ===== 8. 打字动画 — AI 思考中三点弹跳 + 状态文案 ===== */
+.typing{
+  display:flex;gap:6px;align-items:center;padding:10px 16px;
+  background:#181818;border-radius:18px;border-bottom-left-radius:4px;max-width:72%
+}
+.typing .text{font-size:12px;color:#666}
+.typing .dots{display:flex;gap:3px;align-items:center}
+.typing .dots span{
+  width:5px;height:5px;border-radius:50%;background:#555;
+  animation:typing 1.4s ease-in-out infinite
+}
+.typing .dots span:nth-child(2){animation-delay:.2s}
+.typing .dots span:nth-child(3){animation-delay:.4s}
+@keyframes typing{
+  0%,60%,100%{opacity:.3;transform:translateY(0)}
+  30%{opacity:1;transform:translateY(-4px)}
+}
+
+/* ===== 9. 输入栏 — 文本输入 + 发送按钮 ===== */
+#input-bar{
+  padding:0 16px 14px;flex-shrink:0;display:flex;flex-direction:column;align-items:center
+}
+#input-wrap{
+  max-width:700px;width:100%;position:relative
+}
+
+/* 胶囊形输入框, 支持 auto-resize */
+#msg-input{
+  width:100%;background:#1a1a1a;border:1px solid #2a2a2a;
+  border-radius:28px;color:#e0e0e0;padding:12px 50px 12px 18px;
+  font-size:14px;outline:none;font-family:inherit;
+  min-height:44px;max-height:200px;resize:none;overflow:hidden;line-height:1.5;transition:border .2s
+}
+#msg-input:focus{border-color:#3a3a3a}
+#msg-input::placeholder{color:#555}
+
+/* 发送按钮 — 蓝底白箭头, 绝对定位在输入框右侧 */
+/* (z-index:1) 防止 textarea 层叠导致 onclick 不触发 */
+#send-btn{
+  position:absolute;right:5px;top:50%;transform:translateY(-50%);
+  width:30px;height:30px;border-radius:50%;border:none;
+  background:#4a9eff;color:#fff;cursor:pointer;z-index:1;
+  display:flex;align-items:center;justify-content:center;
+  transition:.2s
+}
+#send-btn:hover{background:#3b82f6}
+#send-btn svg{width:16px;height:16px;fill:currentColor}
+
+/* 模型名称提示 — 输入框左下方灰字 */
+#model-hint{
+  max-width:700px;width:100%;font-size:11px;color:#444;padding:4px 6px 0;
+  text-align:left;line-height:1
+}
+
+/* ===== 10. 空状态 ↔ 聊天模式切换 ===== */
+/* chatting 类由 JS 在首次发送消息后添加 */
+#main.chatting #empty-state{display:none}
+#main.chatting #messages{display:block}
+#main:not(.chatting) #empty-state{display:flex}
+#main:not(.chatting) #messages{display:none}
+</style>
+</head>
+<body>
+
+<!-- ===== 顶栏 ===== -->
+<!-- 左侧: AiPiClaw 品牌名 / 右侧: 新建对话 + WiFi 图标 + 状态灯 -->
+<div id="topbar">
+  <div id="brand"><span>AiPi</span>Claw</div>
+  <div id="topbar-right">
+    <!-- 新建对话按钮: 清空聊天记录, 回到空状态 -->
+    <button class="tb-btn" onclick="newChat()" title="新建对话">+</button>
+    <a href="http://192.168.4.1/" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;color:#555;text-decoration:none;font-size:16px;transition:.2s" title="返回配置">⚙</a>
+    <!-- WiFi SVG 图标: 设备连接后表示信号状态 -->
+    <svg id="wifi-icon" viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+    <!-- 连接状态指示灯: 绿=已连接 / 黄=连接中 / 红=已断开 -->
+    <div id="status">
+      <span class="dot yellow" id="status-dot"></span>
+      <span id="status-label" class="yellow">连接中</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 聊天主区域 ===== -->
+<div id="main">
+  <!-- 消息滚动容器: 自动从底部展开, 新消息追加到 #messages -->
+  <div id="chat-area">
+    <!-- 空状态: 首次打开时显示, 发送消息后隐藏 -->
+    <div id="empty-state">
+      <h1>今天有什么计划？</h1>
+      <div class="sub">试试下面这些示例</div>
+      <!-- 推荐问题卡片: 点击自动填入并发送 -->
+      <div class="suggestions">
+        <div class="card" onclick="quickSend('打开GPIO17，点亮LED')">
+          <span class="icon">💡</span> 打开GPIO17，点亮LED
+        </div>
+        <div class="card" onclick="quickSend('开关GPT's thoughts')">
+          <span class="icon">🔧</span> 开关GPT's thoughts
+        </div>
+        <div class="card" onclick="quickSend('你好，你是谁？')">
+          <span class="icon">👋</span> 你好，你是谁？
+        </div>
+        <div class="card" onclick="quickSend('Read sensor data')">
+          <span class="icon">📊</span> Read sensor data
+        </div>
+      </div>
+    </div>
+    <!-- 消息列表: 动态由 JS 渲染 -->
+    <div id="messages"></div>
+  </div>
+
+  <!-- 滚动到底部按钮 -->
+  <button id="scroll-btn" onclick="scrollToBottom()" title="滚动到底部">↓</button>
+</div>
+
+<!-- ===== 输入栏 ===== -->
+<div id="input-bar">
+  <div id="input-wrap">
+    <textarea id="msg-input" placeholder="给 AiPiClaw 发送消息..." rows="1" maxlength="4096"></textarea>
+    <button id="send-btn" onclick="sendMessage()" title="发送">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+  <div id="model-hint"></div>
+</div>
+
+<script>
+/* ================================================================
+   AiPiClaw Web Chat — 聊天界面 JS 逻辑
+   ================================================================
+   依赖: 无
+   协议: 纯文本 WebSocket 帧 (ws://{hostname}:18789)
+   性能: requestAnimationFrame + 文档片段批量渲染
+   Self-connect: IIFE 自动连接, 不依赖任何外部状态
+   ================================================================ */
+
+// ---- 1. 配置常量 ----
+var WS_PORT = 18789;
+var RECONN_DELAY = 3000;     // 初始重连间隔 (ms)
+var MAX_RECONN_DELAY = 30000; // 最长重连间隔 (ms)
+
+/**
+ * localStorage key: AI 配置键名
+ * LLM 配置:  localStorage key="mimi_web_config", 存储 provider/model/apikey
+ */
+var CFG_KEY = 'mimi_web_config';
+
+// ---- 2. 全局状态 ----
+var ws = null;             // WebSocket 实例
+var reconnCount = 0;       // 连续重连次数
+var reconnTimer = null;    // 重连计时器
+var pendingMsg = null;     // 正在发送但尚未收到回复的消息
+var lastAskId = 0;         // 已显示的消息序号, 用于去重
+var isAtBottom = true;     // 是否在滚动底部
+
+// ---- 3. DOM 缓存 ----
+var el = {};
+['chat-area','empty-state','messages','msg-input','send-btn',
+ 'status','status-dot','status-label','model-hint','main'].forEach(function(id){
+  el[id] = document.getElementById(id);
+});
+
+// ---- 4. WebSocket 连接管理 ----
+/**
+ * 建立 WebSocket 连接到 BL618 LLM 代理
+ * 自动尝试连接当前页面的主机名
+ */
+function connect(){
+  // 清理旧连接
+  if(ws){
+    try{ws.onclose=null;ws.onerror=null;ws.close();}catch(e){}
+    ws=null;
+  }
+
+  var host = location.hostname || '192.168.4.1';
+  var url = 'ws://' + host + ':' + WS_PORT;
+
+  try {
+    ws = new WebSocket(url);
+  } catch(e) {
+    setStatus('red','断开');
+    scheduleReconnect();
+    return;
+  }
+
+  ws.onopen = function(){
+    reconnCount=0;
+    setStatus('green','已连接');
+    el['send-btn'].disabled=false;
+
+    // 若之前有未发送的待发消息, 连线后立即发送
+    if(pendingMsg){
+      var msg=pendingMsg;
+      pendingMsg=null;
+      doSend(msg);
+    }
+  };
+
+  ws.onclose = function(){
+    setStatus('red','断开');
+    el['send-btn'].disabled=true;
+    scheduleReconnect();
+  };
+
+  ws.onerror = function(){
+    // onclose 会随后触发, 不重复处理
+  };
+
+  ws.onmessage = function(e){
+    // 收到服务器消息
+    var text = e.data || '';
+    if(!text || typeof text !== 'string') return;
+
+    // 系统消息: 以 / 开头 (如 /clean /thinking /ping)
+    if(text.charAt(0) === '/'){
+      handleSysMsg(text);
+      return;
+    }
+
+    // 错误/告警: LLM 返回特定错误前缀
+    var lower = text.toLowerCase();
+    if(
+      lower.includes('错误')||lower.includes('error')||
+      lower.includes('密钥')||lower.includes('key 缺失')||lower.includes('not configured')||
+      lower.indexOf('失败')>0
+    ){
+      addError('⚠️ LLM 返回错误: ' + text);
+      return;
+    }
+
+    // 正常 AI 回复: 追加到聊天界面
+    addMessage(text, 'ai');
+  };
+}
+
+/**
+ * 处理系统指令消息 (以 / 开头)
+ * /clean   → 清空聊天记录
+ * /thinking → (可选) AI 思考过程
+ */
+function handleSysMsg(msg){
+  if(msg === '/clean' || msg === '/clear'){
+    el['messages'].innerHTML='';
+    return;
+  }
+  // 其他 / 消息忽略
+}
+
+/**
+ * 安排重连: 指数退避
+ */
+function scheduleReconnect(){
+  if(reconnTimer) return;
+  reconnCount++;
+  var delay = Math.min(
+    RECONN_DELAY * Math.pow(1.5, reconnCount-1),
+    MAX_RECONN_DELAY
+  );
+  // 添加随机抖动, 避免多设备同时重连
+  delay += Math.random() * 1000;
+  reconnTimer = setTimeout(function(){
+    reconnTimer=null;
+    connect();
+  }, delay);
+}
+
+/**
+ * @返回 boolean 是否已连接
+ */
+function isConnected(){
+  return ws && ws.readyState === WebSocket.OPEN;
+}
+
+/**
+ * 设置连接状态指示器
+ * @param {string} color green/red/yellow
+ * @param {string} label
+ */
+function setStatus(color, label){
+  el['status-dot'].className='dot '+color;
+  el['status-label'].className=color;
+  el['status-label'].textContent=label;
+}
+
+// ---- 5. 消息发送 ----
+/**
+ * 发送文本到 WebSocket
+ */
+function doSend(text){
+  if(!text || typeof text !== 'string') return;
+  try{
+    ws.send(text);
+  }catch(e){
+    pendingMsg=text;
+    setStatus('red','断开');
+    scheduleReconnect();
+  }
+}
+
+/**
+ * 发送聊天消息 (UI 触发)
+ * 从输入框读取文本, 清空输入框, 显示用户气泡, 发送到 WS
+ */
+function sendMessage(){
+  if(!isConnected()){
+    addError('⚠️ 未连接到设备');
+    return;
+  }
+  var text = el['msg-input'].value.trim();
+  if(!text) return;
+
+  // 清空输入框
+  el['msg-input'].value='';
+  // 重置输入框高度
+  el['msg-input'].style.height='auto';
+
+  // 切换为空状态 → 聊天模式
+  el['main'].classList.add('chatting');
+
+  // 添加延迟发送提示(如果 3 秒未返回)
+  addMessage(text, 'user');
+  // 清除请求超时计时器 (收到回复说明 LLM 返回了)
+  doSend(text);
+}
+
+/**
+ * 快捷发送: 点击推荐问题卡片
+ * @param {string} text 要发送的文本
+ */
+function quickSend(text){
+  if(!text) return;
+  el['msg-input'].value=text;
+  sendMessage();
+}
+
+/**
+ * 新建对话: 清空历史, 回到空状态
+ */
+function newChat(){
+  el['messages'].innerHTML='';
+  el['main'].classList.remove('chatting');
+  // 隐藏滚动按钮
+  el['scroll-btn'] && el['scroll-btn'].classList.remove('show');
+  el['chat-area'].scrollTop=0;
+}
+
+// ---- 6. 消息渲染 ----
+/**
+ * 追加一条消息到聊天界面
+ * @param {string} text  消息文本 (支持 Markdown)
+ * @param {string} role  'user' | 'ai' | 'system' | 'error'
+ */
+function addMessage(text, role){
+  role = role || 'ai';
+
+  // 清除 "思考中..." 占位
+  removeTyping();
+
+  var wrap = document.createElement('div');
+  wrap.className = 'msg ' + role;
+
+  var bubble = document.createElement('div');
+  bubble.className = 'bubble';
+
+  // 用户消息: 简单转义; AI 消息: Markdown 渲染
+  if(role === 'user'){
+    bubble.textContent = text;
+  } else if(role === 'ai'){
+    bubble.innerHTML = markdownToHtml(text);
+  } else {
+    bubble.textContent = text;
+  }
+
+  wrap.appendChild(bubble);
+  el['messages'].appendChild(wrap);
+  scheduleScrollCheck();
+}
+
+/**
+ * 追加一条错误消息
+ * @param {string} text 错误文本
+ */
+function addError(text){
+  removeTyping();
+  var wrap = document.createElement('div');
+  wrap.className = 'msg error';
+  var bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = text;
+  wrap.appendChild(bubble);
+  el['messages'].appendChild(wrap);
+  scheduleScrollCheck();
+}
+
+/**
+ * 显示 "思考中..." 打字动画
+ */
+function showTyping(){
+  removeTyping();
+  var wrap = document.createElement('div');
+  wrap.className = 'msg ai';
+  wrap.id = 'typing-wrap';
+  wrap.innerHTML =
+    '<div class="typing">' +
+      '<div class="text">思考中</div>' +
+      '<div class="dots">' +
+        '<span></span><span></span><span></span>' +
+      '</div>' +
+    '</div>';
+  el['messages'].appendChild(wrap);
+  scheduleScrollCheck();
+}
+
+/**
+ * 移除 "思考中..." 占位
+ */
+function removeTyping(){
+  var tw = document.getElementById('typing-wrap');
+  if(tw) tw.remove();
+}
+
+// ---- 7. Markdown 渲染 ----
+/**
+ * 简易 Markdown 转 HTML (覆盖常用格式)
+ * 支持: 代码块 ```, 行内 `code`, **粗体**, *斜体*,
+ *       无序列表 -, 有序列表 1., [链接](url)
+ * @param {string} text 原始 Markdown 文本
+ * @返回 {string} 渲染后的 HTML
+ */
+function markdownToHtml(text){
+  if(!text) return '';
+  var html = text;
+
+  // 转义 HTML 标签 (确保安全)
+  html = html
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // 代码块: ```...``` → <pre><code>...</code></pre>
+  html = html.replace(/```([\s\S]*?)```/g, function(m, code){
+    return '<pre><code>' + code.trim() + '</code></pre>';
+  });
+
+  // 行内代码: `code` → <code>code</code>
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // 加粗: **text** → <strong>text</strong>
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+  // 斜体: *text* → <em>text</em>
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  // 链接: [text](url) → <a href="url">text</a>
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+  // 将文本按行分割处理列表
+  var lines = html.split('
+');
+  var result = [];
+  var inUl = false;
+  var inOl = false;
+
+  for(var i=0; i<lines.length; i++){
+    var line = lines[i];
+
+    // 跳过空行时关闭列表
+    if(!line.trim()){
+      if(inUl){ result.push('</ul>'); inUl=false; }
+      if(inOl){ result.push('</ol>'); inOl=false; }
+      result.push('<p></p>');  // 空段落作为分段
+      continue;
+    }
+
+    // 无序列表: -, *, +
+    if(/^[\s]*[-*+][\s]+/.test(line)){
+      if(!inUl){ result.push('<ul>'); inUl=true; }
+      if(inOl){ result.push('</ol>'); inOl=false; }
+      result.push('<li>' + line.replace(/^[\s]*[-*+][\s]+/, '') + '</li>');
+      continue;
+    }
+
+    // 有序列表: 1., 2. 等
+    if(/^[\s]*\d+\.[\s]+/.test(line)){
+      if(!inOl){ result.push('<ol>'); inOl=true; }
+      if(inUl){ result.push('</ul>'); inUl=false; }
+      result.push('<li>' + line.replace(/^[\s]*\d+\.[\s]+/, '') + '</li>');
+      continue;
+    }
+
+    // 普通段落
+    if(inUl){ result.push('</ul>'); inUl=false; }
+    if(inOl){ result.push('</ol>'); inOl=false; }
+    result.push('<p>' + line.trim() + '</p>');
+  }
+
+  // 关闭未闭合的列表
+  if(inUl) result.push('</ul>');
+  if(inOl) result.push('</ol>');
+
+  return result.join('
+');
+}
+
+// ---- 8. 滚动管理 ----
+/**
+ * @返回 {boolean} 是否在底部 (误差 100px)
+ */
+function isNearBottom(){
+  var area = el['chat-area'];
+  return area.scrollHeight - area.scrollTop - area.clientHeight < 100;
+}
+
+/**
+ * 滚动到底部 (平滑)
+ */
+function scrollToBottom(){
+  el['chat-area'].scrollTop = el['chat-area'].scrollHeight;
+}
+
+/**
+ * 监控滚动位置, 控制 "滚动到底部" 按钮显隐
+ */
+el['chat-area'].addEventListener('scroll', function(){
+  isAtBottom = isNearBottom();
+  var btn = document.getElementById('scroll-btn');
+  if(btn){
+    if(isAtBottom){
+      btn.classList.remove('show');
+    } else {
+      btn.classList.add('show');
+    }
+  }
+});
+
+/**
+ * 使用 requestAnimationFrame 调度滚动检查
+ * 分批渲染后统一复位滚动位置
+ */
+var _scrollScheduled = false;
+function scheduleScrollCheck(){
+  if(_scrollScheduled) return;
+  _scrollScheduled = true;
+  requestAnimationFrame(function(){
+    _scrollScheduled = false;
+    if(isNearBottom()){
+      el['chat-area'].scrollTop = el['chat-area'].scrollHeight;
+    }
+  });
+}
+
+// ---- 9. 输入框自动伸缩 ----
+el['msg-input'].addEventListener('input', function(){
+  this.style.height = 'auto';
+  this.style.height = this.scrollHeight + 'px';
+});
+
+// ---- 10. 键盘快捷键 ----
+// Enter 发送, Shift+Enter 换行
+el['msg-input'].addEventListener('keydown', function(e){
+  if(e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+// ---- 11. 模型提示 ----
+/**
+ * 从 localStorage 读取 LLM 配置并显示模型名
+ */
+function loadConfig(){
+  try{
+    var raw = localStorage.getItem(CFG_KEY);
+    if(raw){
+      var cfg = JSON.parse(raw);
+      if(cfg && cfg.model){
+        el['model-hint'].textContent = cfg.model;
+      } else {
+        el['model-hint'].textContent = '';
+      }
+    }
+  } catch(e){}
+}
+
+// ---- 12. 滚动按钮绑定 ----
+var scrollBtn = document.getElementById('scroll-btn');
+if(scrollBtn){
+  scrollBtn.addEventListener('click', scrollToBottom);
+}
+
+// ---- 13. 自动连接 ----
+// 页面加载后自动 WebSocket 连接
+loadConfig();
+connect();
+</script>
+</body>
+</html>
