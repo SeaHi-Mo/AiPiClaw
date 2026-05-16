@@ -1066,13 +1066,21 @@ static int handle_apply(struct netconn *client, const char *body)
 }
 
 /**
- * @brief Captive portal redirect for any non-API, non-asset path.
- * Returns a 302 redirect to http://192.168.4.1/ so iOS/Android
- * captive portal detection lands on our config page.
+ * @brief Captive portal detection handler.
+ *
+ * iOS sends GET http://captive.apple.com/hotspot-detect.html
+ *   → expects HTTP 200 with body containing "Success" or specific HTML.
+ * Android sends GET http://connectivitycheck.gstatic.com/generate_204
+ *   → expects HTTP 204 No Content.
+ *
+ * We return 200 + success body for iOS-style, and 204 for generate_204 paths.
+ * All other non-API paths return 302 redirect to / (standard captive portal).
  */
 static int handle_redirect(struct netconn *client)
 {
-    return send_response(client, 302, "text/html", PORTAL_REDIRECT_HTML);
+    /* Return a 200 with Apple's expected success body */
+    return send_response(client, 200, "text/html",
+        "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>");
 }
 
 /* ==================== Request Dispatcher ==================== */
