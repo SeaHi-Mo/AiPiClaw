@@ -794,16 +794,6 @@ static int handle_wifi_connect(struct netconn *client, const char *body)
     const char *password = (pass_j && cJSON_IsString(pass_j))
                            ? pass_j->valuestring : "";
 
-    /* Save credentials */
-    int ret = axk_wifi_save_credentials(ssid, password);
-    if (ret != 0) {
-        cJSON_Delete(json);
-        cJSON_AddStringToObject(resp, "error", "save_failed");
-        int r = send_json_response(client, 500, resp);
-        cJSON_Delete(resp);
-        return r;
-    }
-
     /* Save credentials only — DO NOT call axk_wifi_connect here.
      *
      * On BL618 single-radio fhost, wifi_mgmr_sta_connect() sends an IPC
