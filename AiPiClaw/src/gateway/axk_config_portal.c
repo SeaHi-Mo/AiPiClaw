@@ -39,7 +39,7 @@
 
 #include "cJSON.h"
 #include "easyflash.h"
-#include "wifi_mgmr.h"
+#include "wifi_mgmr_ext.h"
 #include "axk_storage.h"
 
 #include "axk_wifi_manager.h"
@@ -73,11 +73,12 @@ static struct netconn *s_listener = NULL;
 static TaskHandle_t s_portal_task = NULL;
 static SemaphoreHandle_t s_portal_mutex = NULL;
 
-/* Scan result cache (populated async by scan callback) */
+/* Scan result cache (populated at boot and on refresh) */
 static char *s_scan_json = NULL;
+static bool s_scan_cached = false;   /**< true when cache has been filled at least once */
 static SemaphoreHandle_t s_scan_mutex = NULL;
 
-/* ==================== Forward Declarations ==================== */
+/* ==================== Public API ==================== */
 
 static void portal_task(void *param);
 static void handle_client(struct netconn *client);
@@ -88,6 +89,10 @@ static int parse_request(struct netconn *client,
                          char *method, size_t method_sz,
                          char *uri, size_t uri_sz,
                          char *body, size_t body_sz);
+
+/* Forward declarations for scan infrastructure */
+static int trigger_scan_and_collect(void);
+static void scan_item_callback(void *env, void *arg, wifi_mgmr_scan_item_t *item);
 
 /* Route handlers */
 static int handle_get_root(struct netconn *client);
@@ -107,6 +112,11 @@ static int send_json_response(struct netconn *client, int status,
                               const cJSON *json);
 static int send_html_response(struct netconn *client, int status,
                               const char *html);
+
+/* Forward declarations for scan infrastructure */
+static int trigger_scan_and_collect(void);
+static void scan_item_callback(void *env, void *arg, wifi_mgmr_scan_item_t *item);
+static int portal_scan_and_cache(void);
 
 /* ==================== Public API ==================== */
 
@@ -195,6 +205,12 @@ int axk_config_portal_start(void)
 
     AXK_LOG_INFO("[portal] HTTP server started on port %d\r\n",
                  PORTAL_LISTEN_PORT);
+
+    /* Step 1 (#68): Pre-scan WiFi and cache results for fast first page load */
+    AXK_LOG_INFO("[portal] running pre-scan for cache...\r\n");
+    portal_scan_and_cache();
+    AXK_LOG_INFO("[portal] pre-scan done\r\n");
+
     return 0;
 }
 
@@ -351,6 +367,11 @@ static int trigger_scan_and_collect(void)
         while (wait_ms < 5000) {
             vTaskDelay(pdMS_TO_TICKS(200));
             wait_ms += 200;
+            /* Step 5 (#68): Feed watchdog during scan to prevent reset */
+            struct bflb_device_s *wdg = bflb_device_get_by_name("watchdog0");
+            if (wdg) {
+                bflb_wdg_reset_countervalue(wdg);
+            }
             uint32_t count = wifi_mgmr_sta_scanlist_nums_get();
             if (count > 0) {
                 break;
@@ -367,6 +388,35 @@ restart_ap:
     vTaskDelay(pdMS_TO_TICKS(500));  /* wait for AP to be ready */
 
     return (ret == 0) ? 0 : -1;
+}
+
+/* ==================== Scan Cache ==================== */
+
+/**
+ * @brief Run a full scan and cache the JSON result.
+ * Called at portal start and on explicit refresh.
+ * @note AP is stopped during scan and restarted after.
+ */
+static int portal_scan_and_cache(void)
+{
+    cJSON *aps = cJSON_CreateArray();
+    if (!aps) return -1;
+
+    int ret = trigger_scan_and_collect();
+    if (ret == 0) {
+        wifi_mgmr_scan_ap_all((void *)aps, NULL, scan_item_callback);
+    }
+    /* Convert to string, cache it */
+    char *json_str = cJSON_PrintUnformatted(aps);
+    cJSON_Delete(aps);
+
+    xSemaphoreTake(s_scan_mutex, portMAX_DELAY);
+    if (s_scan_json) cJSON_free(s_scan_json);
+    s_scan_json = json_str;
+    s_scan_cached = (json_str != NULL);
+    xSemaphoreGive(s_scan_mutex);
+
+    return (json_str != NULL) ? 0 : -1;
 }
 
 /* ==================== Request Parsing ==================== */
@@ -592,7 +642,11 @@ static int handle_get_chat(struct netconn *client)
 }
 
 /**
- * @brief GET /api/wifi/scan - Trigger scan and return results as JSON
+ * @brief GET /api/wifi/scan - Return cached scan results.
+ *
+ * On first call after portal start, returns pre-cached results.
+ * Supports ?refresh=1 to trigger a new real scan and update cache.
+ * POST /api/wifi/scan acts as a refresh trigger (legacy compat).
  */
 static int handle_wifi_scan(struct netconn *client)
 {
@@ -602,29 +656,28 @@ static int handle_wifi_scan(struct netconn *client)
                             "{\"error\":\"OOM\"}");
     }
 
-    /* Trigger scan */
-    int ret = trigger_scan_and_collect();
-    if (ret != 0) {
-        cJSON_AddStringToObject(resp, "error", "scan_failed");
-        int r = send_json_response(client, 500, resp);
-        cJSON_Delete(resp);
-        return r;
+    /* Always refresh the cache — the frontend polls after refresh trigger */
+    AXK_LOG_INFO("[portal] refreshing scan cache...\r\n");
+    portal_scan_and_cache();
+
+    /* Return cached results */
+    xSemaphoreTake(s_scan_mutex, portMAX_DELAY);
+    if (s_scan_json) {
+        cJSON *cached = cJSON_Parse(s_scan_json);
+        if (cached) {
+            cJSON_Delete(resp);
+            resp = cached;
+            cJSON_AddStringToObject(resp, "status", "ok");
+            int r = send_json_response(client, 200, resp);
+            cJSON_Delete(resp);
+            xSemaphoreGive(s_scan_mutex);
+            return r;
+        }
     }
+    xSemaphoreGive(s_scan_mutex);
 
-    /* Collect results into a cJSON array */
-    cJSON *aps = cJSON_CreateArray();
-    if (!aps) {
-        cJSON_Delete(resp);
-        return send_response(client, 500, "application/json",
-                            "{\"error\":\"OOM\"}");
-    }
-
-    wifi_mgmr_scan_ap_all((void *)aps, NULL, scan_item_callback);
-
-    cJSON_AddItemToObject(resp, "aps", aps);
-    cJSON_AddNumberToObject(resp, "count", cJSON_GetArraySize(aps));
-
-    int r = send_json_response(client, 200, resp);
+    cJSON_AddStringToObject(resp, "error", "scan_failed");
+    int r = send_json_response(client, 500, resp);
     cJSON_Delete(resp);
     return r;
 }
