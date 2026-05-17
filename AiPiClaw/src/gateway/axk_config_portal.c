@@ -1119,8 +1119,8 @@ static int handle_captive_portal(struct netconn *client, const char *uri_path)
      * a captive network and the WebView is redirected to the config page. */
     if (strcmp(uri_path, "/generate_204") == 0 ||
         strcmp(uri_path, "/gen_204") == 0) {
-        return send_response(client, 302, "text/html",
-            PORTAL_REDIRECT_HTML);
+        err_t err = netconn_write(client, PORTAL_REDIRECT_302, strlen(PORTAL_REDIRECT_302), NETCONN_COPY);
+        return (err == ERR_OK) ? 0 : -1;
     }
 
     /* ── Windows captive portal probes ──────────────────────────────
@@ -1135,8 +1135,8 @@ static int handle_captive_portal(struct netconn *client, const char *uri_path)
 
     /* ── Generic /redirect probe (some platforms) ──────────────────── */
     if (strcmp(uri_path, "/redirect") == 0) {
-        return send_response(client, 302, "text/html",
-            PORTAL_REDIRECT_HTML);
+        err_t err = netconn_write(client, PORTAL_REDIRECT_302, strlen(PORTAL_REDIRECT_302), NETCONN_COPY);
+        return (err == ERR_OK) ? 0 : -1;
     }
 
     /* ── Catch-all: any path not matched above ───────────────────────
@@ -1146,8 +1146,8 @@ static int handle_captive_portal(struct netconn *client, const char *uri_path)
      *   - Captive-portal detection still triggers because the device
      *     gets a 302 instead of the expected probe response. */
     AXK_LOG_DEBUG("[portal] catch-all redirect: %s → /\r\n", uri_path);
-    return send_response(client, 302, "text/html",
-        PORTAL_REDIRECT_HTML);
+    err_t err = netconn_write(client, PORTAL_REDIRECT_302, strlen(PORTAL_REDIRECT_302), NETCONN_COPY);
+    return (err == ERR_OK) ? 0 : -1;
 }
 
 /* ==================== Request Dispatcher ==================== */
