@@ -642,6 +642,7 @@ static int send_response(struct netconn *client, int status,
         case 200: status_str = "OK"; break;
         case 201: status_str = "Created"; break;
         case 204: status_str = "No Content"; break;
+        case 302: status_str = "Found"; break;
         case 400: status_str = "Bad Request"; break;
         case 404: status_str = "Not Found"; break;
         case 405: status_str = "Method Not Allowed"; break;
@@ -1083,31 +1084,70 @@ static int handle_apply(struct netconn *client, const char *body)
 /**
  * @brief Captive portal detection + non-API path handler.
  *
- * Detects known captive portal probing URLs and returns the expected
- * response so iOS/Android auto-pop the config portal:
- *   - iOS:     GET /hotspot-detect.html → 200 Success
- *   - Android: GET /generate_204        → 204 No Content
- *   - Other:   302 redirect to http://192.168.4.1/
+ * For captive portal detection to work across iOS/Android/Windows:
+ *   1. Known probe URLs MUST return an unexpected response so the OS
+ *      detects "behind captive portal" and shows the popup.
+ *   2. The response should redirect (meta-refresh or 302) to / so the
+ *      captive-portal WebView loads the config page, not a probe artifact.
+ *   3. The catch-all MUST return 302 to / so any manual browser URL
+ *      typed by the user is remapped to the config portal ("网页重映射").
+ *
+ * Probe URL behavior by platform:
+ *   iOS:     GET /hotspot-detect.html     → expects "Success" body
+ *            GET /library/test/success.html → expects "Success" body
+ *   Android: GET /generate_204             → expects 204 No Content
+ *   Windows: GET /connecttest.txt          → expects "Microsoft Connect Test"
+ *            GET /ncsi.txt                 → expects "Microsoft NCSI"
  */
 static int handle_captive_portal(struct netconn *client, const char *uri_path)
 {
-    /* iOS captive.apple.com: /hotspot-detect.html → 200 Success */
+    /* ── iOS / macOS captive portal probes ───────────────────────────
+     * Apple expects plaintext "Success" from its own servers.
+     * We return HTML with a meta-refresh so the captive-portal WebView
+     * loads the config page instead of showing a bare "Success" page. */
     if (strcmp(uri_path, "/hotspot-detect.html") == 0 ||
-        strcmp(uri_path, "/library/test/success.html") == 0) {
+        strcmp(uri_path, "/library/test/success.html") == 0 ||
+        strcmp(uri_path, "/success.html") == 0) {
         return send_response(client, 200, "text/html",
-            "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>");
+            PORTAL_REDIRECT_HTML);
     }
 
-    /* Android connectivitycheck: /generate_204 → 204 No Content */
-    if (strcmp(uri_path, "/generate_204") == 0) {
-        return send_response(client, 204, "text/plain", "");
+    /* ── Android captive portal probes ───────────────────────────────
+     * Android expects 204 from its servers to confirm internet access.
+     * Returning 204 tells Android "internet available" and suppresses
+     * the captive-portal popup.  Return 302 instead so Android detects
+     * a captive network and the WebView is redirected to the config page. */
+    if (strcmp(uri_path, "/generate_204") == 0 ||
+        strcmp(uri_path, "/gen_204") == 0) {
+        return send_response(client, 302, "text/html",
+            PORTAL_REDIRECT_HTML);
     }
 
-    /* All other non-API paths: return 200 Success.
-     * iOS/Android treat 200 as "portal detected, show login page".
-     * Some versions ignore 302 redirects for captive portal detection. */
-    return send_response(client, 200, "text/html",
-        "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>");
+    /* ── Windows captive portal probes ──────────────────────────────
+     * Windows NCSI probes msftconnecttest.com and msftncsi.com.
+     * Return 200 with meta-refresh so Windows detects the portal and
+     * redirects the browser to the config page. */
+    if (strcmp(uri_path, "/connecttest.txt") == 0 ||
+        strcmp(uri_path, "/ncsi.txt") == 0) {
+        return send_response(client, 200, "text/html",
+            PORTAL_REDIRECT_HTML);
+    }
+
+    /* ── Generic /redirect probe (some platforms) ──────────────────── */
+    if (strcmp(uri_path, "/redirect") == 0) {
+        return send_response(client, 302, "text/html",
+            PORTAL_REDIRECT_HTML);
+    }
+
+    /* ── Catch-all: any path not matched above ───────────────────────
+     * Return a 302 redirect to http://192.168.4.1/ so:
+     *   - Manual browser URL entry ("网页重映射") works — user sees the
+     *     config page instead of a bare "Success" placeholder.
+     *   - Captive-portal detection still triggers because the device
+     *     gets a 302 instead of the expected probe response. */
+    AXK_LOG_DEBUG("[portal] catch-all redirect: %s → /\r\n", uri_path);
+    return send_response(client, 302, "text/html",
+        PORTAL_REDIRECT_HTML);
 }
 
 /* ==================== Request Dispatcher ==================== */
@@ -1305,6 +1345,11 @@ static void dns_hijack_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
     /* Reuse TXID from query */
     uint16_t txid = (dns[0] << 8) | dns[1];
 
+    /* Log every DNS query for captive portal diagnostics */
+    AXK_LOG_INFO("[portal] DNS query rxid=0x%04X len=%d from %s:%d\r\n",
+                 txid, p->tot_len,
+                 ipaddr_ntoa(addr), port);
+
     /* STA guard: udp_sendto from tcpip_thread blocks on fhost IPC when
      * STA is connected, causing FreeRTOS queue.c:1592 assertion.
      * During SoftAP-only mode (no STA), this is safe. */
@@ -1348,8 +1393,12 @@ static void dns_hijack_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
     struct pbuf *resp_p = pbuf_alloc(PBUF_TRANSPORT, off, PBUF_RAM);
     if (resp_p) {
         memcpy(resp_p->payload, resp, off);
-        udp_sendto(pcb, resp_p, addr, port);
+        err_t send_err = udp_sendto(pcb, resp_p, addr, port);
+        AXK_LOG_INFO("[portal] DNS hijack: forged A 192.168.4.1 rxid=0x%04X sent=%d\r\n",
+                     txid, (send_err == ERR_OK) ? 1 : send_err);
         pbuf_free(resp_p);
+    } else {
+        AXK_LOG_WARN("[portal] DNS hijack: pbuf_alloc FAIL for rxid=0x%04X\r\n", txid);
     }
     pbuf_free(p);
 }
