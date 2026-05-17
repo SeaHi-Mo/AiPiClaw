@@ -642,6 +642,7 @@ static int send_response(struct netconn *client, int status,
     switch (status) {
         case 200: status_str = "OK"; break;
         case 201: status_str = "Created"; break;
+        case 204: status_str = "No Content"; break;
         case 400: status_str = "Bad Request"; break;
         case 404: status_str = "Not Found"; break;
         case 405: status_str = "Method Not Allowed"; break;
@@ -650,16 +651,30 @@ static int send_response(struct netconn *client, int status,
     }
 
     int body_len = body ? (int)strlen(body) : 0;
-    header_len = snprintf(header, sizeof(header),
-        "HTTP/1.1 %d %s\r\n"
-        "Content-Type: %s\r\n"
-        "Content-Length: %d\r\n"
-        "Connection: close\r\n"
-        "Access-Control-Allow-Origin: *\r\n"
-        "\r\n",
-        status, status_str,
-        content_type ? content_type : "text/plain",
-        body_len);
+
+    /* RFC 7230 §3.3.2: 204 No Content MUST NOT include a message body.
+     * Omit Content-Type for 204 (entity header not applicable). */
+    if (status == 204) {
+        body_len = 0;
+        header_len = snprintf(header, sizeof(header),
+            "HTTP/1.1 %d %s\r\n"
+            "Content-Length: 0\r\n"
+            "Connection: close\r\n"
+            "Access-Control-Allow-Origin: *\r\n"
+            "\r\n",
+            status, status_str);
+    } else {
+        header_len = snprintf(header, sizeof(header),
+            "HTTP/1.1 %d %s\r\n"
+            "Content-Type: %s\r\n"
+            "Content-Length: %d\r\n"
+            "Connection: close\r\n"
+            "Access-Control-Allow-Origin: *\r\n"
+            "\r\n",
+            status, status_str,
+            content_type ? content_type : "text/plain",
+            body_len);
+    }
 
     err_t err = netconn_write(client, header, header_len, NETCONN_COPY);
     if (err != ERR_OK) {
@@ -1276,7 +1291,7 @@ static void dns_hijack_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
 {
     (void)arg;
 
-    if (!p || p->len < 12) {
+    if (!p || p->tot_len < 12) {
         if (p) pbuf_free(p);
         return;
     }
@@ -1291,8 +1306,18 @@ static void dns_hijack_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
     /* Reuse TXID from query */
     uint16_t txid = (dns[0] << 8) | dns[1];
 
-    /* Build minimal forged response: A record → 192.168.4.1 */
-    uint8_t resp[128];
+    /* STA guard: udp_sendto from tcpip_thread blocks on fhost IPC when
+     * STA is connected, causing FreeRTOS queue.c:1592 assertion.
+     * During SoftAP-only mode (no STA), this is safe. */
+    if (axk_wifi_get_state() >= AXK_WIFI_STATE_CONNECTED) {
+        AXK_LOG_DEBUG("[portal] DNS hijack: STA connected, log-only\r\n");
+        pbuf_free(p);
+        return;
+    }
+
+    /* Build minimal forged response: A record → 192.168.4.1.
+     * Stack buffer: 12 hdr + 40 qname + 16 ans = 68B, 72B for alignment. */
+    uint8_t resp[72];
     int off = 0;
     resp[off++] = (txid >> 8) & 0xFF;
     resp[off++] = txid & 0xFF;
@@ -1303,8 +1328,8 @@ static void dns_hijack_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
     resp[off++] = 0x00; resp[off++] = 0x00;  /* NSCOUNT=0 */
     resp[off++] = 0x00; resp[off++] = 0x00;  /* ARCOUNT=0 */
 
-    /* Copy original question */
-    int qlen = p->len - 12;
+    /* Copy original question (use tot_len for chained pbuf safety) */
+    int qlen = p->tot_len - 12;
     if (qlen > 96) qlen = 96;
     if (off + qlen + 16 > (int)sizeof(resp)) {
         pbuf_free(p);
