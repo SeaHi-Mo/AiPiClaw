@@ -117,7 +117,6 @@ static int handle_wifi_status(struct netconn *client);
 static int handle_llm_config_get(struct netconn *client);
 static int handle_llm_config_set(struct netconn *client, const char *body);
 static int handle_save(struct netconn *client, const char *body);
-static int handle_redirect(struct netconn *client);
 static int handle_captive_portal(struct netconn *client, const char *uri_path);
 
 /* Captive portal DNS hijack */
