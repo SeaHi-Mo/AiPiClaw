@@ -1103,13 +1103,17 @@ static int handle_captive_portal(struct netconn *client, const char *uri_path)
 {
     /* ── iOS / macOS captive portal probes ───────────────────────────
      * Apple expects plaintext "Success" from its own servers.
-     * We return HTML with a meta-refresh so the captive-portal WebView
-     * loads the config page instead of showing a bare "Success" page. */
+     * The iOS system-level captive-portal detector does NOT accept 302
+     * redirects; it expects a 200 response to consider the network
+     * "captive".  Return the real config page so the WebView pops up
+     * the WiFi setup UI, not a bare probe artifact.
+     *
+     * Also handles POST /squery (Apple's second-phase probe). */
     if (strcmp(uri_path, "/hotspot-detect.html") == 0 ||
         strcmp(uri_path, "/library/test/success.html") == 0 ||
-        strcmp(uri_path, "/success.html") == 0) {
-        return send_response(client, 200, "text/html",
-            PORTAL_REDIRECT_HTML);
+        strcmp(uri_path, "/success.html") == 0 ||
+        strcmp(uri_path, "/squery") == 0) {
+        return send_html_response(client, 200, CONFIG_UI_HTML);
     }
 
     /* ── Android captive portal probes ───────────────────────────────
@@ -1360,8 +1364,9 @@ static void dns_hijack_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
     }
 
     /* Build minimal forged response: A record → 192.168.4.1.
-     * Stack buffer: 12 hdr + 40 qname + 16 ans = 68B, 72B for alignment. */
-    uint8_t resp[72];
+     * Stack buffer: 12 hdr + 96 qname + 16 ans + safety = 128B.
+     * 72B overflowed on len=59 DNS queries (qname=47 → 12+47+16=75). */
+    uint8_t resp[128];
     int off = 0;
     resp[off++] = (txid >> 8) & 0xFF;
     resp[off++] = txid & 0xFF;
