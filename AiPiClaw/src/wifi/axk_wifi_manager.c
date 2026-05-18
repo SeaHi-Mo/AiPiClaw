@@ -25,8 +25,8 @@
 #include "wifi_mgmr.h"
 #include "async_event.h"
 
-/* easyflash for credential storage */
-#include "easyflash.h"
+/* KV storage for credential persistence */
+#include "axk_storage.h"
 
 /* lwIP 头file，for IPaddr convert  */
 #include "lwip/ip_addr.h"
@@ -395,13 +395,13 @@ void axk_wifi_trigger_reconnect(void)
     size_t len = 0;
     bool has_ssid = false;
 
-    if (ef_get_env_blob("mimi_wifi_ssid", ssid, sizeof(ssid), &len) == 0 && len > 0) {
+    if (axk_kv_get_blob("mimi_wifi_ssid", ssid, sizeof(ssid), &len) == 0 && len > 0) {
         ssid[sizeof(ssid) - 1] = '\0';
         memcpy(g_wifi_ctx.ssid, ssid, sizeof(g_wifi_ctx.ssid));
         has_ssid = true;
     }
     len = 0;
-    if (ef_get_env_blob("mimi_wifi_pwd", pwd, sizeof(pwd), &len) == 0 && len > 0) {
+    if (axk_kv_get_blob("mimi_wifi_pwd", pwd, sizeof(pwd), &len) == 0 && len > 0) {
         pwd[sizeof(pwd) - 1] = '\0';
         memcpy(g_wifi_ctx.password, pwd, sizeof(g_wifi_ctx.password));
     }
