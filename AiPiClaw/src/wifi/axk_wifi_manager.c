@@ -371,6 +371,34 @@ int axk_wifi_connect(const char *ssid, const char *password)
 }
 
 /**
+ * @brief 触发立即重连（延迟=0，用于 portal apply 后的 STA 连接）
+ *
+ * 不直接调 wifi_mgmr_sta_connect（避免 IPC 上下文 queue.c crash），
+ * 而是标记 pending_reconnect，由主循环 axk_wifi_manager_poll() 在
+ * 安全的任务上下文中执行实际连接。
+ *
+ * @note 调用前需确保 SSID/PASSWORD 已通过 axk_wifi_save_credentials 保存
+ *       （handle_apply 会在触发前保存）
+ */
+void axk_wifi_trigger_reconnect(void)
+{
+    if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(500)) != pdTRUE) {
+        AXK_LOG_ERROR("[axk_wifi_manager] trigger_reconnect: get mutex timeout\r\n");
+        return;
+    }
+
+    g_wifi_ctx.retry_count = 0;
+    g_wifi_ctx.max_retry_exceeded = false;
+    g_wifi_ctx.reconnect_delay_ms = 0;    /* immediate */
+    g_wifi_ctx.reconnect_tick = axk_wifi_get_tick();
+    g_wifi_ctx.pending_reconnect = true;
+
+    xSemaphoreGive(g_wifi_ctx.mutex);
+
+    AXK_LOG_INFO("[axk_wifi_manager] pending_reconnect set, poll will connect on next tick\r\n");
+}
+
+/**
  * @brief 断开当前WiFi连接
  *
  * @return 0成功, -1失败

@@ -1062,11 +1062,10 @@ static int handle_save(struct netconn *client, const char *body)
 }
 
 /**
- * @brief POST /api/apply — 保存配置 → 发响应 → 标记待连接
+ * @brief POST /api/apply — 保存配置 → 停AP → 触发重连 → 转聊天
  *
- * 停止 portal (包括 SoftAP + DNS hijack)，让主循环的 poll
- * 检测到无 AP 后有已保存的 WiFi 配置时自动连接 STA。
- * 这里不直接调 axk_wifi_connect 以避免 IPC → queue.c 崩溃。
+ * 最终确认按钮后端。保存WiFi+LLM到flash，停止SoftAP + config portal，
+ * 然后触发异步重连（由主循环 poll 在安全上下文执行 axk_wifi_connect）。
  */
 static int handle_apply(struct netconn *client, const char *body)
 {
@@ -1079,6 +1078,9 @@ static int handle_apply(struct netconn *client, const char *body)
     axk_config_portal_stop();
     wifi_mgmr_ap_stop();
     vTaskDelay(pdMS_TO_TICKS(200));
+
+    /* Trigger async reconnect — poll() will call axk_wifi_connect on next tick */
+    axk_wifi_trigger_reconnect();
 
     /* Send response BEFORE returning — after this, portal_task exits */
     cJSON *resp = cJSON_CreateObject();

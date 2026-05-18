@@ -140,6 +140,22 @@ void axk_wifi_set_auto_reconnect(bool enable);
  */
 bool axk_wifi_get_auto_reconnect(void);
 
+/**
+ * @brief save WiFicredential  to easyflash
+ *
+ * @param[in] ssid SSIDchars 串
+ * @param[in] password password chars 串（可为NULL or empty chars 串）
+ * @return OKreturn 0
+ */
+int axk_wifi_save_credentials(const char *ssid, const char *password);
+
+/**
+ * @brief 触发立即重连（portal apply 后使用）
+ *
+ * 安全地设置 pending_reconnect 标志，由 poll() 在任务上下文执行连接。
+ */
+void axk_wifi_trigger_reconnect(void);
+
 #ifdef __cplusplus
 }
 #endif
