@@ -25,6 +25,9 @@
 #include "wifi_mgmr.h"
 #include "async_event.h"
 
+/* easyflash for credential storage */
+#include "easyflash.h"
+
 /* lwIP 头file，for IPaddr convert  */
 #include "lwip/ip_addr.h"
 
