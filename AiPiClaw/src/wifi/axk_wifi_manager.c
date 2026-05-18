@@ -373,17 +373,39 @@ int axk_wifi_connect(const char *ssid, const char *password)
 /**
  * @brief 触发立即重连（延迟=0，用于 portal apply 后的 STA 连接）
  *
- * 不直接调 wifi_mgmr_sta_connect（避免 IPC 上下文 queue.c crash），
- * 而是标记 pending_reconnect，由主循环 axk_wifi_manager_poll() 在
+ * 从 flash 读取已保存的 SSID/PASSWORD 填入 g_wifi_ctx，
+ * 然后标记 pending_reconnect，由主循环 axk_wifi_manager_poll() 在
  * 安全的任务上下文中执行实际连接。
  *
- * @note 调用前需确保 SSID/PASSWORD 已通过 axk_wifi_save_credentials 保存
- *       （handle_apply 会在触发前保存）
+ * @note 不直接调 wifi_mgmr_sta_connect（避免 IPC 上下文 queue.c crash）
  */
 void axk_wifi_trigger_reconnect(void)
 {
     if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(500)) != pdTRUE) {
         AXK_LOG_ERROR("[axk_wifi_manager] trigger_reconnect: get mutex timeout\r\n");
+        return;
+    }
+
+    /* Read saved credentials from flash into g_wifi_ctx */
+    char ssid[AXK_WIFI_SSID_MAX_LEN + 1] = {0};
+    char pwd[AXK_WIFI_PASSWORD_MAX_LEN + 1] = {0};
+    size_t len = 0;
+    bool has_ssid = false;
+
+    if (ef_get_env_blob("mimi_wifi_ssid", ssid, sizeof(ssid), &len) == 0 && len > 0) {
+        ssid[sizeof(ssid) - 1] = '\0';
+        memcpy(g_wifi_ctx.ssid, ssid, sizeof(g_wifi_ctx.ssid));
+        has_ssid = true;
+    }
+    len = 0;
+    if (ef_get_env_blob("mimi_wifi_pwd", pwd, sizeof(pwd), &len) == 0 && len > 0) {
+        pwd[sizeof(pwd) - 1] = '\0';
+        memcpy(g_wifi_ctx.password, pwd, sizeof(g_wifi_ctx.password));
+    }
+
+    if (!has_ssid) {
+        AXK_LOG_ERROR("[axk_wifi_manager] trigger_reconnect: no saved SSID in flash\r\n");
+        xSemaphoreGive(g_wifi_ctx.mutex);
         return;
     }
 
@@ -395,7 +417,7 @@ void axk_wifi_trigger_reconnect(void)
 
     xSemaphoreGive(g_wifi_ctx.mutex);
 
-    AXK_LOG_INFO("[axk_wifi_manager] pending_reconnect set, poll will connect on next tick\r\n");
+    AXK_LOG_INFO("[axk_wifi_manager] pending_reconnect set for SSID=%s\r\n", ssid);
 }
 
 /**

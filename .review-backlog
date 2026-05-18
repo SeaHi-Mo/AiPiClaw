@@ -17,3 +17,8 @@ YELLOW|axk_config_portal.c:714|NETCONN_NOCOPY for static HTML assumes CONFIG_UI_
 BLUE|lwipopts_user.h:70|comment mixes Chinese/English — use consistent English comments per coding standards
 BLUE|axk_config_portal.c:89|volatile on s_active_connections unnecessary for single-task access (harmless but misleading)
 YELLOW|AiPiClaw/src/gateway/axk_config_portal.c:454|drain failure in trigger_scan_and_collect leaves DNS hijack deinitialized (called via handle_wifi_scan); no re-init on early return path|add dns_hijack_init() before return -1, or restructure to call dns_hijack_init() in a cleanup label
+YELLOW|axk_config_portal.c:~1080|ef_save_env() called before cJSON_CreateObject() OOM guard in handle_apply — config persisted to flash but user sees HTTP 500 "OOM"; move ef_save_env() after the OOM check, before send_json_response
+YELLOW|axk_wifi_manager.c:380|axk_wifi_trigger_reconnect() returns void — caller (handle_apply) can't detect 500ms mutex timeout failure; portal responds "connecting" but STA may never trigger|change return type to bool/int so caller can log/report failure
+BLUE|axk_wifi_manager.h:144|Typo "WiFicredential" → "WiFi credential"
+BLUE|axk_wifi_manager.h:144|Extra space "credential  to" → "credential to"
+BLUE|axk_config_portal.c:1111|Magic number 200ms vTaskDelay after AP stop — use named constant (e.g. AP_STOP_GRACE_MS)
