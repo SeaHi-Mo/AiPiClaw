@@ -1062,33 +1062,37 @@ static int handle_save(struct netconn *client, const char *body)
 }
 
 /**
- * @brief POST /api/apply — 保存配置 → 停AP → 连STA → 转聊天
+ * @brief POST /api/apply — 保存配置 → 发响应 → 标记待连接
  *
- * 这是三步骤配置的最终确认按钮后端。统一保存WiFi+LLM到flash，
- * 然后停止SoftAP + config portal，连接目标WiFi，重定向到/chat。
+ * 停止 portal (包括 SoftAP + DNS hijack)，让主循环的 poll
+ * 检测到无 AP 后有已保存的 WiFi 配置时自动连接 STA。
+ * 这里不直接调 axk_wifi_connect 以避免 IPC → queue.c 崩溃。
  */
 static int handle_apply(struct netconn *client, const char *body)
 {
     (void)body;
 
+    ef_save_env();
+    AXK_LOG_INFO("[portal] POST /api/apply: config saved, stopping portal\r\n");
+
+    /* Stop portal + SoftAP — frees radio for STA connect */
+    axk_config_portal_stop();
+    wifi_mgmr_ap_stop();
+    vTaskDelay(pdMS_TO_TICKS(200));
+
+    /* Send response BEFORE returning — after this, portal_task exits */
     cJSON *resp = cJSON_CreateObject();
     if (!resp) {
         return send_response(client, 500, "application/json",
                             "{\"error\":\"OOM\"}");
     }
 
-    /* TEST mode: save only, no AP→STA transition.
-     * Normal mode would stop AP+portal and connect STA here. */
-    ef_save_env();
-
-    AXK_LOG_INFO("[portal] POST /api/apply: config saved (TEST mode, AP kept alive)\r\n");
-
     cJSON_AddStringToObject(resp, "status", "applied");
-    cJSON_AddStringToObject(resp, "wifi_connecting", "test_mode");
+    cJSON_AddStringToObject(resp, "wifi_connecting", "connecting");
     cJSON_AddStringToObject(resp, "ws_port", "18789");
     cJSON_AddStringToObject(resp, "chat_url", "/chat");
     cJSON_AddStringToObject(resp, "apply_msg",
-                            "Configuration saved (TEST mode).");
+                            "Config applied, switching to STA...");
 
     int r = send_json_response(client, 200, resp);
     cJSON_Delete(resp);
