@@ -1062,27 +1062,25 @@ static int handle_save(struct netconn *client, const char *body)
 }
 
 /**
- * @brief POST /api/apply — 保存配置 → 停AP → 触发重连 → 转聊天
+ * @brief POST /api/apply — 保存配置 → 发响应 → 停服务 → 通知主线程连STA
  *
- * 最终确认按钮后端。保存WiFi+LLM到flash，停止SoftAP + config portal，
- * 然后触发异步重连（由主循环 poll 在安全上下文执行 axk_wifi_connect）。
+ * 最终确认按钮后端。顺序关键：
+ * 1. 先发 HTTP 响应（此时 portal_task 还在运行）
+ * 2. 再停 portal（关闭 listener + DNS hijack）
+ * 3. 停 SoftAP，释放射频
+ * 4. 通知 main task 执行 STA 连接（不在此处连，避免 queue.c crash）
+ *
+ * 不能先关 portal 再发响应，因为 axk_config_portal_stop() 会
+ * 设 s_portal_running=false → portal_task 退出 → vTaskDelete → 栈销毁。
  */
 static int handle_apply(struct netconn *client, const char *body)
 {
     (void)body;
 
     ef_save_env();
-    AXK_LOG_INFO("[portal] POST /api/apply: config saved, stopping portal\r\n");
+    AXK_LOG_INFO("[portal] POST /api/apply: config saved\r\n");
 
-    /* Stop portal + SoftAP — frees radio for STA connect */
-    axk_config_portal_stop();
-    wifi_mgmr_ap_stop();
-    vTaskDelay(pdMS_TO_TICKS(200));
-
-    /* Trigger async reconnect — poll() will call axk_wifi_connect on next tick */
-    axk_wifi_trigger_reconnect();
-
-    /* Send response BEFORE returning — after this, portal_task exits */
+    /* Step 1: send response while portal_task is still alive */
     cJSON *resp = cJSON_CreateObject();
     if (!resp) {
         return send_response(client, 500, "application/json",
@@ -1098,6 +1096,24 @@ static int handle_apply(struct netconn *client, const char *body)
 
     int r = send_json_response(client, 200, resp);
     cJSON_Delete(resp);
+
+    if (r != 0) {
+        AXK_LOG_ERROR("[portal] apply: send response FAIL: %d\r\n", r);
+    }
+
+    /* Step 2: stop DNS hijack + HTTP server */
+    AXK_LOG_INFO("[portal] apply: stopping portal...\r\n");
+    axk_config_portal_stop();
+
+    /* Step 3: stop SoftAP — free radio for STA */
+    AXK_LOG_INFO("[portal] apply: stopping SoftAP...\r\n");
+    wifi_mgmr_ap_stop();
+    vTaskDelay(pdMS_TO_TICKS(200));
+
+    /* Step 4: notify main task to connect STA (safe task context) */
+    AXK_LOG_INFO("[portal] apply: triggering STA connect via main task...\r\n");
+    axk_wifi_trigger_reconnect();
+
     return r;
 }
 
