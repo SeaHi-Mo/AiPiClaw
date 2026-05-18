@@ -58,6 +58,8 @@
 
 #define PORTAL_LISTEN_PORT      MIMI_ONBOARD_HTTP_PORT
 #define PORTAL_LISTEN_BACKLOG   4
+#define PORTAL_MAX_CONCURRENT   8   /* max concurrent HTTP handlers — protects MEMP_NUM_NETCONN pool */
+#define PORTAL_ACCEPT_FAIL_LIMIT 3  /* consecutive accept failures → drain backlog */
 #define PORTAL_TASK_STACK       8192
 #define PORTAL_TASK_PRIO        (configMAX_PRIORITIES - 4)
 #define PORTAL_TIMEOUT_MS       10000
@@ -83,6 +85,9 @@ static bool s_portal_running = false;
 static struct netconn *s_listener = NULL;
 static TaskHandle_t s_portal_task = NULL;
 static SemaphoreHandle_t s_portal_mutex = NULL;
+
+/* Connection throttle counter — atomic int, only accessed from portal_task context */
+static volatile int s_active_connections = 0;
 
 /* Scan result cache (populated at boot and on refresh) */
 static char *s_scan_json = NULL;
@@ -138,6 +143,9 @@ static int send_html_response(struct netconn *client, int status,
 static int trigger_scan_and_collect(void);
 static void scan_item_callback(void *env, void *arg, wifi_mgmr_scan_item_t *item);
 static int portal_scan_and_cache(void);
+
+/* Forward declaration for backlog drain — called from trigger_scan_and_collect */
+static int portal_drain_backlog(void);
 
 /* ==================== Public API ==================== */
 
@@ -1277,17 +1285,35 @@ static void handle_client(struct netconn *client)
     char uri[512] = {0};
     char body[PORTAL_MAX_HEADERS] = {0};
 
+    /*
+     * Connection throttle: if too many concurrent handlers are active,
+     * close this connection immediately without reading anything.
+     * This prevents a flood of concurrent clients from exhausting the
+     * lwIP MEMP_NUM_NETCONN pool or heap.
+     */
+    if (s_active_connections >= PORTAL_MAX_CONCURRENT) {
+        AXK_LOG_WARN("[portal] too many connections (%d >= %d), rejecting\r\n",
+                     s_active_connections, PORTAL_MAX_CONCURRENT);
+        netconn_close(client);
+        netconn_delete(client);
+        return;
+    }
+
+    s_active_connections++;
+
     int ret = parse_request(client, method, sizeof(method),
                             uri, sizeof(uri), body, sizeof(body));
     if (ret != 0) {
         netconn_close(client);
         netconn_delete(client);
+        s_active_connections--;
         return;
     }
 
     if (method[0] == '\0') {
         netconn_close(client);
         netconn_delete(client);
+        s_active_connections--;
         return;
     }
 
@@ -1297,16 +1323,10 @@ static void handle_client(struct netconn *client)
 
     netconn_close(client);
     netconn_delete(client);
+    s_active_connections--;
 }
 
 /* ==================== Portal Task ==================== */
-
-/**
- * @brief Safety valve: max consecutive accept failures before yielding
- *        to let the lwIP netconn pool drain stale connections.
- *        3 rejected accepts = flush backlog + wait.
- */
-#define PORTAL_ACCEPT_FAIL_LIMIT  3
 
 /**
  * @brief Drain stale connections from the accept backlog.
