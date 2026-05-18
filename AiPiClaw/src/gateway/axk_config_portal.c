@@ -59,7 +59,6 @@
 #define PORTAL_LISTEN_PORT      MIMI_ONBOARD_HTTP_PORT
 #define PORTAL_LISTEN_BACKLOG   4
 #define PORTAL_MAX_CONCURRENT   8   /* max concurrent HTTP handlers — protects MEMP_NUM_NETCONN pool */
-#define PORTAL_ACCEPT_FAIL_LIMIT 3  /* consecutive accept failures → drain backlog */
 #define PORTAL_TASK_STACK       8192
 #define PORTAL_TASK_PRIO        (configMAX_PRIORITIES - 4)
 #define PORTAL_TIMEOUT_MS       10000
@@ -143,9 +142,6 @@ static int send_html_response(struct netconn *client, int status,
 static int trigger_scan_and_collect(void);
 static void scan_item_callback(void *env, void *arg, wifi_mgmr_scan_item_t *item);
 static int portal_scan_and_cache(void);
-
-/* Forward declaration for backlog drain — called from trigger_scan_and_collect */
-static int portal_drain_backlog(void);
 
 /* ==================== Public API ==================== */
 
@@ -442,18 +438,11 @@ static int trigger_scan_and_collect(void)
     ap_cfg.limit = 4;
 
     /*
-     * Before stopping AP: pause DNS hijack and drain accept backlog.
-     * This prevents udp_sendto on an invalid netif and avoids
-     * ERR_MEM pile-up when client RSTs flood netconn_accept.
+     * Before stopping AP: pause DNS hijack.
+     * This prevents udp_sendto on an invalid netif during scan.
      */
     dns_hijack_deinit();
     vTaskDelay(pdMS_TO_TICKS(50));
-    if (s_portal_running) {
-        if (portal_drain_backlog() != 0) {
-            AXK_LOG_ERROR("[portal] drain FAILED before scan, aborting Phase2\r\n");
-            return -1;
-        }
-    }
 
     AXK_LOG_INFO("[portal] Phase2: stopping AP for full scan...\r\n");
     wifi_mgmr_ap_stop();
@@ -707,20 +696,7 @@ static int send_response(struct netconn *client, int status,
     }
 
     if (body && body_len > 0) {
-        /*
-         * Use NETCONN_NOCOPY for HTML pages (CONFIG_UI_HTML, WEB_UI_HTML)
-         * which are static const global data — avoids allocating ~15-30KB
-         * per connection when many clients hit the portal simultaneously.
-         * JSON responses and tiny bodies still use NETCONN_COPY (they are
-         * allocated on the heap and freed right after send_response returns,
-         * so they must be copied into the TCP buffer).
-         */
-        u8_t copy_flag = NETCONN_COPY;
-        /* Static HTML pages: no heap copy needed */
-        if (body == CONFIG_UI_HTML || body == WEB_UI_HTML) {
-            copy_flag = NETCONN_NOCOPY;
-        }
-        err = netconn_write(client, body, body_len, copy_flag);
+        err = netconn_write(client, body, body_len, NETCONN_COPY);
         if (err != ERR_OK) {
             return -1;
         }
@@ -1288,35 +1264,17 @@ static void handle_client(struct netconn *client)
     char uri[512] = {0};
     char body[PORTAL_MAX_HEADERS] = {0};
 
-    /*
-     * Connection throttle: if too many concurrent handlers are active,
-     * close this connection immediately without reading anything.
-     * This prevents a flood of concurrent clients from exhausting the
-     * lwIP MEMP_NUM_NETCONN pool or heap.
-     */
-    if (s_active_connections >= PORTAL_MAX_CONCURRENT) {
-        AXK_LOG_WARN("[portal] too many connections (%d >= %d), rejecting\r\n",
-                     s_active_connections, PORTAL_MAX_CONCURRENT);
-        netconn_close(client);
-        netconn_delete(client);
-        return;
-    }
-
-    s_active_connections++;
-
     int ret = parse_request(client, method, sizeof(method),
                             uri, sizeof(uri), body, sizeof(body));
     if (ret != 0) {
         netconn_close(client);
         netconn_delete(client);
-        s_active_connections--;
         return;
     }
 
     if (method[0] == '\0') {
         netconn_close(client);
         netconn_delete(client);
-        s_active_connections--;
         return;
     }
 
@@ -1326,65 +1284,16 @@ static void handle_client(struct netconn *client)
 
     netconn_close(client);
     netconn_delete(client);
-    s_active_connections--;
 }
 
 /* ==================== Portal Task ==================== */
 
-/**
- * @brief Drain stale connections from the accept backlog.
- *
- * When the AP is stopped for scan, clients send FIN/RST that pile up.
- * Repeated netconn_accept(ERR_MEM) means lwIP ran out of netconn pool
- * slots (each pending accept holds one).  To recover we must drain them
- * by cycling the listener: close → delete → unbind → rebind → listen.
- *
- * @return 0 on success, -1 if the portal was stopped during drain.
- */
-static int portal_drain_backlog(void)
-{
-    AXK_LOG_INFO("[portal] draining accept backlog...\r\n");
-
-    netconn_close(s_listener);
-    netconn_delete(s_listener);
-    s_listener = NULL;
-
-    /* Re-create listener */
-    err_t err;
-    struct netconn *listener = netconn_new(NETCONN_TCP);
-    if (!listener) {
-        AXK_LOG_ERROR("[portal] drain: netconn_new FAIL\r\n");
-        return -1;
-    }
-
-    ip_addr_t ap_ip;
-    ipaddr_aton("192.168.4.1", &ap_ip);
-    err = netconn_bind(listener, &ap_ip, PORTAL_LISTEN_PORT);
-    if (err != ERR_OK) {
-        AXK_LOG_ERROR("[portal] drain: rebind FAIL: %d\r\n", err);
-        netconn_delete(listener);
-        return -1;
-    }
-    err = netconn_listen(listener);
-    if (err != ERR_OK) {
-        AXK_LOG_ERROR("[portal] drain: listen FAIL: %d\r\n", err);
-        netconn_delete(listener);
-        return -1;
-    }
-    s_listener = listener;
-    AXK_LOG_INFO("[portal] backlog drained, listener restarted\r\n");
-    return 0;
-}
+/* ==================== Portal Task ==================== */
 
 static void portal_task(void *param)
 {
     (void)param;
-
-    /* Local watchdog device: feed each loop to prevent reset during scan */
     struct bflb_device_s *wdg = bflb_device_get_by_name("watchdog0");
-
-    /* Consecutive accept-failure counter — ERR_MEM escalates to drain */
-    int accept_fail_count = 0;
 
     while (s_portal_running) {
         struct netconn *client;
@@ -1397,32 +1306,27 @@ static void portal_task(void *param)
         err_t err = netconn_accept(s_listener, &client);
         if (err != ERR_OK) {
             if (s_portal_running) {
-                AXK_LOG_ERROR("[portal] accept FAIL: %d (fail#%d)\r\n",
-                              err, accept_fail_count + 1);
-                accept_fail_count++;
-
-                if (accept_fail_count >= PORTAL_ACCEPT_FAIL_LIMIT) {
-                    AXK_LOG_WARN("[portal] accept fail limit hit, draining backlog\r\n");
-                    if (portal_drain_backlog() != 0) {
-                        AXK_LOG_ERROR("[portal] drain FAILED — listener lost, stopping portal\r\n");
-                        s_portal_running = false;
-                        break;
-                    }
-                    accept_fail_count = 0;
-                } else {
-                    vTaskDelay(pdMS_TO_TICKS(100));
-                }
+                AXK_LOG_ERROR("[portal] accept FAIL: %d\r\n", err);
+                vTaskDelay(pdMS_TO_TICKS(500));
             }
             continue;
         }
 
-        /* Successful accept resets the fail counter */
-        accept_fail_count = 0;
+        /* Successful accept */
+        if (s_active_connections >= PORTAL_MAX_CONCURRENT) {
+            AXK_LOG_WARN("[portal] too many connections (%d >= %d), fast-close\r\n",
+                         s_active_connections, PORTAL_MAX_CONCURRENT);
+            netconn_close(client);
+            netconn_delete(client);
+            continue;
+        }
 
         /* Set receive timeout */
         netconn_set_recvtimeout(client, PORTAL_TIMEOUT_MS);
 
+        s_active_connections++;
         handle_client(client);
+        s_active_connections--;
     }
 
     /* Clean up on exit */

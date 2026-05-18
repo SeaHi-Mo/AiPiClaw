@@ -67,7 +67,7 @@
 #define PBUF_LINK_ENCAPSULATION_HLEN  388
 
 #define MEMP_NUM_NETBUF               64  /* 原32, WS+2×HTTPS并发 */
-#define MEMP_NUM_NETCONN              32  /* 原16, 手机弹窗+浏览器多tab+扫描恢复期并发 */
+#define MEMP_NUM_NETCONN              48  /* 原16→32, 手机弹窗+浏览器多tab+扫描恢复期并发, 还不足就再加 */
 #define MEMP_NUM_UDP_PCB              16
 
 #define MAC_TXQ_DEPTH                 32

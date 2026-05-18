@@ -16,3 +16,4 @@ YELLOW|axk_config_portal.c:443|portal_drain_backlog modifies s_listener; safe on
 YELLOW|axk_config_portal.c:714|NETCONN_NOCOPY for static HTML assumes CONFIG_UI_HTML/WEB_UI_HTML remain static const — add static_assert or comment to enforce invariant
 BLUE|lwipopts_user.h:70|comment mixes Chinese/English — use consistent English comments per coding standards
 BLUE|axk_config_portal.c:89|volatile on s_active_connections unnecessary for single-task access (harmless but misleading)
+YELLOW|AiPiClaw/src/gateway/axk_config_portal.c:454|drain failure in trigger_scan_and_collect leaves DNS hijack deinitialized (called via handle_wifi_scan); no re-init on early return path|add dns_hijack_init() before return -1, or restructure to call dns_hijack_init() in a cleanup label
