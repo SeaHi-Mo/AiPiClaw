@@ -449,7 +449,10 @@ static int trigger_scan_and_collect(void)
     dns_hijack_deinit();
     vTaskDelay(pdMS_TO_TICKS(50));
     if (s_portal_running) {
-        portal_drain_backlog();
+        if (portal_drain_backlog() != 0) {
+            AXK_LOG_ERROR("[portal] drain FAILED before scan, aborting Phase2\r\n");
+            return -1;
+        }
     }
 
     AXK_LOG_INFO("[portal] Phase2: stopping AP for full scan...\r\n");
@@ -1400,7 +1403,11 @@ static void portal_task(void *param)
 
                 if (accept_fail_count >= PORTAL_ACCEPT_FAIL_LIMIT) {
                     AXK_LOG_WARN("[portal] accept fail limit hit, draining backlog\r\n");
-                    portal_drain_backlog();
+                    if (portal_drain_backlog() != 0) {
+                        AXK_LOG_ERROR("[portal] drain FAILED — listener lost, stopping portal\r\n");
+                        s_portal_running = false;
+                        break;
+                    }
                     accept_fail_count = 0;
                 } else {
                     vTaskDelay(pdMS_TO_TICKS(100));

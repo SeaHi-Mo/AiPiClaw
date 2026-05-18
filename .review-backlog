@@ -12,3 +12,7 @@ NOTE|axk_config_portal.c:1115-1123|Google /generate_204 path correctly returns P
 NOTE|axk_config_portal.c:1137-1139|/redirect probe path correctly uses PORTAL_REDIRECT_302. 
 NOTE|axk_config_portal.c:1148-1150|Catch-all correctly uses PORTAL_REDIRECT_302 — all unmatched paths get proper 302 with Location header.
 NOTE|Compilation|netconn_write already used in send_response() (L679, L685) via lwip/api.h; build should pass without issues.
+YELLOW|axk_config_portal.c:443|portal_drain_backlog modifies s_listener; safe only if trigger_scan_and_collect always runs in portal_task context — verify call chain
+YELLOW|axk_config_portal.c:714|NETCONN_NOCOPY for static HTML assumes CONFIG_UI_HTML/WEB_UI_HTML remain static const — add static_assert or comment to enforce invariant
+BLUE|lwipopts_user.h:70|comment mixes Chinese/English — use consistent English comments per coding standards
+BLUE|axk_config_portal.c:89|volatile on s_active_connections unnecessary for single-task access (harmless but misleading)
