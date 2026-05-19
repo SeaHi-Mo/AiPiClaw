@@ -150,21 +150,29 @@ static void axk_mimiclaw_task(void *param)
         if (!s_auto_connect_done &&
             (xTaskGetTickCount() - startup_tick) > pdMS_TO_TICKS(3000)) {
             s_auto_connect_done = true;
-            /* TEST: skip auto connect, SoftAP only */
-            AXK_LOG_INFO("[axk_mimiclaw] TEST: SoftAP only, skip WiFi connect\r\n");
-            int ret = axk_wifi_onboard_start();
-            if (ret != 0) {
-                AXK_LOG_ERROR("[axk_mimiclaw] SoftAP start FAIL: %d, retry after 2s\r\n", ret);
-                vTaskDelay(pdMS_TO_TICKS(2000));
-                ret = axk_wifi_onboard_start();
-            }
-            if (ret != 0) {
-                AXK_LOG_ERROR("[axk_mimiclaw] SoftAP start both attempts FAIL, skip config portal\r\n");
-            } else {
-                vTaskDelay(pdMS_TO_TICKS(PORTAL_BIND_DELAY_MS));
-                ret = axk_config_portal_start();
+            if (axk_wifi_get_state() == AXK_WIFI_STATE_DISCONNECTED) {
+                AXK_LOG_INFO("[axk_mimiclaw] attempting saved WiFi connect...\r\n");
+                int ret = axk_wifi_auto_connect();
                 if (ret != 0) {
-                    AXK_LOG_ERROR("[axk_mimiclaw] config portal start FAIL: %d\r\n", ret);
+                    /* No saved credentials — start SoftAP config portal */
+                    AXK_LOG_INFO("[axk_mimiclaw] no saved WiFi, starting config portal...\r\n");
+                    ret = axk_wifi_onboard_start();
+                    if (ret != 0) {
+                        AXK_LOG_ERROR("[axk_mimiclaw] SoftAP start FAIL: %d, retry after 2s\r\n", ret);
+                        vTaskDelay(pdMS_TO_TICKS(2000));
+                        ret = axk_wifi_onboard_start();
+                    }
+                    if (ret != 0) {
+                        /* Both attempts failed - skip config portal to avoid crash on missing AP netif */
+                        AXK_LOG_ERROR("[axk_mimiclaw] SoftAP start both attempts FAIL, skip config portal\r\n");
+                    } else {
+                        /* Wait for AP netif to be ready before binding HTTP */
+                        vTaskDelay(pdMS_TO_TICKS(PORTAL_BIND_DELAY_MS));
+                        ret = axk_config_portal_start();
+                        if (ret != 0) {
+                            AXK_LOG_ERROR("[axk_mimiclaw] config portal start FAIL: %d\r\n", ret);
+                        }
+                    }
                 }
             }
         }
