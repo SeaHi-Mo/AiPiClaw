@@ -63,6 +63,7 @@ typedef struct {
     int retry_count;                                /**< current reconnect attempts counter */
     uint32_t reconnect_delay_ms;                    /**< current backoff delay for this reconnect cycle */
     bool max_retry_exceeded;                        /**< true when retry_count >= AXK_WIFI_MAX_RETRY */
+    bool max_retry_notified;                        /**< true when max_retry notification sent */
 
     axk_wifi_event_cb_t cbs[AXK_WIFI_MAX_CB_NUM];   /**< registercallback func 数组 */
     void *cb_user_data[AXK_WIFI_MAX_CB_NUM];        /**< callback userdata */
@@ -172,30 +173,15 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
             if (xSemaphoreTake(g_wifi_ctx.mutex, 0) == pdTRUE) {
                 if (g_wifi_ctx.auto_reconnect && g_wifi_ctx.ssid[0] != '\0') {
                     g_wifi_ctx.retry_count++;
-                    /* Copy ssid to local before Give to avoid TOCTOU */
-                    char local_ssid[sizeof(g_wifi_ctx.ssid)];
-                    strncpy(local_ssid, g_wifi_ctx.ssid, sizeof(local_ssid) - 1);
-                    local_ssid[sizeof(local_ssid) - 1] = '\0';
                     if (g_wifi_ctx.retry_count >= AXK_WIFI_MAX_RETRY) {
                         AXK_LOG_ERROR("[axk_wifi_manager] max retry (%d) reached, stop reconnecting\r\n",
                                       AXK_WIFI_MAX_RETRY);
                         g_wifi_ctx.max_retry_exceeded = true;
                         g_wifi_ctx.pending_reconnect = false;
                         xSemaphoreGive(g_wifi_ctx.mutex);
-                        /* Notify via message bus */
-                        mimi_msg_t msg = {0};
-                        strncpy(msg.channel, MIMI_CHAN_SYSTEM, sizeof(msg.channel) - 1);
-                        char buf[128];
-                        snprintf(buf, sizeof(buf),
-                                 "WiFi retry exhausted: SSID=%s retries=%d",
-                                 local_ssid, AXK_WIFI_MAX_RETRY);
-                        msg.content = strdup(buf);
-                        if (msg.content) {
-                            msg.priority = MIMI_PRIO_HIGH;
-                            msg.is_error = true;
-                            axk_message_bus_push_outbound(&msg);
-                            free(msg.content);
-                        }
+                        /* Notification deferred to poll() (task context) to avoid
+                         * xQueueSend in IPC callback context → queue.c assert.
+                         * See #74 for the same fix pattern. */
                     } else {
                         uint32_t delay_ms = axk_wifi_backoff_ms(g_wifi_ctx.retry_count - 1);
                         g_wifi_ctx.pending_reconnect = true;
@@ -302,6 +288,24 @@ void axk_wifi_manager_poll(void)
             }
             return; /* 经release mutex，直接return  */
         }
+    }
+
+    /* Deferred notification: max_retry reached in IPC callback context.
+     * Send via message bus from task context where xQueueSend is safe. */
+    if (g_wifi_ctx.max_retry_exceeded && !g_wifi_ctx.max_retry_notified) {
+        g_wifi_ctx.max_retry_notified = true;
+        mimi_msg_t msg = {0};
+        strncpy(msg.channel, MIMI_CHAN_SYSTEM, sizeof(msg.channel) - 1);
+        char buf[128];
+        snprintf(buf, sizeof(buf),
+                 "WiFi retry exhausted: SSID=%s retries=%d",
+                 g_wifi_ctx.ssid, AXK_WIFI_MAX_RETRY);
+        msg.content = buf;
+        msg.priority = MIMI_PRIO_HIGH;
+        msg.is_error = true;
+        xSemaphoreGive(g_wifi_ctx.mutex);
+        axk_message_bus_push_outbound(&msg);
+        return;
     }
 
     xSemaphoreGive(g_wifi_ctx.mutex);
