@@ -156,6 +156,16 @@ int axk_wifi_save_credentials(const char *ssid, const char *password);
  */
 void axk_wifi_trigger_reconnect(void);
 
+/**
+ * @brief 检测WiFi重连是否已达到最大重试次数
+ *
+ * axk_wifi_auto_connect() 成功后，后续重连若达到 AXK_WIFI_MAX_RETRY，
+ * main.c 可据此 fallback 到 SoftAP 配置门户。
+ *
+ * @return true 表示已超过最大重试次数，需要切到配置模式
+ */
+bool axk_wifi_is_max_retry_exceeded(void);
+
 #ifdef __cplusplus
 }
 #endif

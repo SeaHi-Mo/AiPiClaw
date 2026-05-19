@@ -133,6 +133,7 @@ static void axk_mimiclaw_task(void *param)
 {
     (void)param;
     static bool s_auto_connect_done = false;
+    static bool s_fallback_activated = false;
     uint32_t startup_tick = xTaskGetTickCount();
 
     AXK_LOG_INFO("[axk_mimiclaw] main looptaskstart\r\n");
@@ -173,6 +174,34 @@ static void axk_mimiclaw_task(void *param)
                             AXK_LOG_ERROR("[axk_mimiclaw] config portal start FAIL: %d\r\n", ret);
                         }
                     }
+                }
+            }
+        }
+
+        /* fallback: auto_connect succeeded but subsequent retries exhausted →
+         * STA keeps failing, switch to SoftAP config portal so user can
+         * reconfigure WiFi credentials.  Only triggers once. */
+        if (s_auto_connect_done && !s_fallback_activated &&
+            axk_wifi_is_max_retry_exceeded()) {
+            s_fallback_activated = true;
+            AXK_LOG_WARN("[axk_mimiclaw] WiFi retries exhausted, fallback to SoftAP config portal\r\n");
+            int ret = axk_wifi_disconnect();
+            if (ret != 0) {
+                AXK_LOG_WARN("[axk_mimiclaw] disconnect before fallback returned %d\r\n", ret);
+            }
+            ret = axk_wifi_onboard_start();
+            if (ret != 0) {
+                AXK_LOG_ERROR("[axk_mimiclaw] fallback SoftAP start FAIL: %d, retry after 2s\r\n", ret);
+                vTaskDelay(pdMS_TO_TICKS(2000));
+                ret = axk_wifi_onboard_start();
+            }
+            if (ret != 0) {
+                AXK_LOG_ERROR("[axk_mimiclaw] fallback SoftAP both attempts FAIL, skip config portal\r\n");
+            } else {
+                vTaskDelay(pdMS_TO_TICKS(PORTAL_BIND_DELAY_MS));
+                ret = axk_config_portal_start();
+                if (ret != 0) {
+                    AXK_LOG_ERROR("[axk_mimiclaw] fallback config portal start FAIL: %d\r\n", ret);
                 }
             }
         }

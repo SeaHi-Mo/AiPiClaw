@@ -656,3 +656,22 @@ bool axk_wifi_get_auto_reconnect(void)
 
     return enable;
 }
+
+/**
+ * @brief 检测WiFi重连是否已达到最大重试次数
+ *
+ * @return true 表示已超过最大重试次数
+ */
+bool axk_wifi_is_max_retry_exceeded(void)
+{
+    bool exceeded;
+
+    if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        return false;
+    }
+
+    exceeded = g_wifi_ctx.max_retry_exceeded;
+    xSemaphoreGive(g_wifi_ctx.mutex);
+
+    return exceeded;
+}
