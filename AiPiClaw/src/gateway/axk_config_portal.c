@@ -128,9 +128,9 @@ static int handle_captive_portal(struct netconn *client, const char *uri_path);
 
 /* Captive portal DNS hijack */
 static void dns_hijack_init(void);
+static void dns_hijack_deinit(void);
 static void tls443_fake_handler(struct netconn *client);
 static void tls443_task(void *param);
-static void dns_hijack_deinit(void);
 static void dns_hijack_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
                             const ip_addr_t *addr, u16_t port);
 
@@ -277,6 +277,7 @@ int axk_config_portal_start(void)
             }
         }
     }
+
 
     s_portal_running = true;
 
@@ -643,11 +644,85 @@ static int parse_request(struct netconn *client,
             total += len;
             req_buf[total] = '\0';
 
-            /* Check
+            /* Check if we've found the end of headers */
+            if (!headers_done) {
+                char *hdr_end = strstr(req_buf, "\r\n\r\n");
+                if (hdr_end) {
+                    headers_done = true;
+                    /* Parse Content-Length */
+                    const char *cl = strstr(req_buf, "Content-Length:");
+                    if (!cl) cl = strstr(req_buf, "content-length:");
+                    if (!cl) cl = strstr(req_buf, "Content-length:");
+                    if (cl) {
+                        cl += 15; /* skip "Content-Length:" */
+                        while (*cl == ' ') cl++;
+                        content_length = atoi(cl);
+                    }
 
-... [OUTPUT TRUNCATED - 3211 chars omitted out of 53211 total] ...
+                    /* Parse request line: METHOD /uri */
+                    char *space = strchr(req_buf, ' ');
+                    if (space) {
+                        size_t mlen = space - req_buf;
+                        if (mlen >= method_sz) mlen = method_sz - 1;
+                        memcpy(method, req_buf, mlen);
+                        method[mlen] = '\0';
 
-(body_read + (int)len < (int)body_sz) {
+                        char *uri_start = space + 1;
+                        char *uri_end = strchr(uri_start, ' ');
+                        if (uri_end) {
+                            uri_len = uri_end - uri_start;
+                            if (uri_len >= uri_sz) uri_len = uri_sz - 1;
+                            memcpy(uri, uri_start, uri_len);
+                            uri[uri_len] = '\0';
+                        }
+                    }
+                }
+            }
+
+            if (headers_done && content_length > 0) {
+                /* Check if we already have body data after headers */
+                char *hdr_end_ptr = strstr(req_buf, "\r\n\r\n");
+                if (hdr_end_ptr) {
+                    char *body_start = hdr_end_ptr + 4;
+                    int body_in_header = total - (int)(body_start - req_buf);
+                    if (body_in_header > 0) {
+                        int copy_len = body_in_header;
+                        if (copy_len > (int)body_sz - 1)
+                            copy_len = body_sz - 1;
+                        memcpy(body, body_start, copy_len);
+                        body[copy_len] = '\0';
+                        if (copy_len >= content_length) {
+                            netbuf_delete(buf);
+                            return 0;
+                        }
+                    }
+                }
+            }
+        } while (netbuf_next(buf) >= 0);
+        netbuf_delete(buf);
+
+        if (headers_done && content_length <= 0) {
+            return 0;
+        }
+        if (headers_done && content_length > 0) {
+            break;
+        }
+    }
+
+    /* If we have Content-Length, read remaining body */
+    if (content_length > 0) {
+        int body_read = strlen(body);
+        while (body_read < content_length) {
+            err_t err = netconn_recv(client, &buf);
+            if (err != ERR_OK) {
+                return -1;
+            }
+            do {
+                netbuf_data(buf, (void **)&data, &len);
+                if (len > 0) {
+                    int remain = content_length - body_read;
+                    if ((int)len > remain) len = remain;
+                    if (body_read + (int)len < (int)body_sz) {
                         memcpy(body + body_read, data, len);
                         body_read += len;
                         body[body_read] = '\0';
@@ -809,7 +884,7 @@ static int handle_wifi_scan(struct netconn *client)
 /**
  * @brief POST /api/wifi/connect - Initiate WiFi connection
  *
- * JSON body: {"ssid":"...", "password": "***"}
+ * JSON body: {"ssid":"...", "password":"..."}
  */
 static int handle_wifi_connect(struct netconn *client, const char *body)
 {
@@ -917,7 +992,7 @@ static int handle_wifi_status(struct netconn *client)
 /**
  * @brief POST /api/llm/config - Set LLM configuration
  *
- * JSON body: {"provider":"...", "model":"...", "api_key": "***"}
+ * JSON body: {"provider":"...", "model":"...", "api_key":"..."}
  * All fields optional - only provided fields are updated.
  */
 static int handle_llm_config_set(struct netconn *client, const char *body)
@@ -1021,8 +1096,8 @@ static int handle_llm_config_get(struct netconn *client)
 /**
  * @brief POST /api/save — 统一保存WiFi+LLM配置到flash
  *
- * JSON body: { "ssid": "...", "password": "***",
- *              "provider": "...", "model": "...", "api_key": "***" }
+ * JSON body: { "ssid": "...", "password": "...",
+ *              "provider": "...", "model": "...", "api_key": "..." }
  * 所有字段可选，只保存提供的字段。完成后不断SoftAP，用户可继续浏览。
  */
 static int handle_save(struct netconn *client, const char *body)
@@ -1412,20 +1487,25 @@ static void portal_task(void *param)
  */
 static void tls443_fake_handler(struct netconn *client)
 {
-    char buf[1];
-    err_t err = netconn_recv(client, &buf, 1);
+    struct netbuf *nbuf;
+    err_t err = netconn_recv(client, &nbuf);
     if (err != ERR_OK) {
         netconn_close(client);
         netconn_delete(client);
         return;
     }
 
-    if ((unsigned char)buf[0] == 0x16) {
+    void *data;
+    u16_t len;
+    netbuf_data(nbuf, &data, &len);
+
+    if (len > 0 && ((unsigned char *)data)[0] == 0x16) {
         /* TLS ClientHello -- return fake HTTP 200 to trigger captive portal */
         static const char *fake_http = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
         netconn_write(client, fake_http, strlen(fake_http), NETCONN_COPY);
     }
 
+    netbuf_delete(nbuf);
     netconn_close(client);
     netconn_delete(client);
 }
