@@ -5,12 +5,22 @@ find_package(bouffalo_sdk REQUIRED HINTS $ENV{BL_SDK_BASE})
 # 安信可科技定制：MimiClaw BL618移植项目编译配置
 # 本文件定义了所有模块的编译源文件和包含路径
 
+# 获取当前 git commit hash 注入固件，启动 log 可确认版本
+execute_process(
+    COMMAND git rev-parse --short HEAD
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    OUTPUT_VARIABLE GIT_COMMIT_HASH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+
 # 添加编译宏定义
 sdk_add_compile_definitions(-DCONFIG_CLI_CMD_ENABLE)
 sdk_add_compile_definitions(-DWEBSOCKET_SSL_CHECK_HOSTNAME)
 sdk_add_compile_definitions(-DSHELL_CMD_SIZE=512)
 sdk_add_compile_definitions(-DDHCP_CAPTIVE_PORTAL_URL="http://192.168.4.1/")
 sdk_add_compile_definitions(-DMEMP_NUM_NETCONN=128)
+sdk_add_compile_definitions(-DGIT_COMMIT_HASH="${GIT_COMMIT_HASH}")
 
 # v78: 禁用 WSC/WPS 避免 wsc_registrar 溢出，STA-only 无需 AP/WPS 代码
 sdk_add_compile_options(-UCONFIG_WPS2 -UCONFIG_WPS_PIN -UUSE_WPS_TASK)

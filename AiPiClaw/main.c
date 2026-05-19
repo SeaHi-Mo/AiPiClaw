@@ -464,6 +464,7 @@ int main(void)
     }
 
     AXK_LOG_INFO("[main] MimiClaw BL618portstartOK，createmain looptask...\r\n");
+    AXK_LOG_INFO("[main] commit: %s\r\n", GIT_COMMIT_HASH);
 
     /* createMimiClawmain looptask */
     BaseType_t task_ret = xTaskCreate(
