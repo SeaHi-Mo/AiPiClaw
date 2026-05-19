@@ -1,2 +1,3 @@
 YELLOW|axk_config_portal.c:1338|handle_client(): wdg declared but never used — dead variable, wasted bflb_device_get_by_name call|Remove or use for watchdog feed in handle_client body
 YELLOW|axk_wifi_manager.c:659|uninitialized var 'bool exceeded' — safe in practice (early return on semfail) but init to false
+YELLOW|axk_wifi_manager.c:151,163,420|max_retry_notified not reset alongside max_retry_exceeded; next max-retry cycle silently skips notification|add 'g_wifi_ctx.max_retry_notified = false;' at each reset site (lines 151, 163, 420)
