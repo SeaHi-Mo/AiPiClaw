@@ -549,7 +549,10 @@ static int parse_request(struct netconn *client,
     }
 
     /* Check first byte — HTTP request methods start with G/P/H/D/O/T/C */
-    netbuf_data(buf, (void **)&data, &len);
+    if (netbuf_data(buf, (void **)&data, &len) != ERR_OK) {
+        netbuf_delete(buf);
+        return -1;
+    }
     if (len == 0) {
         netbuf_delete(buf);
         return -1;
