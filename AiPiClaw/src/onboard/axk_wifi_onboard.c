@@ -22,6 +22,7 @@
 #include "easyflash.h"
 #include "shell.h"
 #include "lwip/ip4_addr.h"
+#include "axk_storage.h"   /* axk_kv_set_blob — 与 axk_kv_get_blob 保持 blob API 一致 */
 
 #define AXK_WIFI_KV_SSID     "mimi_wifi_ssid"
 #define AXK_WIFI_KV_PASSWORD "mimi_wifi_pwd"
@@ -37,26 +38,24 @@ static bool s_onboard_active = false;
  */
 int axk_wifi_save_credentials(const char *ssid, const char *password)
 {
-    EfErrCode err;
-
     if (!ssid || ssid[0] == '\0') {
         return -1;
     }
 
-    err = ef_set_env(AXK_WIFI_KV_SSID, ssid);
-    if (err != EF_NO_ERR) {
-        AXK_LOG_ERROR("[axk_wifi_onboard] save SSIDFAIL: %d\r\n", err);
+    /* 用 axk_kv_set_blob (ef_set_env_blob) 写入，与 trigger_reconnect 中
+     * axk_kv_get_blob (ef_get_env_blob) 读取保持二进制 API 兼容。
+     * 避免 ef_set_env（字符串API）写入后 ef_get_env_blob 读不到长度的问题。 */
+    if (axk_kv_set_blob(AXK_WIFI_KV_SSID, ssid, strlen(ssid) + 1) != 0) {
+        AXK_LOG_ERROR("[axk_wifi_onboard] save SSID FAIL\r\n");
         return -1;
     }
-
-    err = ef_set_env(AXK_WIFI_KV_PASSWORD, password ? password : "");
-    if (err != EF_NO_ERR) {
-        AXK_LOG_ERROR("[axk_wifi_onboard] save password FAIL: %d\r\n", err);
+    if (axk_kv_set_blob(AXK_WIFI_KV_PASSWORD, password ? password : "",
+                        (password ? strlen(password) : 0) + 1) != 0) {
+        AXK_LOG_ERROR("[axk_wifi_onboard] save password FAIL\r\n");
         return -1;
     }
-
-    ef_save_env();
-    AXK_LOG_INFO("[axk_wifi_onboard] WiFicredential save \r\n");
+    /* axk_kv_set_blob 内部调用 ef_save_env() */
+    AXK_LOG_INFO("[axk_wifi_onboard] WiFi credential saved\r\n");
     return 0;
 }
 

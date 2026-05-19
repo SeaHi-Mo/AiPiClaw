@@ -85,7 +85,7 @@
 #define TCP_SND_BUF                   (8 * TCP_MSS)  /* 原4×MSS, HTTPS+WS并发 */
 
 #define TCP_QUEUE_OOSEQ               1
-#define MEMP_NUM_TCP_SEG              ((4 * TCP_SND_BUF) / TCP_MSS)
+#define MEMP_NUM_TCP_SEG              ((6 * TCP_SND_BUF) / TCP_MSS)  /* 原4×, TCP并发风暴时更多segment */
 #define MEMP_NUM_PBUF                 16  /* 原计算值8, TCP并发时不够 */
 #define PBUF_POOL_SIZE                16  /* 原0(纯动态), 设静态池避免碎片 */
 #ifndef LWIP_DISABLE_TCP_SANITY_CHECKS

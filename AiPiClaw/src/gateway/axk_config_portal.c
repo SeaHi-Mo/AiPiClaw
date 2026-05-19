@@ -57,7 +57,7 @@
 /* ==================== Constants ==================== */
 
 #define PORTAL_LISTEN_PORT      MIMI_ONBOARD_HTTP_PORT
-#define PORTAL_LISTEN_BACKLOG   4
+#define PORTAL_LISTEN_BACKLOG   6   /* 原4, 手机弹窗瞬间风暴需要更大backlog */
 #define PORTAL_MAX_CONCURRENT   8   /* max concurrent HTTP handlers — protects MEMP_NUM_NETCONN pool */
 #define PORTAL_TASK_STACK       8192
 #define PORTAL_TASK_PRIO        (configMAX_PRIORITIES - 4)
@@ -528,11 +528,56 @@ static int parse_request(struct netconn *client,
     bool headers_done = false;
     int content_length = 0;
     size_t uri_len = 0;
+    struct bflb_device_s *wdg = bflb_device_get_by_name("watchdog0");
 
     body[0] = '\0';
 
+    /*
+     * Phase 0: Fast pre-read — detect non-HTTP probes (TLS, SSH, etc.)
+     * Set a very short 500ms timeout for the first byte.
+     * TLS probes (WeChat /mmtls, QQ /qbprobe, etc.) connect but send no
+     * HTTP data or binary garbage — close fast to free the netconn.
+     */
+    netconn_set_recvtimeout(client, 500);
+    err_t first_err = netconn_recv(client, &buf);
+    netconn_set_recvtimeout(client, PORTAL_TIMEOUT_MS);
+
+    if (first_err != ERR_OK) {
+        /* No data in 500ms → TLS probe or silent scanner — close fast */
+        AXK_LOG_DEBUG("[portal] fast pre-read timeout (%d), non-HTTP probe close\r\n", first_err);
+        return -1;
+    }
+
+    /* Check first byte — HTTP request methods start with G/P/H/D/O/T/C */
+    netbuf_data(buf, (void **)&data, &len);
+    if (len == 0) {
+        netbuf_delete(buf);
+        return -1;
+    }
+    char first_byte = data[0];
+    if (first_byte != 'G' && first_byte != 'P' && first_byte != 'H' &&
+        first_byte != 'D' && first_byte != 'O' && first_byte != 'T' &&
+        first_byte != 'C') {
+        AXK_LOG_DEBUG("[portal] fast pre-read: non-HTTP first byte 0x%02x, close\r\n", first_byte);
+        netbuf_delete(buf);
+        return -1;
+    }
+
+    /* Copy first chunk into req_buf */
+    int copy_len = (int)len;
+    if (copy_len > (int)sizeof(req_buf) - 1)
+        copy_len = sizeof(req_buf) - 1;
+    memcpy(req_buf, data, copy_len);
+    total = copy_len;
+    req_buf[total] = '\0';
+    netbuf_delete(buf);
+
     /* Read the request line + headers into a buffer */
     while (total < (int)sizeof(req_buf) - 1) {
+        /* Feed watchdog inside this potentially blocking loop */
+        if (wdg) {
+            bflb_wdg_reset_countervalue(wdg);
+        }
         err_t err = netconn_recv(client, &buf);
         if (err != ERR_OK) {
             AXK_LOG_DEBUG("[portal] recv err %d\r\n", err);
@@ -1077,16 +1122,24 @@ static int handle_apply(struct netconn *client, const char *body)
 {
     (void)body;
 
-    ef_save_env();
-    AXK_LOG_INFO("[portal] POST /api/apply: config saved\r\n");
-
-    /* Step 1: send response while portal_task is still alive */
+    /* Step 0: allocate response JSON FIRST — before ef_save_env (may consume
+     * flash I/O memory).  If OOM here, abort before touching flash. */
     cJSON *resp = cJSON_CreateObject();
     if (!resp) {
         return send_response(client, 500, "application/json",
                             "{\"error\":\"OOM\"}");
     }
 
+    /* Flush env to flash — individual values already in RAM via
+     * handle_save().  A failure here is non-fatal: envs will retry on
+     * next save cycle. */
+    EfErrCode ef_ret = ef_save_env();
+    if (ef_ret != EF_NO_ERR) {
+        AXK_LOG_WARN("[portal] ef_save_env FAIL: %d, envs in RAM\r\n", ef_ret);
+    }
+    AXK_LOG_INFO("[portal] POST /api/apply: config saved\r\n");
+
+    /* Step 1: send response while portal_task is still alive */
     cJSON_AddStringToObject(resp, "status", "applied");
     cJSON_AddStringToObject(resp, "wifi_connecting", "connecting");
     cJSON_AddStringToObject(resp, "ws_port", "18789");
@@ -1282,6 +1335,8 @@ static int handle_request(struct netconn *client,
 
 static void handle_client(struct netconn *client)
 {
+    struct bflb_device_s *wdg = bflb_device_get_by_name("watchdog0");
+
     char method[16] = {0};
     char uri[512] = {0};
     char body[PORTAL_MAX_HEADERS] = {0};
@@ -1328,8 +1383,14 @@ static void portal_task(void *param)
         err_t err = netconn_accept(s_listener, &client);
         if (err != ERR_OK) {
             if (s_portal_running) {
-                AXK_LOG_ERROR("[portal] accept FAIL: %d\r\n", err);
-                vTaskDelay(pdMS_TO_TICKS(500));
+                if (err == ERR_MEM) {
+                    /* pool exhausted — brief yield for lwIP to drain, then retry fast */
+                    AXK_LOG_DEBUG("[portal] accept ERR_MEM, fast retry\r\n");
+                    vTaskDelay(pdMS_TO_TICKS(50));
+                } else {
+                    AXK_LOG_ERROR("[portal] accept FAIL: %d\r\n", err);
+                    vTaskDelay(pdMS_TO_TICKS(500));
+                }
             }
             continue;
         }
