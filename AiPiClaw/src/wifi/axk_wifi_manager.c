@@ -310,8 +310,12 @@ int axk_wifi_connect(const char *ssid, const char *password)
     memcpy(g_wifi_ctx.ssid, ssid, ssid_len + 1);
     memcpy(g_wifi_ctx.password, pwd, pwd_len + 1);
 
-    /* build connectparam  */
-    wifi_mgmr_sta_connect_params_t params = { 0 };
+    /* build connectparam
+     * ⚠️ MUST be static: wifi_mgmr_sta_connect() stores pointer only;
+     * DHCP async task reads params after return → use-after-free if stack-local.
+     */
+    static wifi_mgmr_sta_connect_params_t params;
+    memset(&params, 0, sizeof(params));
     memcpy(params.ssid, ssid, ssid_len);
     params.ssid_len = (uint8_t)ssid_len;
 
