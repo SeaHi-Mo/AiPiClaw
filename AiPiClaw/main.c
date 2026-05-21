@@ -46,6 +46,7 @@
 #include "bflb_uart.h"
 #include "shell.h"
 #include "bflb_mtd.h"
+#include "bflb_wdg.h"
 #include "easyflash.h"
 #include "lwip/tcpip.h"
 #include "fhost_api.h"
@@ -58,6 +59,15 @@ extern int wifi_mgmr_init(wifi_conf_t *conf);
 /* ============================================================ */
 static wifi_conf_t s_wifi_conf = {
     .country_code = "CN",
+};
+
+/* REQ-009: Hardware watchdog device and config */
+static struct bflb_device_s *s_wdg = NULL;
+static struct bflb_wdg_config_s s_wdg_cfg = {
+    .clock_source = WDG_CLKSRC_32K,
+    .clock_div = 31,       /* 32K / (31+1) = 1KHz */
+    .comp_val = 30000,     /* 30s timeout at 1KHz */
+    .mode = WDG_MODE_RESET,
 };
 
 /**
@@ -132,6 +142,10 @@ static void axk_mimiclaw_task(void *param)
     axk_message_bus_set_outbound_consumer(xTaskGetCurrentTaskHandle());
 
     while (1) {
+        /* REQ-009: Feed hardware watchdog each loop iteration */
+        if (s_wdg) {
+            bflb_wdg_reset_countervalue(s_wdg);
+        }
         axk_heartbeat_tick();
         axk_serial_cli_poll();
         axk_message_bus_poll();
@@ -339,6 +353,16 @@ int main(void)
 
     /* init开发板硬件 */
     board_init();
+
+    /* REQ-009: Init hardware watchdog (30s timeout, auto-reset on stall) */
+    s_wdg = bflb_device_get_by_name("watchdog");
+    if (s_wdg) {
+        bflb_wdg_init(s_wdg, &s_wdg_cfg);
+        bflb_wdg_start(s_wdg);
+        printf("[main] WDT started (30s timeout)\r\n");
+    } else {
+        printf("[main] WDT device not found!\r\n");
+    }
 
     /* initPHY RFparam  */
     if (rfparam_init(0, NULL, 0) != 0) {
