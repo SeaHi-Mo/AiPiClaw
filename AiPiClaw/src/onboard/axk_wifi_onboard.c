@@ -19,6 +19,7 @@
 #include "wifi_mgmr.h"
 #include "easyflash.h"
 #include "shell.h"
+#include "mimi_config.h"
 
 #define AXK_WIFI_KV_SSID     "mimi_wifi_ssid"
 #define AXK_WIFI_KV_PASSWORD "mimi_wifi_pwd"
@@ -96,8 +97,15 @@ int axk_wifi_auto_connect(void)
     char pwd[64] = {0};
 
     if (axk_wifi_load_credentials(ssid, sizeof(ssid), pwd, sizeof(pwd)) != 0) {
-        AXK_LOG_INFO("[axk_wifi_onboard] 无save WiFicredential ，skip auto connect\r\n");
-        return -1;
+        /* Fallback to compile-time default (mimi_secrets.h) */
+        if (MIMI_SECRET_WIFI_SSID[0] != '\0') {
+            strncpy(ssid, MIMI_SECRET_WIFI_SSID, sizeof(ssid) - 1);
+            strncpy(pwd, MIMI_SECRET_WIFI_PASS, sizeof(pwd) - 1);
+            AXK_LOG_INFO("[axk_wifi_onboard] use compile-time default WiFi: %s\r\n", ssid);
+        } else {
+            AXK_LOG_INFO("[axk_wifi_onboard] 无save WiFicredential ，skip auto connect\r\n");
+            return -1;
+        }
     }
 
     AXK_LOG_INFO("[axk_wifi_onboard] attempt auto connectWiFi: %s\r\n", ssid);

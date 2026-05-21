@@ -70,6 +70,21 @@ make CHIP=bl616 BOARD=bl616dk
 ./flash.sh /dev/ttyUSB0 2000000
 ```
 
+### WSL (Windows Subsystem for Linux)
+
+WSL 不支持直接 USB 串口访问。需在 Windows 端使用 BLFlashCommand 烧录：
+
+1. **进入烧录模式**: 按住 BOOT 键 → 按 RST 键 → 松开 BOOT 键
+2. **Windows PowerShell/CMD**:
+```cmd
+BLFlashCommand.exe --interface uart --port COM35 --chipname bl616 --baudrate 2000000 ^
+    --firmware build\build_out\AiPiClaw_bl616.bin write_flash_files
+```
+3. 按 RST 重启进入固件
+
+> **注意**: USBIP 转发的 DTR/RTS 信号不可靠，无法通过软件进入烧录模式，
+> 必须物理按住 BOOT+RST 操作。
+
 ### Windows
 
 ```bash

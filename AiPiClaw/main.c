@@ -56,6 +56,9 @@
 extern int wifi_mgmr_init(wifi_conf_t *conf);
 #include "rfparam_adapter.h"
 
+/* Shell UART DMA RX */
+#include "axk_shell_dma.h"
+
 /* ============================================================ */
 static wifi_conf_t s_wifi_conf = {
     .country_code = "CN",
@@ -137,6 +140,9 @@ static void axk_mimiclaw_task(void *param)
     uint32_t startup_tick = xTaskGetTickCount();
 
     AXK_LOG_INFO("[axk_mimiclaw] main looptaskstart\r\n");
+
+    /* REQ-011: Shell UART0 DMA RX */
+    axk_shell_dma_init();
 
     /* Register as outbound consumer for Task Notification wake-up */
     axk_message_bus_set_outbound_consumer(xTaskGetCurrentTaskHandle());
@@ -334,6 +340,7 @@ static int axk_mimiclaw_modules_init(void)
     ret = axk_agent_loop_start();
     if (ret != 0) return ret;
     AXK_LOG_INFO("[axk_mimiclaw] agentmain looptaskstartOK\r\n");
+    /* REQ-011: Shell UART0 DMA RX */
 
     ret = axk_cron_service_start();
     if (ret != 0) AXK_LOG_WARN("[axk_mimiclaw] crontaskservicestartWARN: %d\r\n", ret);
