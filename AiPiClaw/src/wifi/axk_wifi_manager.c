@@ -114,9 +114,18 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
         return;
     }
 
-    /* REQ-008: IPC callback context - set volatile flags only, NO mutex access.
-     * All g_wifi_ctx mutations deferred to axk_wifi_manager_poll() which runs
-     * in task context and can safely take the mutex. */
+    /* P0-3: Take mutex to serialize volatile flag writes.
+     * Without this, back-to-back async events can race on s_evt_new_state
+     * before poll() processes the first one. Bouffalo async callbacks run
+     * in task context so xSemaphoreTake is safe. Short timeout prevents
+     * deadlock if poll() holds the mutex — event will fire again from SDK. */
+    if (g_wifi_ctx.mutex == NULL) {
+        return;
+    }
+    if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(10)) != pdTRUE) {
+        return; /* poll() is processing, SDK will re-deliver event */
+    }
+
     switch (event->code) {
         case CODE_WIFI_ON_INIT_DONE:
             AXK_LOG_INFO("[axk_wifi_manager] WiFi硬件initok\r\n");
@@ -167,6 +176,8 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
             AXK_LOG_DEBUG("[axk_wifi_manager] not processWiFi事件: code=%lu\r\n", event->code);
             break;
     }
+
+    xSemaphoreGive(g_wifi_ctx.mutex);
 }
 
 /* ============== externalAPI实现 ============== */
