@@ -364,7 +364,7 @@ int main(void)
     board_init();
 
     /* REQ-009: Init hardware watchdog (30s timeout, auto-reset on stall) */
-    s_wdg = bflb_device_get_by_name("watchdog");
+    s_wdg = bflb_device_get_by_name("watchdog0");
     if (s_wdg) {
         bflb_wdg_init(s_wdg, &s_wdg_cfg);
         bflb_wdg_start(s_wdg);

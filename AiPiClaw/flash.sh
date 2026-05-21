@@ -5,9 +5,9 @@
 
 set -e
 
-SDK_BASE="${BL_SDK_BASE:-/home/seahi/workspase/BL618Claw/bouffalo_sdk}"
+SDK_BASE="${BL_SDK_BASE:-/home/seahi/workspase/AiPiClaw/os}"
 FLASH_TOOL="${SDK_BASE}/tools/bflb_tools/bouffalo_flash_cube/BLFlashCommand-ubuntu"
-FIRMWARE="build/build_out/mimiclaw_bl618_port_bl616.bin"
+FIRMWARE="build/build_out/AiPiClaw_bl616.bin"
 
 PORT="${1:-/dev/ttyUSB0}"
 BAUD="${2:-2000000}"
