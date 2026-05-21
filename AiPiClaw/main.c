@@ -142,7 +142,9 @@ static void axk_mimiclaw_task(void *param)
     AXK_LOG_INFO("[axk_mimiclaw] main looptaskstart\r\n");
 
     /* REQ-011: Shell UART0 DMA RX */
-    axk_shell_dma_init();
+    /* Phase-2: 等 shell_task 完成 ISR 初始化后替换为 RTO ISR */
+    vTaskDelay(pdMS_TO_TICKS(500));
+    axk_shell_dma_isr_attach();
 
     /* Register as outbound consumer for Task Notification wake-up */
     axk_message_bus_set_outbound_consumer(xTaskGetCurrentTaskHandle());
@@ -397,6 +399,9 @@ int main(void)
      * do not call bflb_uart_init，否then 会破坏 console_init set  */
     uart0 = bflb_device_get_by_name("uart0");
     shell_init_with_task(uart0);
+
+    /* REQ-011 Phase-1: DMA 通道配置 + UART DMA 链接 (scheduler 未启动, 无 ISR 冲突) */
+    axk_shell_dma_init();
 
     /* printwelcome */
     axk_print_welcome();
