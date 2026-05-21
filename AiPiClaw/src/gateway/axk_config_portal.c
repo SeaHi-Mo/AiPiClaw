@@ -1497,7 +1497,12 @@ static void tls443_fake_handler(struct netconn *client)
 
     void *data;
     u16_t len;
-    netbuf_data(nbuf, &data, &len);
+    if (netbuf_data(nbuf, &data, &len) != ERR_OK) {
+        netbuf_delete(nbuf);
+        netconn_close(client);
+        netconn_delete(client);
+        return;
+    }
 
     if (len > 0 && ((unsigned char *)data)[0] == 0x16) {
         /* TLS ClientHello -- return fake HTTP 200 to trigger captive portal */
