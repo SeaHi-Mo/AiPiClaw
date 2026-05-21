@@ -53,6 +53,12 @@ typedef struct {
 
 static axk_wifi_manager_ctx_t g_wifi_ctx;
 
+/* volatile flags for IPC callback → poll() deferred state changes (REQ-008)
+ * IPC context cannot take mutex → set flags here, process in poll() */
+static volatile bool s_evt_state_pending = false;
+static volatile axk_wifi_state_t s_evt_new_state;
+static volatile bool s_evt_disconnect = false;
+
 /* ============== internalhelper func  ============== */
 
 /**
@@ -108,6 +114,9 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
         return;
     }
 
+    /* REQ-008: IPC callback context - set volatile flags only, NO mutex access.
+     * All g_wifi_ctx mutations deferred to axk_wifi_manager_poll() which runs
+     * in task context and can safely take the mutex. */
     switch (event->code) {
         case CODE_WIFI_ON_INIT_DONE:
             AXK_LOG_INFO("[axk_wifi_manager] WiFi硬件initok\r\n");
@@ -115,27 +124,27 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
 
         case CODE_WIFI_ON_CONNECTING:
             AXK_LOG_INFO("[axk_wifi_manager] 正in connectWiFi...\r\n");
-            axk_wifi_set_state(AXK_WIFI_STATE_CONNECTING);
+            s_evt_new_state = AXK_WIFI_STATE_CONNECTING;
+            s_evt_state_pending = true;
             break;
 
         case CODE_WIFI_ON_CONNECTED:
             AXK_LOG_INFO("[axk_wifi_manager] connect to AP\r\n");
-            axk_wifi_set_state(AXK_WIFI_STATE_CONNECTED);
+            s_evt_new_state = AXK_WIFI_STATE_CONNECTED;
+            s_evt_state_pending = true;
             break;
 
         case CODE_WIFI_ON_GOT_IP:
             AXK_LOG_INFO("[axk_wifi_manager] get IPaddr \r\n");
-            axk_wifi_set_state(AXK_WIFI_STATE_GOT_IP);
+            s_evt_new_state = AXK_WIFI_STATE_GOT_IP;
+            s_evt_state_pending = true;
             break;
 
         case CODE_WIFI_ON_DISCONNECT:
             AXK_LOG_WARN("[axk_wifi_manager] WiFiconnectdisconnect\r\n");
-            if (g_wifi_ctx.auto_reconnect && g_wifi_ctx.ssid[0] != '\0') {
-                g_wifi_ctx.pending_reconnect = true;
-                g_wifi_ctx.reconnect_tick = axk_wifi_get_tick();
-                AXK_LOG_INFO("[axk_wifi_manager] will in  %d ms 后attempt reconnect \r\n", AXK_WIFI_RECONNECT_DELAY_MS);
-            }
-            axk_wifi_set_state(AXK_WIFI_STATE_DISCONNECTED);
+            s_evt_disconnect = true;
+            s_evt_new_state = AXK_WIFI_STATE_DISCONNECTED;
+            s_evt_state_pending = true;
             break;
 
         case CODE_WIFI_ON_GOT_IP_TIMEOUT:
@@ -203,6 +212,32 @@ void axk_wifi_manager_poll(void)
 {
     if (g_wifi_ctx.mutex == NULL) {
         return;
+    }
+
+    /* REQ-008: Process deferred IPC events FIRST (no mutex needed for volatile read),
+     * then take mutex for g_wifi_ctx mutations and auto-reconnect logic. */
+    if (s_evt_state_pending || s_evt_disconnect) {
+        if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+            return; /* try next poll cycle */
+        }
+
+        if (s_evt_state_pending) {
+            s_evt_state_pending = false;
+            axk_wifi_set_state(s_evt_new_state);
+        }
+
+        if (s_evt_disconnect) {
+            s_evt_disconnect = false;
+            if (g_wifi_ctx.auto_reconnect && g_wifi_ctx.ssid[0] != '\0') {
+                g_wifi_ctx.pending_reconnect = true;
+                g_wifi_ctx.reconnect_tick = axk_wifi_get_tick();
+                AXK_LOG_INFO("[axk_wifi_manager] will in %d ms 后attempt reconnect\r\n",
+                            AXK_WIFI_RECONNECT_DELAY_MS);
+            }
+        }
+
+        xSemaphoreGive(g_wifi_ctx.mutex);
+        /* fall through to check pending_reconnect below (may have just been set) */
     }
 
     if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
