@@ -13,9 +13,9 @@
 #include "semphr.h"
 #include "ring_buffer.h"
 #include "bflb_uart.h"
+#include "bflb_irq.h"
 #include "bflb_dma.h"
 #include "bflb_clock.h"
-#include "bflb_irq.h"
 
 /* ── 外部符号（来自 shell_freertos.c） ───────────────── */
 extern Ring_Buffer_Type shell_rb;

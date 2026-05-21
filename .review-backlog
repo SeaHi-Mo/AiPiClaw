@@ -1,0 +1,6 @@
+YELLOW|axk_wifi_onboard.c: save_creds write uses ef_set_env (string API) but axk_wifi_auto_connect reads with ef_get_env_blob (blob API) → length mismatch, saved creds not restorable
+YELLOW|axk_hal_wifi.c: axk_hal_wifi_connect() stack-local params passed to wifi_mgmr_sta_connect → same UAF as axk_wifi_connect (dead code, no callers)
+YELLOW|lwipopts_user.h: MEMP_NUM_NETCONN 128→16, FD_SETSIZE removed → may cause accept ERR_MEM under browser multi-tab load
+YELLOW|axk_wifi_manager.c:5801|axk_wifi_event_handler CODE_WIFI_ON_CONNECTING calls axk_wifi_set_state() without trylock from async callback context — risk queue.c assert if set_state takes mutex
+YELLOW|axk_config_portal.c:1747|parse_request char req_buf[4096] + handle_client body[4096] ≈ 8KB on portal_task's 8KB stack — marginal, risk overflow with other locals/watchdog
+YELLOW|axk_config_portal.c:2120|handle_wifi_connect uses ret==0?200:500 but ret always 0 at that point — dead 500 branch misleading
