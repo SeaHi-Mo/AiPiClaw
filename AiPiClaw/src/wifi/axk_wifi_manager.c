@@ -122,8 +122,8 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
     if (g_wifi_ctx.mutex == NULL) {
         return;
     }
-    if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(10)) != pdTRUE) {
-        return; /* poll() is processing, SDK will re-deliver event */
+    if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(0)) != pdTRUE) {
+        return; /* poll() holds mutex; non-blocking avoids queue.c:1592 in Tmr Svc */
     }
 
     switch (event->code) {
