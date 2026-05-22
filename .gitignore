@@ -22,3 +22,9 @@ toolchain/
 # OS 特定
 .DS_Store
 Thumbs.db
+
+# 审查/运行时临时产物
+.review-*
+.hermes/
+*.pyc
+__pycache__/
