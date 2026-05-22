@@ -178,6 +178,8 @@ static bool normalize_model_for_provider(void)
         if (strncmp(s_model, "claude", 6) == 0 ||
             strncmp(s_model, "gpt-", 4) == 0 ||
             strncmp(s_model, "deepseek-", 9) == 0 ||
+            strncmp(s_model, "MiniMax-", 8) == 0 ||
+            strncmp(s_model, "MiniMax_", 8) == 0 ||
             s_model[0] == '\0') {
             safe_copy(s_model, sizeof(s_model), MINIMAX_FALLBACK_MODEL);
             return true;
@@ -708,6 +710,20 @@ int axk_llm_chat_tools(const char *system_prompt,
 
     if (provider_uses_openai_format()) {
         cJSON *choices = cJSON_GetObjectItem(root, "choices");
+        if (!choices || cJSON_IsNull(choices)) {
+            cJSON *base_resp = cJSON_GetObjectItem(root, "base_resp");
+            if (base_resp) {
+                cJSON *status_code = cJSON_GetObjectItem(base_resp, "status_code");
+                cJSON *status_msg = cJSON_GetObjectItem(base_resp, "status_msg");
+                AXK_LOG_ERROR("err", "LLM API error: code=%d msg=%s",
+                    status_code ? status_code->valueint : -1,
+                    status_msg && cJSON_IsString(status_msg) ? status_msg->valuestring : "unknown");
+            } else {
+                AXK_LOG_ERROR("err", "LLM returned empty choices (no base_resp)");
+            }
+            cJSON_Delete(root);
+            return -1;
+        }
         cJSON *choice0 = choices && cJSON_IsArray(choices) ? cJSON_GetArrayItem(choices, 0) : NULL;
         if (choice0) {
             cJSON *finish = cJSON_GetObjectItem(choice0, "finish_reason");
