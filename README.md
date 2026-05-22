@@ -281,6 +281,10 @@ mimi> 关闭 green_led  # 通过英文别名控制
 mimi> 读取 key_0       # 读取按键状态
 ```
 
+## 社区
+
+- **QQ 群**: [983111990](https://qm.qq.com/q/983111990) — 技术交流、问题答疑
+
 ## License
 
 本项目基于 AI-Thinker mimiclaw 移植。SDK (os/) 使用 Bouffalo Lab 的 bouffalo_sdk，遵循其原始许可证。
