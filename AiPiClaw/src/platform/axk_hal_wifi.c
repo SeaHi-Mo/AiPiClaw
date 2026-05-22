@@ -62,7 +62,10 @@ int axk_hal_wifi_connect(const char* ssid, const char* password)
     AXK_LOG_INFO("[axk_hal_wifi] connectSSID: %s\r\n", ssid);
 
 #if AXK_PLATFORM_BL618
-    struct wifi_mgmr_sta_connect_params params = {0};
+    /* REQ-20260522-003: wifi_mgmr_sta_connect stores pointer to params for
+     * async DHCP task — stack-allocated causes use-after-free. Static lives
+     * for program lifetime. Old #if 0'd code used static; un-ifdef regression. */
+    static struct wifi_mgmr_sta_connect_params params = {0};
     strncpy((char*)params.ssid, ssid, sizeof(params.ssid) - 1);
     if (password) {
         strncpy((char*)params.key, password, sizeof(params.key) - 1);

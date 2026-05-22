@@ -41,13 +41,19 @@ int axk_wifi_save_credentials(const char *ssid, const char *password)
         return -1;
     }
 
-    err = ef_set_env(AXK_WIFI_KV_SSID, ssid);
+    /* REQ-20260522-002: Use ef_set_env_blob to match ef_get_env_blob in
+     * axk_wifi_load_credentials. ef_set_env (string API) and ef_set_env_blob
+     * (blob API) write to different EasyFlash internal formats — using
+     * different APIs on save vs load means credentials are never read back. */
+    err = ef_set_env_blob(AXK_WIFI_KV_SSID, ssid, strlen(ssid) + 1);
     if (err != EF_NO_ERR) {
         AXK_LOG_ERROR("[axk_wifi_onboard] save SSIDFAIL: %d\r\n", err);
         return -1;
     }
 
-    err = ef_set_env(AXK_WIFI_KV_PASSWORD, password ? password : "");
+    err = ef_set_env_blob(AXK_WIFI_KV_PASSWORD,
+                          password ? password : "",
+                          (password ? strlen(password) : 0) + 1);
     if (err != EF_NO_ERR) {
         AXK_LOG_ERROR("[axk_wifi_onboard] save password FAIL: %d\r\n", err);
         return -1;

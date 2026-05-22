@@ -114,16 +114,11 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
         return;
     }
 
-    /* P0-3: Take mutex to serialize volatile flag writes.
-     * Without this, back-to-back async events can race on s_evt_new_state
-     * before poll() processes the first one. Bouffalo async callbacks run
-     * in task context so xSemaphoreTake is safe. Short timeout prevents
-     * deadlock if poll() holds the mutex — event will fire again from SDK. */
+    /* Volatile flags are single-writer from async callback context.
+     * Poll() reads them lock-free via volatile semantics, then processes
+     * g_wifi_ctx mutations under the mutex it owns. */
     if (g_wifi_ctx.mutex == NULL) {
         return;
-    }
-    if (xSemaphoreTake(g_wifi_ctx.mutex, pdMS_TO_TICKS(0)) != pdTRUE) {
-        return; /* poll() holds mutex; non-blocking avoids queue.c:1592 in Tmr Svc */
     }
 
     switch (event->code) {
@@ -151,6 +146,10 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
 
         case CODE_WIFI_ON_DISCONNECT:
             AXK_LOG_WARN("[axk_wifi_manager] WiFiconnectdisconnect\r\n");
+            /* REQ-20260522-003: s_evt_disconnect is volatile, set unconditionally.
+             * Poll() processes it under mutex. No mutex serialization needed here —
+             * it's a single-writer flag from the async callback context. retry_count
+             * and pending_reconnect live in poll() which owns the mutex. */
             s_evt_disconnect = true;
             s_evt_new_state = AXK_WIFI_STATE_DISCONNECTED;
             s_evt_state_pending = true;
@@ -176,8 +175,6 @@ static void axk_wifi_event_handler(async_input_event_t event, void *private_data
             AXK_LOG_DEBUG("[axk_wifi_manager] not processWiFi事件: code=%lu\r\n", event->code);
             break;
     }
-
-    xSemaphoreGive(g_wifi_ctx.mutex);
 }
 
 /* ============== externalAPI实现 ============== */
