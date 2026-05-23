@@ -324,16 +324,28 @@ int axk_wifi_connect(const char *ssid, const char *password)
     params.use_dhcp = 1;  /* use DHCPget IP */
     params.scan_mode = 0; /* in all频道scan  */
 
-    xSemaphoreGive(g_wifi_ctx.mutex);
-
     AXK_LOG_INFO("[axk_wifi_manager] attempt connectWiFi: SSID=%s\r\n", ssid);
 
+    /* REQ-20260523-001: Keep mutex held through wifi_mgmr_sta_connect().
+     * ⚠️ static params is shared by all callers (poll reconnect / skill loader /
+     * onboard). Releasing mutex before connect opens a re-entrant race:
+     *   Call 1: Give mutex → static params has SSID_A
+     *   Call 2: Take mutex → overwrite static params with SSID_B → connect → return
+     *   Call 1: wifi_mgmr_sta_connect(&params) → reads SSID_B! Wrong network.
+     *
+     * Holding mutex through the call serializes access to static params.
+     * Async events (CONNECTED, DISCONNECT) are buffered via volatile flags in the
+     * event_handler (which is now trylock-free per REQ-008); poll() processes them
+     * on the next iteration after mutex release. The blocking window is ~ms-scale,
+     * during which events accumulate in s_evt_* flags without loss. */
     int ret = wifi_mgmr_sta_connect(&params);
     if (ret != 0) {
         AXK_LOG_ERROR("[axk_wifi_manager] call wifi_mgmr_sta_connectFAIL: %d\r\n", ret);
+        xSemaphoreGive(g_wifi_ctx.mutex);
         return -1;
     }
 
+    xSemaphoreGive(g_wifi_ctx.mutex);
     return 0;
 }
 
