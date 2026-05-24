@@ -423,8 +423,9 @@ int axk_wifi_disconnect(void)
 
     g_wifi_ctx.pending_reconnect = false;
 
-    int ret = wifi_sta_disconnect();
     xSemaphoreGive(g_wifi_ctx.mutex);
+
+    int ret = wifi_sta_disconnect();
     if (ret != 0) {
         AXK_LOG_ERROR("[axk_wifi_manager] disconnectconnectFAIL: %d\r\n", ret);
         return -1;
